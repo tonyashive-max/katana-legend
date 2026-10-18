@@ -293,6 +293,7 @@ function vsNetMessage(d) {
   else if (d.type === 'res') {
     if (d.r === 'parry') { if (A.atkId === (d.id | 0) && (A.state === 'windup' || A.state === 'strike')) { vsParryFX(A); vsStagger(A, 1.0); banner('PARRIED!'); } }
     else if (['hit', 'block'].includes(d.r)) {
+      if (d.limbs && typeof d.limbs === 'object') for (const k of ['armL', 'armR', 'legs', 'head']) if (typeof d.limbs[k] === 'number') B.limbs[k] = clamp(d.limbs[k], 0, 80);
       vsApplyResult(B, { r: d.r, dmg: clamp(d.dmg | 0, 0, 200), limb: ['armL', 'armR', 'legs', 'head'].includes(d.limb) ? d.limb : 'head', lost: ['armL', 'armR', 'legs', 'head'].includes(d.lost) ? d.lost : null, hp: clamp(+d.hp, 0, VS_HP) }, false);
     }
   } else if (d.type === 'blk') { B.blocking = !!d.on; if (B.state === 'ready') B.rig.setHold(B.blocking ? 'blockMid' : 'guard', 14); }
@@ -330,7 +331,7 @@ function vsRemoteStrikeCheck() {
     B.resolved = true;
     if (VS.over) return;
     const res = vsResolve(B, A);
-    NET.send('res', Object.assign({ id: B.atkId }, res));
+    NET.send('res', Object.assign({ id: B.atkId, limbs: A.limbs }, res));
     vsApplyResult(A, res, true);
   }
 }
@@ -357,7 +358,7 @@ const VsMode = {
     if (VS.online && !VS.over) {
       const P = A.rig; P.root.updateMatrixWorld(true); B.rig.root.updateMatrixWorld(true);
       const eChest = B.rig.chest.localToWorld(new V3(0, .18, 0));
-      if (VS.view === 'fp') { pos = P.hips.localToWorld(new V3(0, .68, -.12)); fov = 70; }
+      if (VS.view === 'fp') { pos = P.hips.localToWorld(new V3(0, .68, -.2)); fov = 70; }
       else { pos = P.root.localToWorld(new V3(-1.0, 2.15, -2.05)); fov = 55; }
       look = VS.view === 'fp' ? eChest : P.chest.getWorldPosition(new V3()).lerp(eChest, .8);
     } else {

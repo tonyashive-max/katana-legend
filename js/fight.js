@@ -452,7 +452,7 @@ function fightCamera(dt) {
   } else if (F.over && F.outcome === 'lose') {
     pos = P.root.localToWorld(new V3(.9, .6 + Math.max(0, 1 - F.endT) * 1.2, -1.2)); look = eChest; fov = 55; k = 3;
   } else if (F.view === 'fp') {
-    pos = P.hips.localToWorld(new V3(0, .68, -.12)); look = eChest; fov = 70; k = F.camK;
+    pos = P.hips.localToWorld(new V3(0, .68, -.2)); look = eChest; fov = 70; k = F.camK;
   } else {
     pos = P.root.localToWorld(new V3(-1.0, 2.15, -2.05));
     look = P.chest.getWorldPosition(new V3()).lerp(eChest, .8); fov = 55; k = F.camK;

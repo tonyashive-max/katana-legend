@@ -368,7 +368,7 @@ function wireInput() {
     if (MODE && MODE.up) MODE.up(e.pointerId);
     delete PTR[e.pointerId];
   };
-  gl.addEventListener('pointerup', end); gl.addEventListener('pointercancel', end);
+  gl.addEventListener('pointerup', e => { AUD.init(); end(e); }); gl.addEventListener('pointercancel', end);
   gl.addEventListener('contextmenu', e => e.preventDefault());
 
   const bb = $('#blockBtn');

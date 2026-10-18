@@ -205,7 +205,7 @@ function worldBamboo() {
   addSky(W, { top: '#2c2160', mid: '#ff9566', bot: '#ffcf8a', sunDir: sun, sunCol: '#ffd9a0', sunDeg: 5.5, fog: '#f0a07e', fogNear: 22, fogFar: 140, haze: .7 });
   addLights(W, { sky: '#ffd6b0', ground: '#4a3a5a', hemi: .75, key: '#ffe2c0', keyI: .95, keyDir: new V3(-.6, 1, -.4), rim: '#ff8a4a', rimI: 1.1, rimDir: new V3(.1, .5, 1) });
   addGround(W, { a: '#6f8a3c', b: '#8a9a48', c: '#c08a6a', clear: 7, hill: 2.5, flat: true });
-  addArena(W, { a: '#e3cfa6', b: '#cdb487', rings: 10, stone: '#8a8478' });
+  addArena(W, { a: '#c9b080', b: '#b0965f', rings: 10, stone: '#7a7468' });
   addMountains(W, { base: '#6a4a7a', top: '#b06a7a', snow: '#ffd0c0', snowLine: .82, r0: 80, r1: 160, h0: 22, h1: 55 });
   addMountains(W, { base: '#5a4070', top: '#8a5a7a', snow: '#ffd0c0', snowLine: .9, r0: 70, r1: 120, h0: 16, h1: 30, a0: 1.8, a1: 4.5, seed: 4, n: 14 });
   // bamboo groves
