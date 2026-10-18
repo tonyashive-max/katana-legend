@@ -67,8 +67,8 @@ class DragonBoss {
       P(GEO.box(.95, .12, .25), '#7a120a', [0, .28, .72]),
       P(GEO.box(1.0, .14, .5), gold, [0, .32, -.1]),
       ...[-.3, 0, .3].map(x => P(GEO.cone(.08, .45, 4), gold, [x, .45, -.35], [-.9, 0, 0])),
-      P(GEO.box(.05, .05, 1.6), '#ffd27a', [.45, -.15, 1.6], [0, .45, 0]),
-      P(GEO.box(.05, .05, 1.6), '#ffd27a', [-.45, -.15, 1.6], [0, -.45, 0]),
+      P(GEO.box(.04, .04, 1.3), '#ffd27a', [.42, -.22, 1.45], [.35, .6, 0]),
+      P(GEO.box(.04, .04, 1.3), '#ffd27a', [-.42, -.22, 1.45], [.35, -.6, 0]),
     ]), this.head, body);
     this.jaw = new THREE.Group(); this.jaw.position.set(0, -.22, .35); this.head.add(this.jaw);
     mk(merge([
@@ -80,10 +80,12 @@ class DragonBoss {
     // horns (the "helmet")
     this.helm = new THREE.Group(); this.head.add(this.helm);
     this.helmMesh = mk(merge([
-      P(GEO.cone(.09, 1.1, 6), '#fff0c0', [.35, .7, -.4], [-1.0, 0, -.35]),
-      P(GEO.cone(.09, 1.1, 6), '#fff0c0', [-.35, .7, -.4], [-1.0, 0, .35]),
-      P(GEO.cone(.05, .5, 5), '#fff0c0', [.45, .6, -.65], [-.6, 0, -.6]),
-      P(GEO.cone(.05, .5, 5), '#fff0c0', [-.45, .6, -.65], [-.6, 0, .6]),
+      P(GEO.cyl(.11, .17, .5, 7), '#f6e6b0', [.32, .45, -.25], [-.7, 0, -.35]),
+      P(GEO.cyl(.11, .17, .5, 7), '#f6e6b0', [-.32, .45, -.25], [-.7, 0, .35]),
+      P(GEO.cone(.11, .75, 7), '#fff6d8', [.42, .78, -.62], [-1.35, 0, -.45]),
+      P(GEO.cone(.11, .75, 7), '#fff6d8', [-.42, .78, -.62], [-1.35, 0, .45]),
+      P(GEO.cone(.07, .4, 5), '#fff0c0', [.5, .5, -.45], [-.5, 0, -.9]),
+      P(GEO.cone(.07, .4, 5), '#fff0c0', [-.5, .5, -.45], [-.5, 0, .9]),
     ]), this.helm, body);
     // forelegs (arms)
     this.arm = {};
