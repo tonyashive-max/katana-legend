@@ -22,6 +22,7 @@ function showHUD(mode) {
   $('#ui').hidden = true; closeOverlay();
   const h = $('#hud'); h.hidden = false; h.className = mode === 'fight' ? '' : mode;
   $('#tInfo').innerHTML = ''; hint(''); $('#banner').classList.remove('show');
+  OV.pops.length = 0; OV.trail.length = 0; OV.flash = 0; OV.vig = 0;
   $('#blockBtn').classList.remove('on'); $('#specialBtn').classList.remove('ready');
   $('#leaveBtn').textContent = 'Leave'; $('#leaveBtn').dataset.armed = '';
   $('#viewBtn').hidden = mode === 'vs-local' || mode === 'explore';
