@@ -24,7 +24,8 @@ function showHUD(mode) {
   $('#tInfo').innerHTML = ''; hint(''); $('#banner').classList.remove('show');
   $('#blockBtn').classList.remove('on'); $('#specialBtn').classList.remove('ready');
   $('#leaveBtn').textContent = 'Leave'; $('#leaveBtn').dataset.armed = '';
-  $('#viewBtn').hidden = mode === 'vs-local';
+  $('#viewBtn').hidden = mode === 'vs-local' || mode === 'explore';
+  $('#actBtn').hidden = true;
 }
 function hideHUD() { $('#hud').hidden = true; $('#tInfo').innerHTML = ''; hint(''); }
 function fmt(n) { return Math.round(n).toLocaleString(); }
@@ -71,23 +72,23 @@ function skillRow(k) {
 }
 function screenDojo() {
   const st = stats(), w = eqSword(), d = swordDef(w.id), o = outfitDef(S.outfit);
-  const allDone = S.cleared >= STAGES.length, ni = Math.min(S.cleared, STAGES.length - 1), ns = STAGES[ni], nsw = swordDef(ns.sword);
-  const best = swordDef(bestSword().id);
+  const ch = currentChapter(), done = S.journey[3].myth, best = swordDef(bestSword().id);
   return `<div class="stack">
     <section class="panel hero">
-      <div class="eyebrow">${allDone ? 'Every enemy defeated' : `Next battle · ${CHAPTERS[ns.ch].name}`}</div>
-      <h2>${allDone ? 'Legend of the land' : ns.name}</h2>
-      <p class="muted" style="margin:6px 0 12px">${allDone ? 'Replay any battle to earn more stars, gold and steel. Can you collect every blade?' : `${ns.title}. Beat them to win the <b style="color:${RAR[nsw.r].c}">${S.seen.includes(nsw.id) ? nsw.name : 'mystery blade'}</b> they carry.`}</p>
-      <div class="row"><button class="btn primary" data-fight="${ni}">⚔ Fight${allDone ? ' again' : ''}</button><button class="btn" data-tab="quest">Quest map</button></div>
+      <div class="eyebrow">${done ? 'Every land conquered' : `Chapter ${ch + 1} · ${CHAPTERS[ch].name}`}</div>
+      <h2>${done ? 'Legend of the land' : 'Continue your journey'}</h2>
+      <p class="muted" style="margin:6px 0 12px">${done ? 'Return to any land to rematch warriors and beasts for stars, gold and rare blades.' : journeyObjective(ch) + '.'}</p>
+      <div class="row"><button class="btn primary" data-explore="${ch}">🗺 Explore ${CHAPTERS[ch].name}</button><button class="btn" data-tab="quest">Journey map</button></div>
     </section>
     <section class="panel">
       <div class="row between"><h3>${S.name || 'Shep'}</h3><span class="muted">${o.name}</span></div>
       <div class="stats" style="margin-top:12px">
+        <div class="stat power"><b>${playerPower()}</b><span>Power</span></div>
         <div class="stat"><b>${st.maxHp}</b><span>Health</span></div>
         <div class="stat"><b>${Math.round(st.atk)}</b><span>Attack</span></div>
-        <div class="stat"><b>${S.swords.length}</b><span>Blades</span></div>
         <div class="stat"><b>${totalStars()}</b><span>Stars</span></div>
       </div>
+      <p class="muted" style="margin-top:10px;font-size:13px">Power grows when you train skills, forge your blade, and wear stronger outfits. Each enemy shows the power you need.</p>
     </section>
     <section class="panel">
       <div class="row between"><h3>Your blade</h3>${rarTag(d)}</div>
@@ -99,24 +100,39 @@ function screenDojo() {
     <section class="panel stack"><div class="row between"><h3>Skills</h3><button class="btn small jade" data-tab="train">Train</button></div>${Object.keys(SKILLS).map(skillRow).join('')}</section>
   </div>`;
 }
+function check(ok, text) { return `<li class="${ok ? 'ok' : ''}"><span>${ok ? '✓' : '○'}</span>${text}</li>`; }
 function screenQuest() {
-  return `<div class="stack">${CHAPTERS.map((c, ci) => `
-    <section class="panel chapter">
-      <div class="ch-head"><span class="eyebrow">Chapter ${ci + 1}</span><h2>${c.name}</h2><span class="jp">${c.jp}</span></div>
-      <p class="muted">${c.blurb}</p>
-      <div class="stages">${STAGES.map((s, i) => [s, i]).filter(([s]) => s.ch === ci).map(([s, i]) => stageCard(s, i)).join('')}</div>
-    </section>`).join('')}</div>`;
+  const pw = playerPower();
+  return `<div class="stack">
+    <section class="panel"><h2>Your journey</h2><p class="muted" style="margin-top:6px">In each land: find 3 spirit orbs, solve the shrine puzzle, defeat the 3 warriors, then open the spirit gate to face a mythical beast. Your power: <b>${pw}</b>.</p></section>
+    ${CHAPTERS.map((c, ci) => {
+      const open = chapterUnlocked(ci), j = S.journey[ci], m = MYTHS[ci], wb = warriorsBeaten(ci), of = orbsFound(ci);
+      return `<section class="panel chapter ${open ? '' : 'locked-ch'}">
+        <div class="ch-head"><span class="eyebrow">Chapter ${ci + 1}</span><h2>${c.name}</h2><span class="jp">${c.jp}</span></div>
+        <p class="muted">${open ? c.blurb : `Defeat ${MYTHS[ci - 1].name} to open this land.`}</p>
+        ${open ? `<ul class="checks">
+          ${check(of === 3, `Spirit orbs found (${of}/3)`)}
+          ${check(j.puzzle, `Shrine puzzle: ${PUZZLE_NAMES[ci]}`)}
+          ${check(wb === 3, `Warriors defeated (${wb}/3)`)}
+          ${check(j.myth, `Mythical beast: ${m.name}, ${m.title} · power ${m.rec}`)}
+        </ul>
+        <div class="row"><button class="btn primary" data-explore="${ci}">🗺 Explore</button>${j.myth ? `<button class="btn small" data-myth="${ci}">Rematch ${m.name}</button>` : ''}</div>
+        <div class="stages">${chapterStages(ci).map(([s, i]) => stageCard(s, i)).join('')}</div>` : ''}
+      </section>`;
+    }).join('')}
+  </div>`;
 }
 function stageCard(s, i) {
-  const locked = i > S.cleared, cleared = i < S.cleared, cur = i === S.cleared, d = swordDef(s.sword), known = S.seen.includes(d.id);
-  return `<article class="stage ${s.boss ? 'boss' : ''} ${locked ? 'locked' : ''} ${cur ? 'current' : ''}">
-    <div class="row between"><span class="no">Battle ${i + 1}</span>${s.boss ? '<span class="tag boss">Boss</span>' : ''}</div>
-    <div><div class="nm">${locked ? '???' : s.name}</div><div class="ti">${locked ? 'Defeat the previous foe' : s.title}</div></div>
+  const beaten = !!S.beaten[i], d = swordDef(s.sword), known = S.seen.includes(d.id), pw = playerPower();
+  const diff = pw >= s.rec ? 'ok' : pw >= s.rec * .75 ? 'close' : 'hard';
+  return `<article class="stage ${s.boss ? 'boss' : ''} ${beaten ? '' : 'unbeaten'}">
+    <div class="row between"><span class="no">Power <b class="pw ${diff}">${s.rec}</b></span>${s.boss ? '<span class="tag boss">Boss</span>' : ''}</div>
+    <div><div class="nm">${s.name}</div><div class="ti">${s.title}</div></div>
     ${bladeSVG(d, { sil: !known })}
     <div style="font-size:13px;font-weight:900;color:${known ? RAR[d.r].c : 'var(--muted)'}">${known ? d.name : 'Mystery blade'}</div>
     ${s.outfit ? `<div style="font-size:12px" class="muted">Reward: ${S.outfits.includes(s.outfit) ? '✓ ' : ''}${outfitDef(s.outfit).name} outfit</div>` : ''}
     ${starRow(S.stars[i] || 0)}
-    ${locked ? '<button class="btn small" disabled>Locked</button>' : `<button class="btn small ${cur ? 'primary' : ''}" data-fight="${i}">${cleared ? 'Fight again' : 'Fight'}</button>`}
+    ${beaten ? `<button class="btn small" data-fight="${i}">Rematch</button>` : '<button class="btn small" disabled>Find them in the land</button>'}
   </article>`;
 }
 function screenTrain() {
@@ -158,7 +174,7 @@ function screenForge() {
   </div>`;
 }
 function screenSwords() {
-  const carriers = {}; STAGES.forEach(s => { carriers[s.sword] = s.name; });
+  const carriers = {}; STAGES.forEach(s => { carriers[s.sword] = s.name; }); MYTHS.forEach(m => { carriers[m.sword] = m.name; });
   return `<div class="stack">
     <section class="panel"><div class="row between"><h2>Blade collection</h2><b>${S.seen.length} / ${SWORDS.length}</b></div>
       <div class="bar" style="margin-top:10px"><i style="width:${Math.round(S.seen.length / SWORDS.length * 100)}%;background:linear-gradient(90deg,#ffb53d,#ff5fb0,#b357ff)"></i></div></section>
@@ -166,7 +182,7 @@ function screenSwords() {
       const known = S.seen.includes(d.id), owned = S.swords.filter(w => w.id === d.id);
       return `<div class="card ${known ? '' : 'unknown'}">${bladeSVG(d, { sil: !known })}
         <div class="nm ${known ? 'name ' + d.r : ''}" style="${known && d.r !== 'mythic' ? `color:${RAR[d.r].c}` : ''}">${known ? d.name : '???'}</div>
-        <small>${known ? `${RAR[d.r].n} · ${d.dmg} dmg${owned.length ? ` · owned ×${owned.length}` : ''}` : (carriers[d.id] ? `Carried by ${STAGES.findIndex(s => s.sword === d.id) <= S.cleared ? carriers[d.id] : 'a hidden foe'}` : 'Mystery forge only')}</small></div>`;
+        <small>${known ? `${RAR[d.r].n} · ${d.dmg} dmg${owned.length ? ` · owned ×${owned.length}` : ''}` : (carriers[d.id] ? (d.myth != null ? `Guarded by a mythical beast` : `Carried by a warrior`) : 'Mystery forge only')}</small></div>`;
     }).join('')}</div>
     <section class="panel stack"><h3>Your blades</h3>
       ${S.swords.slice().sort((a, b) => RAR[swordDef(b.id).r].i - RAR[swordDef(a.id).r].i || swordDmg(b) - swordDmg(a)).map(w => {
@@ -226,7 +242,7 @@ function screenVersus() {
 function enterHub(first) {
   const build = () => {
     clearSceneActors();
-    const ch = Math.min(3, Math.floor(Math.min(S.cleared, STAGES.length - 1) / 3));
+    const ch = currentChapter();
     const W = buildWorld(ch); activateWorld(W);
     HUB = { W, P: null, rotY: 0, ang: 0, flourishT: 4, previewing: null, camPos: new V3(), camLook: new V3(), clock: 0 };
     hubSetPlayer();
@@ -291,7 +307,7 @@ function doCraft() {
   pay(CRAFT_COST);
   let roll = Math.random() * 100, rar = 'common';
   for (const [r, p] of CRAFT_ODDS) { if (roll < p) { rar = r; break; } roll -= p; }
-  const pool = SWORDS.filter(s => s.r === rar && s.id !== 'bokken');
+  const pool = SWORDS.filter(s => s.r === rar && s.id !== 'bokken' && s.myth == null);
   const d = pick(pool), isNew = !S.seen.includes(d.id), w = addSword(d.id); save();
   sfx.forge(); setTimeout(() => { RAR[d.r].i >= 3 ? sfx.win() : sfx.coin(); }, 500);
   openOverlay(`<div class="modal ${RAR[d.r].i >= 3 ? 'win' : ''}">
@@ -346,7 +362,7 @@ function openSettings() {
 const PTR = {};
 function wireInput() {
   const gl = $('#gl');
-  const slashMode = () => MODE && MODE.name !== 'hub';
+  const slashMode = () => MODE && MODE.name !== 'hub' && MODE.name !== 'explore';
   gl.addEventListener('pointerdown', e => {
     AUD.init(); MUSIC.start(MODE ? (MODE.name === 'hub' ? 'hub' : MODE.name === 'train' ? 'train' : 'fight') : 'hub');
     try { gl.setPointerCapture(e.pointerId); } catch (er) { /* */ }
@@ -390,8 +406,9 @@ function wireInput() {
   });
   $('#leaveBtn').addEventListener('click', () => {
     const b = $('#leaveBtn');
+    if (MODE === ExploreMode) { endExplore(); return; }
     if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Tap again to leave'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Leave'; }, 2200); return; }
-    if (MODE === FightMode) endFight(); else if (MODE === TrainMode) endTraining(); else if (MODE === VsMode) endVersus();
+    if (MODE === FightMode) endFight(F && F.ctx.from === 'explore' ? 'journey' : 'home'); else if (MODE === TrainMode) endTraining(); else if (MODE === VsMode) endVersus(); else if (MODE === ExploreMode) endExplore();
   });
   $('#settingsBtn').addEventListener('click', () => { sfx.ui(); openSettings(); });
 
@@ -401,6 +418,10 @@ function wireInput() {
     const d = b.dataset;
     if (d.tab) { sfx.ui(); showTab(d.tab); }
     else if (d.fight != null) { sfx.taiko(.7); startFight(+d.fight); }
+    else if (d.explore != null) { sfx.ui(); startExplore(+d.explore); }
+    else if (d.myth != null) { sfx.taiko(.8); startMyth(+d.myth); }
+    else if (d.pz) puzzleAction(d.pz, b);
+    else if (b.id === 'actBtn') exploreAct();
     else if (d.train) { startTraining(d.train); }
     else if (d.upgrade) doUpgrade();
     else if (d.craft) doCraft();

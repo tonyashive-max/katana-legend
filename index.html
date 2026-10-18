@@ -241,6 +241,57 @@ button.card{width:100%;}
 .keypad{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
 .keypad button{min-height:52px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);font-weight:900;font-size:20px;}
 
+
+/* stamina */
+.stamina{height:7px;border-radius:4px;background:rgba(0,0,0,.6);overflow:hidden;transform:skewX(-14deg);border:1px solid rgba(255,255,255,.15);}
+.stamina i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ffd166,#fff2b0);transition:width .08s;}
+.stamina.low i{background:linear-gradient(90deg,#ff8a3a,#ffb36a);animation:pulse .3s ease-in-out infinite alternate;}
+#hud.train .stamina,#hud.vs-local .stamina,#hud.vs-online .stamina,#hud.explore .stamina{display:none;}
+/* explore */
+#hud.explore .fighter,#hud.explore #blockBtn,#hud.explore #specialBtn{display:none;}
+#hud.explore .hud-mid{grid-column:1;justify-self:start;justify-items:start;}
+#hud.explore #tInfo{max-width:min(560px,58vw);white-space:normal;font-size:14px;line-height:1.35;}
+.act-btn{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 22px);pointer-events:auto;
+  min-height:58px;padding:12px 26px;border-radius:16px;border:0;font-weight:900;font-size:18px;color:#2a1700;
+  background:linear-gradient(180deg,#ffd877,#e9a72e);box-shadow:0 4px 0 #8a5a10,0 0 30px rgba(255,190,80,.5);animation:ready .8s ease-in-out infinite alternate;}
+.act-btn.locked{background:linear-gradient(180deg,#5a6488,#3a4262);color:#e8ecff;box-shadow:0 4px 0 #1a2040;animation:none;}
+/* journey checklist */
+.checks{list-style:none;margin:0;padding:0;display:grid;gap:6px;}
+.checks li{display:flex;gap:10px;align-items:center;font-weight:700;color:var(--muted);}
+.checks li span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.06);flex:none;font-size:13px;}
+.checks li.ok{color:var(--paper);}
+.checks li.ok span{background:var(--jade);color:#04251a;}
+.locked-ch{opacity:.6;}
+.stage.unbeaten{opacity:.8;}
+.pw.ok{color:var(--jade);} .pw.close{color:var(--gold-2);} .pw.hard{color:#ff8a7a;}
+.stat.power b{color:var(--gold-2);text-shadow:0 0 12px rgba(255,200,90,.5);}
+/* puzzles */
+.modal.puzzle{width:min(560px,100%);}
+.pz-body{display:grid;justify-items:center;gap:10px;}
+.lantern-ring{position:relative;width:min(340px,78vw);aspect-ratio:1;max-width:100%;}
+.lantern{position:absolute;width:64px;height:80px;border-radius:40% 40% 46% 46%;border:3px solid rgba(0,0,0,.5);
+  background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--c) 45%,#2a1a10),#1a1010 80%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.08);transition:transform .1s;}
+.lantern::before,.lantern::after{content:"";position:absolute;left:18px;right:18px;height:8px;background:#1a1214;border-radius:3px;}
+.lantern::before{top:-6px}.lantern::after{bottom:-6px}
+.lantern.lit{background:radial-gradient(circle at 50% 40%,#fff,var(--c) 55%,color-mix(in srgb,var(--c) 60%,#000));box-shadow:0 0 40px var(--c),0 0 80px var(--c);transform:scale(1.08);}
+.ring-center{position:absolute;inset:38%;display:grid;place-items:center;text-align:center;font-family:var(--display);color:var(--gold-2);font-size:15px;}
+.seal-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:min(320px,78vw);}
+.seal{aspect-ratio:1;border-radius:14px;border:2px solid rgba(255,255,255,.15);background:linear-gradient(160deg,#2a3048,#1a1f33);}
+.seal.on{background:radial-gradient(circle at 40% 35%,#f2fdff,#7fe8ff 45%,#2a7fb8);box-shadow:0 0 22px rgba(127,232,255,.7);border-color:#bff4ff;}
+.moon-wrap{--t:min(58px,13.5vw);--g:6px;display:grid;grid-template-columns:auto auto auto;gap:8px;align-items:start;}
+.moon-grid{display:grid;grid-template-columns:repeat(5,var(--t));gap:var(--g);}
+.tile{width:var(--t);height:var(--t);padding:0;border:0;background:transparent;border-radius:10px;}
+.tile svg{width:100%;height:100%;display:block;}
+.moon-icon,.gate-icon{font-size:26px;line-height:var(--t);}
+.moon-icon{color:#ffe08c;text-shadow:0 0 14px #ffe08c;margin-top:calc(var(--sr) * (var(--t) + var(--g)));}
+.gate-icon{color:#ff6a5a;margin-top:calc(var(--er) * (var(--t) + var(--g)));}
+.scale-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:min(300px,76vw);}
+.scale-tile{aspect-ratio:1;border-radius:16px;border:2px solid rgba(255,220,140,.5);display:grid;place-items:center;align-content:center;gap:2px;
+  background:linear-gradient(160deg,hsl(var(--h) 70% 45%),hsl(calc(var(--h) + 30) 70% 25%));box-shadow:inset 0 2px 0 rgba(255,255,255,.25);}
+.scale-tile b{font-family:serif;font-size:32px;color:#fff6e0;text-shadow:0 2px 0 rgba(0,0,0,.4);}
+.scale-tile small{font-weight:900;color:rgba(255,255,255,.8);}
+.scale-blank{aspect-ratio:1;border-radius:16px;background:rgba(0,0,0,.35);border:2px dashed rgba(255,255,255,.15);}
+
 #fade{position:fixed;inset:0;z-index:30;background:#05060c;opacity:0;pointer-events:none;transition:opacity .35s ease;}
 #fade.on{opacity:1;pointer-events:auto;}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%) translateY(-20px);z-index:40;
@@ -289,6 +340,7 @@ button.card{width:100%;}
         <div class="fname" id="meName">SHEP</div>
         <div class="hp"><em id="hpMeGhost"></em><i id="hpMe"></i></div>
         <div class="spirit" id="spWrap"><i id="spMe"></i></div>
+        <div class="stamina" id="staWrap"><i id="staMe"></i></div>
       </div>
     </div>
     <div class="hud-mid">
@@ -312,6 +364,7 @@ button.card{width:100%;}
   <div id="hint"></div>
   <button class="big-btn" id="blockBtn">BLOCK</button>
   <button class="big-btn" id="specialBtn">SPIRIT<br>STRIKE</button>
+  <button class="act-btn" id="actBtn" hidden>Interact</button>
 </div>
 
 <div id="overlay" hidden></div>
@@ -332,6 +385,9 @@ button.card{width:100%;}
 <script src="js/worlds.js"></script>
 <script src="js/fight.js"></script>
 <script src="js/train.js"></script>
+<script src="js/dragon.js"></script>
+<script src="js/explore.js"></script>
+<script src="js/puzzles.js"></script>
 <script src="js/versus.js"></script>
 <script src="js/ui.js"></script>
 

@@ -24,8 +24,13 @@ const SWORDS = [
   { id: 'oni', name: 'Oni Cleaver', r: 'epic', dmg: 28, blade: '#d9d0c4', edge: '#ffffff', tsuba: '#6b0f12', wrap: '#1a0505', glow: '#ff3b3b', lore: 'Taken from the demon of the temple gate.' },
   { id: 'sakura', name: 'Thousand Sakura', r: 'legendary', dmg: 33, blade: '#ffbfd9', edge: '#ffffff', tsuba: '#b02f6a', wrap: '#3a0f22', glow: '#ff6fb0', lore: 'Every swing scatters a storm of petals.' },
   { id: 'dragon', name: "Dragon's Breath", r: 'legendary', dmg: 35, blade: '#ffd164', edge: '#fffbe0', tsuba: '#875700', wrap: '#2b1a00', glow: '#ffa915', lore: 'Forged in dragon fire on the burning peak.' },
-  { id: 'void', name: 'Void Crescent', r: 'mythic', dmg: 44, blade: '#2b1647', edge: '#f0c4ff', tsuba: '#120a1f', wrap: '#06020c', glow: '#b357ff', lore: 'The rarest blade in the land. Only one exists.' },
+  { id: 'void', name: 'Void Crescent', r: 'mythic', dmg: 44, blade: '#2b1647', edge: '#f0c4ff', tsuba: '#120a1f', wrap: '#06020c', glow: '#b357ff', lore: 'Carried by the Dragon Shogun. Darker than a moonless night.' },
+  { id: 'ogre', name: 'Ogre Tooth', r: 'rare', dmg: 22, blade: '#e9dcc4', edge: '#fff6e0', tsuba: '#8a1d12', wrap: '#2a0c08', glow: '#ff5a3a', myth: 0, lore: 'Carved from the tusk of Akaoni, the Mountain Ogre.' },
+  { id: 'frost', name: 'Frostbite', r: 'epic', dmg: 30, blade: '#bfefff', edge: '#ffffff', tsuba: '#3a6a9a', wrap: '#0c1a33', glow: '#7fe8ff', myth: 1, lore: 'Ice from the Frost Giant\'s heart. It never melts.' },
+  { id: 'tengu', name: 'Tengu Wing', r: 'legendary', dmg: 38, blade: '#2a2a33', edge: '#ffd27a', tsuba: '#c0392b', wrap: '#120a0a', glow: '#ffb03a', myth: 2, lore: 'Light as a feather from the Tengu King\'s wing.' },
+  { id: 'ryujin', name: "Ryujin's Fang", r: 'mythic', dmg: 50, blade: '#ffe7a0', edge: '#ffffff', tsuba: '#c2301a', wrap: '#3a0a06', glow: '#ff7a1a', myth: 3, lore: 'A fang of Ryujin, the Sky Dragon. The greatest blade ever forged.' },
 ];
+const CLUB_DEF = { id: 'kanabo', name: 'Iron Kanabo', r: 'rare', dmg: 0, blade: '#3a3a40', edge: '#8a8a94', tsuba: '#2a1a12', wrap: '#4a2a1a', club: true };
 
 const OUTFITS = [
   { id: 'ronin', name: 'Wandering Ronin', cloth: '#2f3f6e', armor: '#3a3f55', trim: '#d6b878', helm: 'kasa', helmCol: '#c9a35a', crest: null, eye: '#ffe6a0', hp: 0, dmg: 0, how: { free: 1 }, desc: 'A straw hat and a long road.' },
@@ -46,31 +51,58 @@ const CHAPTERS = [
 ];
 
 const STAGES = [
-  { ch: 0, name: 'Kenji', title: 'the Bamboo Bandit', hp: 60, dmg: 7, tele: 1500, guard: .08, combo: 0, feint: 0, low: 0, sword: 'rusty', gold: 45, steel: 3,
+  { ch: 0, name: 'Kenji', title: 'the Bamboo Bandit', hp: 120, dmg: 9, tele: 1400, guard: .12, react: .12, combo: .05, feint: 0, low: 0, sword: 'rusty', gold: 60, steel: 4,
     look: { cloth: '#4a3a2a', armor: '#6d5a43', trim: '#c0452f', helm: 'band', helmCol: '#c0452f', crest: null, eye: '#ffcf8a' } },
-  { ch: 0, name: 'Taro', title: 'the Lone Ronin', hp: 85, dmg: 8, tele: 1380, guard: .15, combo: .06, feint: 0, low: 0, sword: 'iron', gold: 60, steel: 4,
+  { ch: 0, name: 'Taro', title: 'the Lone Ronin', hp: 170, dmg: 11, tele: 1300, guard: .18, react: .18, combo: .12, feint: 0, low: .05, sword: 'iron', gold: 80, steel: 5,
     look: { cloth: '#283044', armor: '#4b5563', trim: '#d1c7a3', helm: 'kasa', helmCol: '#a8854a', crest: null, eye: '#ffe9a8' } },
-  { ch: 0, boss: 1, name: 'Captain Haru', title: 'the Crimson Fang', hp: 150, dmg: 11, tele: 1260, guard: .22, combo: .15, feint: 0, low: .1, sword: 'river', gold: 120, steel: 8, outfit: 'crimson',
+  { ch: 0, boss: 1, name: 'Captain Haru', title: 'the Crimson Fang', hp: 280, dmg: 14, tele: 1180, guard: .24, react: .22, combo: .2, feint: .05, low: .1, sword: 'river', gold: 150, steel: 10, outfit: 'crimson',
     look: { cloth: '#3b1a16', armor: '#9c2f24', trim: '#e8b54a', helm: 'kabuto', helmCol: '#6e1f19', crest: 'horns', crestCol: '#e8b54a', eye: '#ff8a5a', banner: '#9c2f24' } },
-  { ch: 1, name: 'Brother Gen', title: 'the Mountain Monk', hp: 150, dmg: 12, tele: 1180, guard: .24, combo: .12, feint: 0, low: .15, sword: 'crane', gold: 90, steel: 6,
+  { ch: 1, name: 'Brother Gen', title: 'the Mountain Monk', hp: 340, dmg: 17, tele: 1080, guard: .26, react: .26, combo: .2, feint: .05, low: .15, sword: 'crane', gold: 140, steel: 9,
     look: { cloth: '#e6dcc6', armor: '#b58a52', trim: '#8a3324', helm: 'band', helmCol: '#8a3324', crest: null, eye: '#9fe0ff' } },
-  { ch: 1, name: 'Sora', title: 'the Ice Ronin', hp: 185, dmg: 13, tele: 1100, guard: .27, combo: .18, feint: .05, low: .15, sword: 'moon', gold: 110, steel: 7,
+  { ch: 1, name: 'Sora', title: 'the Ice Ronin', hp: 400, dmg: 19, tele: 1000, guard: .28, react: .3, combo: .25, feint: .1, low: .15, sword: 'moon', gold: 160, steel: 10,
     look: { cloth: '#2e425c', armor: '#8fb0cf', trim: '#ffffff', helm: 'hood', helmCol: '#3d5675', crest: null, eye: '#bfe9ff', scarf: '#bfe9ff' } },
-  { ch: 1, boss: 1, name: 'Yuki', title: 'the Frost Blade', hp: 270, dmg: 16, tele: 1030, guard: .3, combo: .25, feint: .1, low: .2, sword: 'ember', gold: 180, steel: 12, outfit: 'snow',
+  { ch: 1, boss: 1, name: 'Yuki', title: 'the Frost Blade', hp: 560, dmg: 23, tele: 940, guard: .32, react: .32, combo: .3, feint: .15, low: .2, sword: 'ember', gold: 240, steel: 16, outfit: 'snow',
     look: { cloth: '#34557a', armor: '#e5eef8', trim: '#5fb0ff', helm: 'kabuto', helmCol: '#d8e6f4', crest: 'moon', crestCol: '#8fd0ff', eye: '#7fe8ff', banner: '#5fb0ff', aura: '#9fe6ff' } },
-  { ch: 2, name: 'Shadow Guard', title: 'of Kuro Castle', hp: 260, dmg: 17, tele: 980, guard: .32, combo: .22, feint: .15, low: .2, sword: 'storm', gold: 140, steel: 9,
+  { ch: 2, name: 'Shadow Guard', title: 'of Kuro Castle', hp: 640, dmg: 26, tele: 880, guard: .34, react: .36, combo: .3, feint: .2, low: .2, sword: 'storm', gold: 200, steel: 13,
     look: { cloth: '#191822', armor: '#2c2a3a', trim: '#7f70b8', helm: 'kabuto', helmCol: '#22202e', crest: null, eye: '#c9a0ff' } },
-  { ch: 2, name: 'Rei', title: 'the Twin Fang Ninja', hp: 290, dmg: 18, tele: 930, guard: .35, combo: .3, feint: .25, low: .25, sword: 'jade', gold: 160, steel: 10,
+  { ch: 2, name: 'Rei', title: 'the Twin Fang Ninja', hp: 720, dmg: 28, tele: 830, guard: .36, react: .4, combo: .38, feint: .3, low: .25, sword: 'jade', gold: 230, steel: 14,
     look: { cloth: '#121218', armor: '#1f1f27', trim: '#d23a3a', helm: 'hood', helmCol: '#15151c', crest: null, eye: '#ff6b6b', scarf: '#d23a3a' } },
-  { ch: 2, boss: 1, name: 'Lord Kuro', title: 'the Shadow Lord', hp: 400, dmg: 21, tele: 880, guard: .38, combo: .35, feint: .25, low: .25, sword: 'sakura', gold: 260, steel: 16, outfit: 'golden',
+  { ch: 2, boss: 1, name: 'Lord Kuro', title: 'the Shadow Lord', hp: 950, dmg: 33, tele: 780, guard: .4, react: .42, combo: .42, feint: .3, low: .3, sword: 'sakura', gold: 360, steel: 22, outfit: 'golden',
     look: { cloth: '#241a33', armor: '#15141a', trim: '#d9b13d', helm: 'kabuto', helmCol: '#0e0d12', crest: 'horns', crestCol: '#d9b13d', eye: '#ffd24a', banner: '#5a2a8a', aura: '#8a5aff' } },
-  { ch: 3, name: 'Temple Sentinel', title: 'Guardian of the Gate', hp: 400, dmg: 22, tele: 840, guard: .4, combo: .32, feint: .3, low: .3, sword: 'oni', gold: 220, steel: 14,
+  { ch: 3, name: 'Temple Sentinel', title: 'Guardian of the Gate', hp: 1050, dmg: 36, tele: 740, guard: .42, react: .45, combo: .4, feint: .3, low: .3, sword: 'oni', gold: 300, steel: 20,
     look: { cloth: '#2d3323', armor: '#5f6e48', trim: '#e0c77a', helm: 'kabuto', helmCol: '#4a5839', crest: 'oni', crestCol: '#e0c77a', eye: '#baff8a' } },
-  { ch: 3, name: 'Goro', title: 'the Fire Oni', hp: 460, dmg: 24, tele: 800, guard: .4, combo: .4, feint: .3, low: .3, sword: 'dragon', gold: 250, steel: 15,
+  { ch: 3, name: 'Goro', title: 'the Fire Oni', hp: 1200, dmg: 40, tele: 700, guard: .42, react: .48, combo: .45, feint: .35, low: .3, sword: 'dragon', gold: 340, steel: 22,
     look: { cloth: '#2a0d08', armor: '#8f1d12', trim: '#ffa01a', helm: 'kabuto', helmCol: '#5c0f0a', crest: 'oni', crestCol: '#ffa01a', eye: '#ffd23a', aura: '#ff6a1a' } },
-  { ch: 3, boss: 1, name: 'The Dragon Shogun', title: 'Master of Dragon Peak', hp: 620, dmg: 28, tele: 760, guard: .45, combo: .5, feint: .35, low: .35, sword: 'void', gold: 500, steel: 30, outfit: 'dragonlord',
+  { ch: 3, boss: 1, name: 'The Dragon Shogun', title: 'Master of Dragon Peak', hp: 1550, dmg: 46, tele: 650, guard: .46, react: .5, combo: .55, feint: .4, low: .35, sword: 'void', gold: 600, steel: 36, outfit: 'dragonlord',
     look: { cloth: '#3b0d12', armor: '#1c1e2a', trim: '#ffae1a', helm: 'kabuto', helmCol: '#12131b', crest: 'dragon', crestCol: '#ffae1a', eye: '#e08bff', banner: '#ff7a1a', aura: '#c35cff' } },
 ];
+
+/* Mythical bosses: one behind each chapter's spirit gate. */
+const MYTHS = [
+  { ch: 0, myth: true, name: 'Akaoni', title: 'the Mountain Ogre', hp: 560, dmg: 22, tele: 1300, guard: .1, react: .15, combo: .25, feint: 0, low: .15, fury: .3, scale: 1.75, weapon: 'club', sword: 'ogre', gold: 320, steel: 24,
+    intro: 'A giant red ogre with an iron club. Its red-ring smash cannot be parried. Hold BLOCK!',
+    look: { cloth: '#3a1a10', armor: '#c8321e', trim: '#2a1a12', helm: 'band', helmCol: '#2a1a12', crest: 'oni', crestCol: '#f2e6c8', eye: '#ffe24a', mask: '#b8281a', skin: '#c8321e', aura: '#ff5a2a' } },
+  { ch: 1, myth: true, name: 'Hyōga', title: 'the Frost Giant', hp: 1050, dmg: 30, tele: 1150, guard: .2, react: .25, combo: .3, feint: .1, low: .25, fury: .3, freeze: true, scale: 1.9, weapon: 'frost', sword: 'frost', gold: 480, steel: 34,
+    intro: 'Its icy hits freeze your arms and slow your swings. Block the red ring!',
+    look: { cloth: '#5a7ea8', armor: '#d9f2ff', trim: '#7fe8ff', helm: 'kabuto', helmCol: '#bfe9ff', crest: 'crystal', crestCol: '#9ff2ff', eye: '#4ad8ff', mask: '#9fcfe8', aura: '#bff4ff' } },
+  { ch: 2, myth: true, name: 'Sōjōbō', title: 'King of the Tengu', hp: 1400, dmg: 34, tele: 760, guard: .3, react: .45, combo: .45, feint: .4, low: .25, fury: .2, teleport: .4, scale: 1.25, weapon: 'tengu', sword: 'tengu', gold: 640, steel: 44,
+    intro: 'The Tengu King vanishes in a puff of feathers and strikes from a new spot. Stay sharp!',
+    look: { cloth: '#1a1a22', armor: '#2a2230', trim: '#ffb03a', helm: 'tengu', helmCol: '#c0281e', crest: null, eye: '#ffd24a', mask: '#c0281e', wings: '#15151c', aura: '#ffb03a' } },
+  { ch: 3, myth: true, dragon: true, name: 'Ryūjin', title: 'the Sky Dragon', hp: 2400, dmg: 46, tele: 820, guard: .25, react: .3, combo: .45, feint: .3, low: .3, fury: .3, sword: 'ryujin', gold: 1200, steel: 80,
+    intro: 'The dragon itself descends! Parry its bites and claws, block its fire breath, and chop off its horns and claws.',
+    look: { aura: '#ffb03a' } },
+];
+for (const s of STAGES.concat(MYTHS)) s.rec = Math.round(Math.sqrt(s.hp * s.dmg) / 3.2);
+
+/* Each chapter's land: where the warriors wait, where the spirit orbs hide, the shrine and the spirit gate. */
+const LANDS = [
+  { spawn: [0, -4], bound: 38, warriors: [[-15, 9], [15, 14], [-4, 29]], orbs: [[-26, -12], [24, -20], [23, 31]], shrine: [-24, 25], gate: [6, 37], orb: '#ff9ec4' },
+  { spawn: [0, -4], bound: 38, warriors: [[-15, 9], [16, 13], [-5, 28]], orbs: [[-27, -10], [25, -18], [22, 30]], shrine: [-23, 24], gate: [6, 37], orb: '#7fe8ff' },
+  { spawn: [0, -6], bound: 15.5, warriors: [[-10, 5], [10, 6], [-1, 12]], orbs: [[-10, -10], [11, -8], [-12, 11]], shrine: [11, 12], gate: [0, 16.8], orb: '#c9a0ff' },
+  { spawn: [0, -4], bound: 38, warriors: [[-16, 6], [17, 12], [-3, 27]], orbs: [[-27, -14], [26, -16], [21, 30]], shrine: [-22, 24], gate: [8, 36], orb: '#ffb03a' },
+];
+const PUZZLES = ['lanterns', 'seals', 'moonpath', 'scales'];
+const PUZZLE_NAMES = ['The Lantern Song', 'The Frozen Seals', 'The Moon Path', 'The Dragon Scales'];
 
 const SKILLS = {
   power: { n: 'Power', g: '力', d: 'More damage with every slash' },
@@ -90,10 +122,10 @@ const DUMMY_LOOK = { cloth: '#6b5233', armor: '#c9a35a', trim: '#7a4a24', helm: 
 const SENSEI_LOOK = { cloth: '#1f2a4a', armor: '#e9e1cc', trim: '#c0392b', helm: 'band', helmCol: '#c0392b', crest: null, eye: '#ffe6a0' };
 
 /* ---------- save ---------- */
-const SAVE_KEY = 'shep-katana-legend-3d-v1';
+const SAVE_KEY = 'shep-katana-legend-3d-v2';
 function freshSave() {
   return {
-    gold: 80, steel: 6, cleared: 0, stars: {},
+    gold: 80, steel: 6, cleared: 0, stars: {}, beaten: {}, journey: [0, 1, 2, 3].map(() => ({ orbs: [0, 0, 0], puzzle: false, myth: false })), mythStars: {},
     swords: [{ u: 1, id: 'bokken', lvl: 0 }], eq: 1, nu: 2,
     outfits: ['ronin'], outfit: 'ronin',
     sk: { power: { l: 1, x: 0 }, speed: { l: 1, x: 0 }, guard: { l: 1, x: 0 }, vital: { l: 1, x: 0 } },
@@ -107,6 +139,7 @@ function loadSave() {
       const o = JSON.parse(raw), f = freshSave();
       const merged = Object.assign(f, o);
       merged.sk = Object.assign(freshSave().sk, o.sk || {});
+      if (!Array.isArray(merged.journey) || merged.journey.length !== 4) merged.journey = f.journey;
       if (!merged.swords || !merged.swords.length) merged.swords = f.swords;
       return merged;
     }
@@ -127,7 +160,9 @@ function stats() {
   return {
     maxHp: Math.round(100 + (k.vital.l - 1) * 12 + (o.hp || 0)),
     atk: swordDmg(eqSword()) * (1 + (k.power.l - 1) * 0.08 + (o.dmg || 0)),
-    cd: Math.max(110, 380 - (k.speed.l - 1) * 13),
+    cd: Math.max(150, 400 - (k.speed.l - 1) * 11),
+    staRegen: 30 + (k.speed.l - 1) * 2.2,
+    staCost: Math.max(13, 22 - (k.speed.l - 1) * .35),
     parry: Math.min(0.78, 0.42 + (k.guard.l - 1) * 0.022),
     block: Math.min(0.88, 0.55 + (k.guard.l - 1) * 0.018),
   };
@@ -160,3 +195,23 @@ function bestSword() {
   return S.swords.slice().sort((a, b) => RAR[swordDef(b.id).r].i - RAR[swordDef(a.id).r].i || swordDmg(b) - swordDmg(a))[0];
 }
 function totalStars() { return Object.values(S.stars).reduce((a, b) => a + b, 0); }
+
+/* ---------- journey progress ---------- */
+function chapterUnlocked(ch) { return ch === 0 || !!(S.journey[ch - 1] && S.journey[ch - 1].myth); }
+function chapterStages(ch) { return STAGES.map((s, i) => [s, i]).filter(([s]) => s.ch === ch); }
+function warriorsBeaten(ch) { return chapterStages(ch).filter(([, i]) => S.beaten[i]).length; }
+function orbsFound(ch) { return S.journey[ch].orbs.filter(Boolean).length; }
+function currentChapter() { for (let c = 0; c < 4; c++) if (!S.journey[c].myth) return c; return 3; }
+function gateOpen(ch) { return warriorsBeaten(ch) === 3 && S.journey[ch].puzzle; }
+function playerPower() {
+  const st = stats();
+  return Math.round(st.atk * Math.sqrt(st.maxHp / 100) * (1 + (S.sk.guard.l - 1) * .03));
+}
+function journeyObjective(ch) {
+  const j = S.journey[ch], wb = warriorsBeaten(ch), of = orbsFound(ch);
+  if (j.myth) return 'Chapter complete! Explore freely or rematch anyone.';
+  if (of < 3) return `Find the spirit orbs (${of}/3) · Warriors defeated ${wb}/3`;
+  if (!j.puzzle) return `Bring the orbs to the shrine and solve its puzzle · Warriors ${wb}/3`;
+  if (wb < 3) return `Defeat the warriors of this land (${wb}/3) to open the spirit gate`;
+  return `The spirit gate is open. Face ${MYTHS[ch].name}, ${MYTHS[ch].title}!`;
+}

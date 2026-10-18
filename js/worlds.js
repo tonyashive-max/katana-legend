@@ -2,9 +2,18 @@
 /* ===== Worlds: four chapter battlefields + the training dojo ===== */
 
 function smooth(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+let POI_CLEAR = null;
 function newWorld(kind) {
   const scene = new THREE.Scene();
-  return { kind, scene, ambient: [], updaters: [], hAt: () => 0, rays: [] };
+  return { kind, scene, ambient: [], updaters: [], hAt: () => 0, rays: [], obs: [] };
+}
+function obs(W, x, z, r) { W.obs.push({ x, z, r }); }
+const clearOK = (x, z) => !(POI_CLEAR && POI_CLEAR(x, z));
+function makePoiClear(kind) {
+  const L = typeof kind === 'number' ? LANDS[kind] : null;
+  if (!L) return null;
+  const big = [L.spawn, L.shrine, L.gate].concat(L.warriors), small = L.orbs;
+  return (x, z) => big.some(([px, pz]) => (x - px) * (x - px) + (z - pz) * (z - pz) < 4.4 * 4.4) || small.some(([px, pz]) => (x - px) * (x - px) + (z - pz) * (z - pz) < 2.2 * 2.2);
 }
 function addLights(W, o) {
   const h = new THREE.HemisphereLight(o.sky, o.ground, o.hemi * .72);
@@ -106,6 +115,7 @@ function scatter(n, r0, r1, seed, avoid) {
     const ang = rr() * Math.PI * 2, r = lerp(r0, r1, Math.sqrt(rr()));
     const x = Math.sin(ang) * r, z = Math.cos(ang) * r;
     if (avoid && avoid(x, z)) continue;
+    if (!clearOK(x, z)) continue;
     out.push([x, z, rr()]);
   }
   return out;
@@ -148,6 +158,8 @@ function stoneLanternGeo(stone) {
   ]);
 }
 function addLanterns(W, spots, stone, light) {
+  spots = spots.filter(([x, z]) => clearOK(x, z));
+  spots.forEach(([x, z, sc]) => obs(W, x, z, .45 * (sc || 1)));
   W.scene.add(inst(stoneLanternGeo(stone), toon({ vertexColors: true, flatShading: true }), spots.map(([x, z, s]) => ({ p: [x, W.hAt(x, z), z], r: [0, rnd(0, 3), 0], s: s || 1 })), true));
   const lights = inst(GEO.box(.3, .26, .3), new THREE.MeshBasicMaterial({ color: light, fog: false }), spots.map(([x, z, s]) => ({ p: [x, W.hAt(x, z) + 1.36 * (s || 1), z], s: [(s || 1) * 1.02, (s || 1) * 1.02, (s || 1) * 1.02] })));
   W.scene.add(lights);
@@ -172,7 +184,9 @@ function addCherryTrees(W, spots, pinks) {
     P(GEO.cyl(.08, .14, 2, 6), '#4a2c22', [-.5, 3.3, .2], [.2, 0, .8]),
   ]);
   const trunks = [], blobs = [];
+  spots = spots.filter(([x, z]) => clearOK(x, z));
   spots.forEach(([x, z, k]) => {
+    obs(W, x, z, .7);
     const s = .8 + k * .6, y = W.hAt(x, z);
     trunks.push({ p: [x, y, z], r: [0, k * 6, 0], s });
     for (let i = 0; i < 6; i++) blobs.push({ p: [x + rnd(-1.6, 1.6) * s, y + (3.6 + rnd(-.3, 1.1)) * s, z + rnd(-1.6, 1.6) * s], r: [rnd(0, 3), rnd(0, 3), 0], s: rnd(1.1, 1.8) * s, c: pick(pinks) });
@@ -183,7 +197,7 @@ function addCherryTrees(W, spots, pinks) {
   W.scene.add(inst(new THREE.CircleGeometry(1, 14), toon({ transparent: true, opacity: .55 }), patches));
 }
 function brazier(W, x, z, flameCol) {
-  const y = W.hAt(x, z);
+  const y = W.hAt(x, z); obs(W, x, z, .45);
   const m = new THREE.Mesh(merge([
     P(GEO.cyl(.08, .1, 1.1, 8), '#2a2420', [0, .55, 0]),
     P(GEO.cyl(.36, .2, .3, 10), '#3a2e26', [0, 1.2, 0]),
@@ -217,7 +231,8 @@ function worldBamboo() {
     const rr = mulberry(gi * 13 + 5);
     for (let i = 0; i < n; i++) {
       const x = gx + (rr() - .5) * 9, z = gz + (rr() - .5) * 9;
-      if (laneClear(x, z) || Math.hypot(x, z) < 6) continue;
+      if (laneClear(x, z) || Math.hypot(x, z) < 6 || !clearOK(x, z)) continue;
+      obs(W, x, z, .2);
       const h = 6 + rr() * 6, y = W.hAt(x, z);
       stalks.push({ p: [x, y, z], r: [(rr() - .5) * .12, rr() * 6, (rr() - .5) * .12], s: [1 + rr() * .6, h, 1 + rr() * .6], c: pick(greens) });
       if (rr() < .7) leaves.push({ p: [x + (rr() - .5) * 1.2, y + h * (.75 + rr() * .3), z + (rr() - .5) * 1.2], r: [0, rr() * 6, 0], s: [1.1 + rr(), .35 + rr() * .2, 1.1 + rr()], c: pick(['#3f7a24', '#5a9a30', '#2f6a20']) });
@@ -235,10 +250,10 @@ function worldBamboo() {
     P(GEO.cone(3.5, 1.7, 4), '#2f3540', [0, 3.0, 0], [0, Math.PI / 4, 0], [1.35, 1, 1]),
     P(GEO.box(5.2, .16, .3), '#1e2228', [0, 3.82, 0]),
   ]);
-  const houses = [[-12, 26, .3], [13, 30, -.4], [-18, 8, .9], [19, 12, -1.1], [0, 44, 0]].map(([x, z, ry]) => ({ p: [x, W.hAt(x, z), z], r: [0, ry, 0], s: 1.2 }));
+  const houses = [[-12, 26, .3], [13, 30, -.4], [-18, 8, .9], [19, 12, -1.1], [0, 44, 0]].filter(([x, z]) => clearOK(x, z)).map(([x, z, ry]) => { obs(W, x, z, 3.1); return { p: [x, W.hAt(x, z), z], r: [0, ry, 0], s: 1.2 }; });
   W.scene.add(inst(house, toon({ vertexColors: true }), houses, true));
   houses.forEach(hh => { const h = halo('#ffc070', 1.6, .55); const a = hh.r[1]; h.position.set(hh.p[0] - Math.sin(a) * 1.9, hh.p[1] + 1.2, hh.p[2] - Math.cos(a) * 1.9); W.scene.add(h); });
-  const torii = new THREE.Mesh(toriiGeo('#d7372b', '#1c1416'), toon({ vertexColors: true })); torii.position.set(0, 0, 17); torii.scale.setScalar(1.25); torii.castShadow = true; W.scene.add(torii);
+  const torii = new THREE.Mesh(toriiGeo('#d7372b', '#1c1416'), toon({ vertexColors: true })); torii.position.set(0, 0, 17); torii.scale.setScalar(1.25); torii.castShadow = true; W.scene.add(torii); obs(W, -2.5, 17, .45); obs(W, 2.5, 17, .45);
   addLanterns(W, [[-3.6, 6.2], [3.6, 6.2], [-6, 1], [6, 1], [-3.8, -4.5], [3.8, -4.5]], '#9a9488', '#ffcf7a');
   addRays(W, '#ffd2a0', 6, 22);
   addGrass(W, { base: '#3f6a22', tip: '#b8d84a', tints: ['#ffffff', '#e8ffd0', '#fff2c0'], n: 1600, flowers: 240, flowerCols: ['#ffffff', '#ffd6e8', '#ffe27a', '#ff9ec4'] });
@@ -265,19 +280,19 @@ function worldSnow() {
     P(GEO.cone(1.25, 1.9, 8), '#235642', [0, 3.5, 0]), P(GEO.cone(1.1, .45, 8), '#f4f8ff', [0, 4.15, 0]),
     P(GEO.cone(.85, 1.6, 8), '#2a6048', [0, 4.7, 0]), P(GEO.cone(.55, .5, 8), '#f4f8ff', [0, 5.35, 0]),
   ]);
-  const pines = scatter(150, 8, 60, 21, laneClear).map(([x, z, k]) => ({ p: [x, W.hAt(x, z), z], r: [0, k * 6, 0], s: .9 + k * 1.1 }));
+  const pines = scatter(150, 8, 60, 21, laneClear).map(([x, z, k]) => { obs(W, x, z, .5 + k * .5); return { p: [x, W.hAt(x, z), z], r: [0, k * 6, 0], s: .9 + k * 1.1 }; });
   W.scene.add(inst(pine, toon({ vertexColors: true, flatShading: true }), pines, true));
   const rock = merge([P(GEO.dodec(1), '#6b7890', [0, 0, 0], null, null, (x, y) => y > .35 ? new COL('#f4f8ff') : new COL('#6b7890'))]);
-  W.scene.add(inst(rock, toon({ vertexColors: true, flatShading: true }), scatter(40, 6, 40, 31, laneClear).map(([x, z, k]) => ({ p: [x, W.hAt(x, z) + .1, z], r: [k * 3, k * 5, 0], s: [.6 + k * 1.6, .4 + k, .6 + k * 1.4] })), true));
+  W.scene.add(inst(rock, toon({ vertexColors: true, flatShading: true }), scatter(40, 6, 40, 31, laneClear).map(([x, z, k]) => { obs(W, x, z, .6 + k * 1.3); return { p: [x, W.hAt(x, z) + .1, z], r: [k * 3, k * 5, 0], s: [.6 + k * 1.6, .4 + k, .6 + k * 1.4] }; }), true));
   const crystalMat = toon({ color: '#9fe8ff', emissive: new COL('#2a7fa8'), emissiveIntensity: .6, transparent: true, opacity: .9, flatShading: true });
   const crystals = [];
-  scatter(26, 6, 22, 41, laneClear).forEach(([x, z, k]) => { for (let i = 0; i < 3; i++) crystals.push({ p: [x + rnd(-.5, .5), W.hAt(x, z) + .3, z + rnd(-.5, .5)], r: [rnd(-.4, .4), rnd(0, 3), rnd(-.4, .4)], s: [.25 + k * .2, .8 + k * 1.6, .25 + k * .2] }); });
+  scatter(26, 6, 22, 41, laneClear).forEach(([x, z, k]) => { obs(W, x, z, .8); for (let i = 0; i < 3; i++) crystals.push({ p: [x + rnd(-.5, .5), W.hAt(x, z) + .3, z + rnd(-.5, .5)], r: [rnd(-.4, .4), rnd(0, 3), rnd(-.4, .4)], s: [.25 + k * .2, .8 + k * 1.6, .25 + k * .2] }); });
   W.scene.add(inst(GEO.oct(1), crystalMat, crystals, false));
   scatter(10, 6, 18, 51, laneClear).forEach(([x, z]) => { const h = halo('#7fe0ff', 2.2, .35); h.position.set(x, W.hAt(x, z) + .8, z); W.scene.add(h); });
   addLanterns(W, [[-3.6, 6.2], [3.6, 6.2], [-6, -1], [6, -1]], '#7a8496', '#ffb860');
   addClouds(W, { color: '#8fa6d6', n: 10, opacity: .55, y0: 45 });
   W.scene.add(inst(GEO.sph(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), toon({ color: '#f2f7fd' }), scatter(70, 5.3, 30, 91, laneClear).map(([x, z, k]) => ({ p: [x, W.hAt(x, z) - .05, z], s: [.6 + k * 1.4, .25 + k * .4, .6 + k * 1.2] }))));
-  const torii = new THREE.Mesh(toriiGeo('#c4302a', '#141418'), toon({ vertexColors: true })); torii.position.set(0, 0, 18); torii.castShadow = true; W.scene.add(torii);
+  const torii = new THREE.Mesh(toriiGeo('#c4302a', '#141418'), toon({ vertexColors: true })); torii.position.set(0, 0, 18); torii.castShadow = true; W.scene.add(torii); obs(W, -2, 18, .4); obs(W, 2, 18, .4);
   // aurora ribbons
   const auroraMat = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
@@ -328,14 +343,15 @@ function worldCastle() {
     P(GEO.box(4.4, .25, .9), roof, [0, 3.45, 0]),
   ]);
   const walls = [];
-  for (let i = -9; i <= 9; i++) { const a = i * .17; const R = 19; if (Math.abs(i) < 1) continue; walls.push({ p: [Math.sin(a) * R, 0, Math.cos(a) * R], r: [0, a, 0] }); }
-  for (let i = -6; i <= 6; i++) { const a = Math.PI + i * .2; walls.push({ p: [Math.sin(a) * 17, 0, Math.cos(a) * 17], r: [0, a, 0] }); }
+  for (let i = -9; i <= 9; i++) { const a = i * .17; const R = 19; if (Math.abs(i) < 1) continue; walls.push({ p: [Math.sin(a) * R, 0, Math.cos(a) * R], r: [0, a, 0] }); obs(W, Math.sin(a) * R, Math.cos(a) * R, 2.1); }
+  for (let i = -6; i <= 6; i++) { const a = Math.PI + i * .2; walls.push({ p: [Math.sin(a) * 17, 0, Math.cos(a) * 17], r: [0, a, 0] }); obs(W, Math.sin(a) * 17, Math.cos(a) * 17, 2.1); }
   W.scene.add(inst(seg, toon({ vertexColors: true }), walls, true));
   const gate = new THREE.Mesh(toriiGeo('#2a2236', '#120e18'), toon({ vertexColors: true })); gate.position.set(0, 0, 19); gate.scale.setScalar(1.1); W.scene.add(gate);
   // red maples
   const trunkM = merge([P(GEO.cyl(.14, .26, 2.8, 7), '#3a241c', [0, 1.4, 0]), P(GEO.cyl(.07, .12, 1.6, 6), '#3a241c', [.5, 2.8, 0], [0, 0, -.8])]);
   const mt = [], mb = [];
-  [[-8, 10], [8.5, 12], [-12, 2], [12, -2], [-9, -9], [10, -10], [-5, 15], [5, 16]].forEach(([x, z], i) => {
+  [[-8, 10], [8.5, 12], [-12, 2], [12, -2], [-9, -9], [10, -10], [-5, 15], [5, 16]].filter(([x, z]) => clearOK(x, z)).forEach(([x, z], i) => {
+    obs(W, x, z, .6);
     const s = .9 + (i % 3) * .2; mt.push({ p: [x, 0, z], r: [0, i, 0], s });
     for (let k = 0; k < 6; k++) mb.push({ p: [x + rnd(-1.4, 1.4) * s, (3.2 + rnd(-.2, 1.1)) * s, z + rnd(-1.4, 1.4) * s], r: [rnd(0, 3), rnd(0, 3), 0], s: rnd(1, 1.6) * s, c: pick(['#d6341f', '#ff5a2a', '#e8451f', '#ff8a2a', '#b8241a']) });
   });
@@ -349,7 +365,7 @@ function worldCastle() {
   for (const side of [-1, 1]) {
     const px = side * 5.6;
     const postG = new THREE.Mesh(GEO.cyl(.08, .1, 3.6, 6), toon({ color: '#2a1d16' }));
-    [-6, 10].forEach(z => { const p = postG.clone(); p.position.set(px, 1.8, z); W.scene.add(p); });
+    [-6, 10].forEach(z => { const p = postG.clone(); p.position.set(px, 1.8, z); W.scene.add(p); obs(W, px, z, .3); });
     for (let i = 0; i < 8; i++) {
       const z = -5 + i * 2.1, sag = Math.sin((i + .5) / 8 * Math.PI) * .6;
       const l = new THREE.Group(); l.position.set(px, 3.2 - sag, z);
@@ -422,12 +438,12 @@ function worldVolcano() {
     pts.forEach(p => { const h = halo('#ff6a1a', 6, .35); h.position.set(p[0], W.hAt(p[0], p[2]) + .4, p[2]); W.scene.add(h); });
   });
   W.updaters.push((dt, t) => { lm.uniforms.time.value = t; });
-  const torii = new THREE.Mesh(toriiGeo('#b8221a', '#120c0c'), toon({ vertexColors: true })); torii.position.set(0, 0, 14); torii.scale.setScalar(2.2); torii.castShadow = true; W.scene.add(torii);
+  const torii = new THREE.Mesh(toriiGeo('#b8221a', '#120c0c'), toon({ vertexColors: true })); torii.position.set(0, 0, 14); torii.scale.setScalar(2.2); torii.castShadow = true; W.scene.add(torii); obs(W, -4.4, 14, .7); obs(W, 4.4, 14, .7);
   const pillar = merge([P(GEO.cyl(.5, .6, 1, 10), '#4a3a36', [0, .5, 0]), P(GEO.box(1.4, .3, 1.4), '#3a2c28', [0, 0, 0])]);
   const pillars = [];
-  [[-7, 4], [7, 4], [-7, -3], [7, -3], [-9, 10], [9, 10]].forEach(([x, z], i) => pillars.push({ p: [x, W.hAt(x, z), z], r: [0, i, 0], s: [1, 2 + (i % 3) * 1.6, 1] }));
+  [[-7, 4], [7, 4], [-7, -3], [7, -3], [-9, 10], [9, 10]].filter(([x, z]) => clearOK(x, z)).forEach(([x, z], i) => obs(W, x, z, .7) || pillars.push({ p: [x, W.hAt(x, z), z], r: [0, i, 0], s: [1, 2 + (i % 3) * 1.6, 1] }));
   W.scene.add(inst(pillar, toon({ vertexColors: true, flatShading: true }), pillars, true));
-  W.scene.add(inst(GEO.dodec(1), toon({ color: '#2a1e1c', flatShading: true }), scatter(60, 7, 50, 61, laneClear).map(([x, z, k]) => ({ p: [x, W.hAt(x, z), z], r: [k * 3, k * 4, 0], s: [.5 + k * 2, .4 + k * 1.4, .5 + k * 1.8] })), true));
+  W.scene.add(inst(GEO.dodec(1), toon({ color: '#2a1e1c', flatShading: true }), scatter(60, 7, 50, 61, laneClear).map(([x, z, k]) => { obs(W, x, z, .5 + k * 1.6); return { p: [x, W.hAt(x, z), z], r: [k * 3, k * 4, 0], s: [.5 + k * 2, .4 + k * 1.4, .5 + k * 1.8] }; }), true));
   addClouds(W, { color: '#5a1a12', n: 14, opacity: .7, y0: 40 });
   brazier(W, -4.2, 5.5, '#ff6a1a'); brazier(W, 4.2, 5.5, '#ff6a1a'); brazier(W, -4.2, -3.6, '#ff6a1a'); brazier(W, 4.2, -3.6, '#ff6a1a');
   // the sky dragon
@@ -532,6 +548,7 @@ function worldDojo() {
 }
 
 function buildWorld(kind) {
+  POI_CLEAR = makePoiClear(kind);
   if (kind === 'dojo') return worldDojo();
   return [worldBamboo, worldSnow, worldCastle, worldVolcano][kind]();
 }

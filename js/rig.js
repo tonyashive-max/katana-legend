@@ -66,8 +66,26 @@ function bladeShape(L, w, c) {
   s.quadraticCurveTo(-w / 2 - c * 0.35, L * 0.55, -w / 2, 0);
   return s;
 }
+function buildClub(def) {
+  const g = new THREE.Group();
+  const items = [
+    P(GEO.cyl(.02, .022, .28, 8), def.wrap, [0, -.14, 0]),
+    P(GEO.cyl(.032, .032, .03, 8), def.tsuba, [0, 0, 0]),
+    P(GEO.cyl(.085, .045, .92, 8, 4), def.blade, [0, .48, 0]),
+    P(GEO.cyl(.09, .09, .04, 8), def.edge, [0, .9, 0]),
+  ];
+  for (let i = 0; i < 6; i++) for (let k = 0; k < 6; k++) {
+    const a = k / 6 * Math.PI * 2 + i * .5, y = .2 + i * .13, r = .05 + i * .006;
+    items.push(P(GEO.cone(.016, .05, 5), def.edge, [Math.cos(a) * r, y, Math.sin(a) * r], [0, -a, Math.PI / 2, 'YXZ']));
+  }
+  const geo = merge(items), mat = toon({ vertexColors: true });
+  const mesh = new THREE.Mesh(geo, mat); mesh.castShadow = true; mesh.add(new THREE.Mesh(geo, outlineMat(.005)));
+  g.add(mesh); g.userData.len = .95; g.userData.mat = mat;
+  return g;
+}
 function buildSword(def, opt) {
   opt = opt || {};
+  if (def.club) return buildClub(def);
   const g = new THREE.Group();
   const L = def.id === 'rusty' ? .58 : .78, w = def.wood ? .036 : .033, c = def.wood ? .02 : .036;
   const bladeCol = new COL(def.blade), edgeCol = new COL(def.edge), spine = shadeHex(def.blade, -.35);
@@ -132,7 +150,7 @@ class Samurai {
     this.seq = []; this.hold = { p: new V3(), q: new Q4(), k: 10 };
     this.gp = new V3().fromArray(POSES.guard.p); this.gq = poseQuat(POSES.guard);
     this.hold.p.copy(this.gp); this.hold.q.copy(this.gq);
-    this.koT = -1; this.fp = false; this.swordDropped = false;
+    this.koT = -1; this.fp = false; this.swordDropped = false; this.wingFlare = 0;
     this.sh = { L: new V3(.25, .34, 0), R: new V3(-.25, .34, 0) };
     this.jE = { L: new V3(), R: new V3() }; this.jH = { L: new V3(), R: new V3() };
     this.jK = { L: new V3(), R: new V3() }; this.jA = { L: new V3(), R: new V3() };
@@ -295,9 +313,18 @@ class Samurai {
         items.push(P(GEO.box(.026, .14, .01), hc, [.03, -.02, -.125], [.6, 0, .25]));
         items.push(P(GEO.box(.026, .12, .01), hc, [-.02, -.03, -.125], [.7, 0, -.2]));
         break;
+      case 'tengu':
+        items.push(P(GEO.cone(.045, .26, 8), hc, [0, .0, .21], [Math.PI / 2 - .12, 0, 0]));
+        items.push(P(GEO.cyl(.05, .07, .07, 6), '#141418', [0, .13, .06], [-.3, 0, 0]));
+        for (const sg of [-1, 1]) items.push(P(GEO.box(.05, .02, .02), '#141418', [sg * .045, .06, .11], [0, 0, sg * .25]));
+        items.push(P(GEO.sph(.125, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), '#e8e2d6', [0, .01, -.02], null, [1.05, 1, 1.1]));
+        break;
       default: break;
     }
+    if (L.crest && L.helm !== 'kabuto') this.crest(items, L.crest, cc);
+    if (L.crest === 'oni' && L.skin) for (const sg of [-1, 1]) items.push(P(GEO.cone(.014, .05, 5), '#f2ead8', [sg * .04, -.06, .1], [Math.PI, 0, 0]));
     if (items.length) this.helmMesh = this.mk(merge(items), H);
+    if (L.wings) this.buildWings(L.wings);
   }
   crest(items, type, cc) {
     const ex = (shape, d) => new THREE.ExtrudeGeometry(shape, { depth: d || .012, bevelEnabled: false, curveSegments: 10 });
@@ -322,8 +349,24 @@ class Samurai {
         items.push(P(GEO.cone(.018, .15, 5), cc, [sg * .06, .17, .1], [.3, 0, -sg * .3]));
       }
       items.push(P(GEO.cyl(.035, .035, .014, 16), '#e7e0ff', [0, .08, .14], [Math.PI / 2, 0, 0]));
+    } else if (type === 'crystal') {
+      for (let i = 0; i < 7; i++) { const a = (i - 3) * .32, h = .12 + (3 - Math.abs(i - 3)) * .06; items.push(P(GEO.oct(1), cc, [Math.sin(a) * .11, .13 + h * .4, Math.cos(a) * .06], [0, a, 0], [.025, h, .025])); }
     } else if (type === 'oni') {
       for (const sg of [-1, 1]) items.push(P(GEO.cone(.032, .17, 6), cc, [sg * .075, .2, .03], [0, 0, -sg * .28]));
+    }
+  }
+  buildWings(col) {
+    this.wings = [];
+    const feather = new THREE.Shape();
+    feather.moveTo(0, 0); feather.quadraticCurveTo(.25, .15, .62, .32); feather.lineTo(.7, .2); feather.lineTo(.6, .12); feather.lineTo(.66, .02); feather.lineTo(.52, -.04);
+    feather.lineTo(.56, -.14); feather.lineTo(.4, -.16); feather.lineTo(.42, -.28); feather.lineTo(.26, -.22); feather.quadraticCurveTo(.1, -.12, 0, 0);
+    const wg = new THREE.ExtrudeGeometry(feather, { depth: .02, bevelEnabled: false, curveSegments: 6 });
+    const wm = toon({ color: col, side: THREE.DoubleSide });
+    for (const sg of [-1, 1]) {
+      const pivot = new THREE.Group(); pivot.position.set(sg * .1, .3, -.16); this.chest.add(pivot);
+      const m = new THREE.Mesh(wg, wm); m.scale.set(sg * 1.25, 1.25, 1); m.castShadow = true; pivot.add(m);
+      m.add(new THREE.Mesh(wg, outlineMat(.008)));
+      pivot.userData.sg = sg; this.wings.push(pivot);
     }
   }
   setFP(on) {
@@ -376,6 +419,7 @@ class Samurai {
       }
       pa.needsUpdate = true;
     }
+    if (this.wings) this.wings.forEach(w => { const sg = w.userData.sg; w.rotation.y = sg * (.5 + Math.sin(this.t * 3.2) * .35 + this.wingFlare); w.rotation.z = sg * .15; });
     if (this.scarf) this.scarf.forEach((s, i) => { s.rotation.x = .25 + Math.sin(this.t * 5 - i * .9) * .25; s.rotation.y = Math.sin(this.t * 3.4 - i * .7) * .3; });
     // KO fall
     if (this.koT >= 0) {
@@ -439,14 +483,15 @@ class Samurai {
   worldParts() {
     this.root.updateMatrixWorld(true);
     const c = this.chest, r = this.root, w = v => v.clone().applyMatrix4(c.matrixWorld), wr = v => v.clone().applyMatrix4(r.matrixWorld);
+    const k = this.root.scale.x;
     const out = {
-      head: { a: this.head.getWorldPosition(new V3()), r: .17 },
-      torso: { a: wr(new V3(0, this.hipsY - .05, 0)), b: w(new V3(0, .38, 0)), r: .25 },
-      armL: this.det.armL ? null : [{ a: w(this.sh.L), b: w(this.jE.L), r: .09 }, { a: w(this.jE.L), b: w(this.jH.L), r: .085 }],
-      armR: this.det.armR ? null : [{ a: w(this.sh.R), b: w(this.jE.R), r: .09 }, { a: w(this.jE.R), b: w(this.jH.R), r: .085 }],
+      head: { a: this.head.getWorldPosition(new V3()), r: .17 * k },
+      torso: { a: wr(new V3(0, this.hipsY - .05, 0)), b: w(new V3(0, .38, 0)), r: .25 * k },
+      armL: this.det.armL ? null : [{ a: w(this.sh.L), b: w(this.jE.L), r: .09 * k }, { a: w(this.jE.L), b: w(this.jH.L), r: .085 * k }],
+      armR: this.det.armR ? null : [{ a: w(this.sh.R), b: w(this.jE.R), r: .09 * k }, { a: w(this.jE.R), b: w(this.jH.R), r: .085 * k }],
       legs: this.det.legs ? null : ['L', 'R'].flatMap(s => {
         const sg = s === 'L' ? 1 : -1; const hip = wr(new V3(this.hips.position.x + sg * .11, this.hips.position.y - .04, 0));
-        return [{ a: hip, b: wr(this.jK[s]), r: .15 }, { a: wr(this.jK[s]), b: wr(this.jA[s]), r: .15 }];
+        return [{ a: hip, b: wr(this.jK[s]), r: .15 * k }, { a: wr(this.jK[s]), b: wr(this.jA[s]), r: .15 * k }];
       }),
     };
     return out;
