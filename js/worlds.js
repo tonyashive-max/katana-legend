@@ -227,6 +227,7 @@ function worldBamboo() {
   const stalks = [], leaves = [];
   const greens = ['#7bc043', '#5e9e34', '#8fd14f', '#4f8f2c', '#a4c65a'];
   const groves = [[-9, 6, 40], [9, 9, 40], [-7, 22, 34], [8, 24, 34], [0, 34, 40], [-14, -4, 30], [14, -6, 30], [-4, -14, 24], [5, -15, 24]];
+  scatter(14, 17, 38, 101).forEach(([x, z]) => groves.push([x, z, 16]));
   groves.forEach(([gx, gz, n], gi) => {
     const rr = mulberry(gi * 13 + 5);
     for (let i = 0; i < n; i++) {
@@ -240,7 +241,8 @@ function worldBamboo() {
   });
   W.scene.add(inst(stalk, toon({ vertexColors: true }), stalks, true));
   W.scene.add(inst(GEO.ico(1, 0), toon({ flatShading: true }), leaves, false));
-  addCherryTrees(W, [[-6, 12, .5], [6.5, 14, .8], [-12, 18, .3], [12, 2, .6], [-11, -10, .7], [10, -11, .4], [3, 26, .9]], ['#ffb7d0', '#ff9ec4', '#ffd0e0', '#ff8fbf']);
+  addCherryTrees(W, [[-6, 12, .5], [6.5, 14, .8], [-12, 18, .3], [12, 2, .6], [-11, -10, .7], [10, -11, .4], [3, 26, .9]].concat(scatter(12, 15, 38, 103)), ['#ffb7d0', '#ff9ec4', '#ffd0e0', '#ff8fbf']);
+  W.scene.add(inst(GEO.dodec(1), toon({ color: '#8a8478', flatShading: true }), scatter(45, 9, 38, 105, laneClear).map(([x, z, k]) => { obs(W, x, z, .4 + k * .9); return { p: [x, W.hAt(x, z), z], r: [k * 3, k * 5, 0], s: [.4 + k * 1.1, .3 + k * .7, .4 + k * 1] }; }), true));
   // village houses
   const house = merge([
     P(GEO.box(4, 2.2, 3), '#eadfc6', [0, 1.1, 0]),
@@ -445,6 +447,9 @@ function worldVolcano() {
   W.scene.add(inst(pillar, toon({ vertexColors: true, flatShading: true }), pillars, true));
   W.scene.add(inst(GEO.dodec(1), toon({ color: '#2a1e1c', flatShading: true }), scatter(60, 7, 50, 61, laneClear).map(([x, z, k]) => { obs(W, x, z, .5 + k * 1.6); return { p: [x, W.hAt(x, z), z], r: [k * 3, k * 4, 0], s: [.5 + k * 2, .4 + k * 1.4, .5 + k * 1.8] }; }), true));
   addClouds(W, { color: '#5a1a12', n: 14, opacity: .7, y0: 40 });
+  const dead = merge([P(GEO.cyl(.08, .18, 2.6, 6), '#2a1a14', [0, 1.3, 0]), P(GEO.cyl(.04, .08, 1.3, 5), '#2a1a14', [.35, 2.2, 0], [0, 0, -.9]), P(GEO.cyl(.04, .07, 1.1, 5), '#2a1a14', [-.3, 1.8, .1], [.2, 0, .8])]);
+  W.scene.add(inst(dead, toon({ vertexColors: true }), scatter(32, 10, 40, 107, laneClear).map(([x, z, k]) => { obs(W, x, z, .35); return { p: [x, W.hAt(x, z), z], r: [0, k * 6, rnd(-.1, .1)], s: .8 + k * .7 }; }), true));
+  W.scene.add(inst(GEO.cone(1, 1, 5), toon({ color: '#1e1424', flatShading: true }), scatter(40, 9, 40, 109, laneClear).map(([x, z, k]) => { obs(W, x, z, .3 + k * .5); return { p: [x, W.hAt(x, z) + .5 * (1 + k * 2), z], r: [rnd(-.2, .2), k * 4, rnd(-.2, .2)], s: [.3 + k * .6, 1 + k * 2, .3 + k * .6] }; }), true));
   brazier(W, -4.2, 5.5, '#ff6a1a'); brazier(W, 4.2, 5.5, '#ff6a1a'); brazier(W, -4.2, -3.6, '#ff6a1a'); brazier(W, 4.2, -3.6, '#ff6a1a');
   // the sky dragon
   const N = 36;
