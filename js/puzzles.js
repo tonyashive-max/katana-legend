@@ -140,6 +140,7 @@ function pzMoon() {
     $('#pzEnds').style.setProperty('--sr', startR); $('#pzEnds').style.setProperty('--er', endR);
     return L;
   };
+  for (let g = 0; g < 8 && lit().done; g++) { const [pr, pc] = path[Math.min(1, path.length - 1)]; rot[pr * N + pc] = (rot[pr * N + pc] + 1) % 4; }
   pzShell('The Moon Path', 'Tap tiles to turn them. Guide the moonlight from the moon on the left to the gate on the right.',
     `<div class="moon-wrap" id="pzEnds"><span class="moon-icon">●</span><div class="moon-grid" id="pzGrid"></div><span class="gate-icon">⛩</span></div>`);
   draw();

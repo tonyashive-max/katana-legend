@@ -84,7 +84,7 @@ function startBattle(st, ctx) {
       E.root.scale.setScalar(st.scale || 1);
     }
     E.root.rotation.order = 'YXZ'; P.root.rotation.order = 'YXZ';
-    const dist = st.dragon ? 4.5 : DIST * (1 + ((st.scale || 1) - 1) * .8);
+    const dist = st.dragon ? 5.6 : DIST * (1 + ((st.scale || 1) - 1) * .8);
     E.root.position.set(0, 0, dist); E.root.rotation.y = Math.PI;
     W.scene.add(P.root, E.root, P.trail.mesh, E.trail.mesh);
     const lm = st.hp;
@@ -202,7 +202,7 @@ function aiUpdate(dt) {
   F.lunge = Math.max(0, F.lunge - dt * 2.6);
   F.kb = Math.max(0, F.kb - dt * 1.2);
   if (!F.over || F.outcome !== 'win') {
-    E.root.position.set(F.ex, 0, F.dist - easeOut(F.lunge) * .5 * (st.scale || 1) + F.kb);
+    E.root.position.set(F.ex, 0, F.dist - easeOut(F.lunge) * .5 * (st.dragon ? 2.4 : st.scale || 1) + F.kb);
     E.root.rotation.y = Math.atan2(F.P.root.position.x - E.root.position.x, F.P.root.position.z - E.root.position.z);
   }
   F.P.root.rotation.y = Math.atan2(E.root.position.x - F.P.root.position.x, E.root.position.z - F.P.root.position.z);

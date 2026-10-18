@@ -2,7 +2,7 @@
 /* ===== Ryujin, the Sky Dragon: a boss that speaks the same language as a Samurai rig ===== */
 
 const DRAGON_POSES = {
-  guard:   { head: [0, 2.6, .9], jaw: .12, L: [.95, .55, 1.25], R: [-.95, .55, 1.25], atk: 'head' },
+  guard:   { head: [0, 2.9, .9], jaw: .12, L: [.95, .55, 1.25], R: [-.95, .55, 1.25], atk: 'head' },
   windH:   { head: [0, 3.5, -.3], jaw: .7, L: [1, .6, 1], R: [-1, .6, 1], atk: 'head' },
   endH:    { head: [0, 1.45, 2.7], jaw: .05, L: [1, .5, 1.4], R: [-1, .5, 1.4], atk: 'head' },
   windR:   { head: [.4, 2.8, .5], jaw: .3, L: [.95, .55, 1.2], R: [-1.45, 2.3, .4], atk: 'R' },
@@ -22,7 +22,7 @@ class DragonBoss {
   constructor(spec) {
     this.look = spec.look || { aura: '#ffb03a' };
     this.swordDef = swordDef('ryujin');
-    this.root = new THREE.Group(); this.root.rotation.order = 'YXZ';
+    this.root = new THREE.Group(); this.root.rotation.order = 'YXZ'; this.root.scale.setScalar(1.35);
     this.det = {}; this.flash = 0; this.jolt = 0; this.t = 0; this.koT = -1; this.seq = []; this.swordDropped = false;
     this.mats = [];
     const mk = (geo, parent, col, outline) => {
@@ -63,7 +63,8 @@ class DragonBoss {
       P(GEO.box(.9, .6, 1.2), red, [0, 0, .2]),
       P(GEO.box(.7, .38, .9), red, [0, -.05, .95]),
       P(GEO.box(.74, .12, .9), gold, [0, -.2, .95]),
-      P(GEO.sph(.12, 8, 6), '#1a0806', [.2, .05, 1.38]), P(GEO.sph(.12, 8, 6), '#1a0806', [-.2, .05, 1.38]),
+      P(GEO.sph(.05, 6, 4), '#5a0a06', [.18, .08, 1.4]), P(GEO.sph(.05, 6, 4), '#5a0a06', [-.18, .08, 1.4]),
+      P(GEO.box(.95, .12, .25), '#7a120a', [0, .28, .72]),
       P(GEO.box(1.0, .14, .5), gold, [0, .32, -.1]),
       ...[-.3, 0, .3].map(x => P(GEO.cone(.08, .45, 4), gold, [x, .45, -.35], [-.9, 0, 0])),
       P(GEO.box(.05, .05, 1.6), '#ffd27a', [.45, -.15, 1.6], [0, .45, 0]),
@@ -74,7 +75,7 @@ class DragonBoss {
       P(GEO.box(.62, .16, 1.0), gold, [0, -.05, .5]),
       ...[-.2, -.07, .07, .2].map(x => P(GEO.cone(.035, .12, 4), '#fff6e0', [x, .07, .9], [0, 0, 0])),
     ]), this.jaw, body);
-    for (const sx of [-1, 1]) { const e = halo('#fff27a', .6, 1); e.position.set(sx * .3, .14, .7); this.head.add(e); const eb = new THREE.Mesh(GEO.box(.16, .06, .05), new THREE.MeshBasicMaterial({ color: '#fff27a', fog: false })); eb.position.set(sx * .3, .14, .8); this.head.add(eb); }
+    for (const sx of [-1, 1]) { const e = halo('#fff27a', 1.1, 1); e.position.set(sx * .34, .18, .74); this.head.add(e); const eb = new THREE.Mesh(GEO.box(.26, .1, .06), new THREE.MeshBasicMaterial({ color: '#fff6a0', fog: false })); eb.position.set(sx * .34, .18, .82); eb.rotation.z = sx * .25; this.head.add(eb); }
     this.mouth = new THREE.Object3D(); this.mouth.position.set(0, -.15, 1.45); this.head.add(this.mouth);
     // horns (the "helmet")
     this.helm = new THREE.Group(); this.head.add(this.helm);
@@ -193,13 +194,13 @@ class DragonBoss {
   }
   worldParts() {
     this.root.updateMatrixWorld(true);
-    const w = v => v.clone().applyMatrix4(this.root.matrixWorld);
-    const arm = s => this.det['arm' + s] ? null : [{ a: w(this.arm[s].sh), b: w(this.arm[s].el), r: .26 }, { a: w(this.arm[s].el), b: w(this.arm[s].hand), r: .24 }];
+    const w = v => v.clone().applyMatrix4(this.root.matrixWorld), k = this.root.scale.x;
+    const arm = s => this.det['arm' + s] ? null : [{ a: w(this.arm[s].sh), b: w(this.arm[s].el), r: .26 * k }, { a: w(this.arm[s].el), b: w(this.arm[s].hand), r: .24 * k }];
     return {
-      head: { a: this.head.getWorldPosition(new V3()), r: .6 },
-      torso: { a: w(this.spine[1]), b: this.chest.getWorldPosition(new V3()), r: .6 },
+      head: { a: this.head.getWorldPosition(new V3()), r: .6 * k },
+      torso: { a: w(this.spine[1]), b: this.chest.getWorldPosition(new V3()), r: .6 * k },
       armL: arm('L'), armR: arm('R'),
-      legs: this.det.legs ? null : [{ a: this.tailSegs[0].getWorldPosition(new V3()), b: this.tailFin.getWorldPosition(new V3()), r: .3 }],
+      legs: this.det.legs ? null : [{ a: this.tailSegs[0].getWorldPosition(new V3()), b: this.tailFin.getWorldPosition(new V3()), r: .3 * k }],
     };
   }
   partCenter(part) {
