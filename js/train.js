@@ -262,7 +262,7 @@ const TrainMode = {
     const P = T.P; P.root.updateMatrixWorld(true);
     const look = new V3(0, 1.25, 2.6);
     let pos;
-    if (T.view === 'fp') pos = P.chest.localToWorld(new V3(0, .46, -.12));
+    if (T.view === 'fp') pos = P.hips.localToWorld(new V3(0, .68, -.12));
     else pos = P.root.localToWorld(new V3(-.72, 2.05, -2.15));
     T.camPos.lerp(pos, damp(14, dt)); T.camLook.lerp(look, damp(14, dt));
     CAM.position.copy(T.camPos); CAM.lookAt(T.camLook);

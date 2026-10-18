@@ -357,7 +357,7 @@ const VsMode = {
     if (VS.online && !VS.over) {
       const P = A.rig; P.root.updateMatrixWorld(true); B.rig.root.updateMatrixWorld(true);
       const eChest = B.rig.chest.localToWorld(new V3(0, .18, 0));
-      if (VS.view === 'fp') { pos = P.chest.localToWorld(new V3(0, .46, -.12)); fov = 70; }
+      if (VS.view === 'fp') { pos = P.hips.localToWorld(new V3(0, .68, -.12)); fov = 70; }
       else { pos = P.root.localToWorld(new V3(-.72, 2.05, -2.15)); fov = 55; }
       look = VS.view === 'fp' ? eChest : P.chest.getWorldPosition(new V3()).lerp(eChest, .72);
     } else {
