@@ -113,6 +113,29 @@ function scatter(n, r0, r1, seed, avoid) {
 /* lane between the fighters and behind the player camera stays clear */
 const laneClear = (x, z) => (Math.abs(x) < 3.2 && z > -9 && z < 9);
 
+/* ---- ground cover & sky dressing ---- */
+function addGrass(W, o) {
+  const blade = (rot, h, lean) => P(GEO.cone(.035, h, 4), o.base, [Math.sin(rot) * .05, h / 2, Math.cos(rot) * .05], [lean * Math.cos(rot), rot, lean * Math.sin(rot) * -1], null,
+    (x, y) => new COL(o.base).lerp(new COL(o.tip), clamp((y + h / 2) / h, 0, 1)));
+  const g = merge([blade(0, .42, .25), blade(2.1, .34, .3), blade(4.2, .38, .2), blade(1.2, .3, .35), blade(3.3, .36, .28)]);
+  const list = scatter(o.n || 1400, o.r0 || 5.2, o.r1 || 32, o.seed || 77, o.avoid).map(([x, z, k]) => ({ p: [x, W.hAt(x, z), z], r: [0, k * 6, 0], s: .7 + k * .9, c: pick(o.tints || ['#ffffff']) }));
+  W.scene.add(inst(g, toon({ vertexColors: true }), list));
+  if (o.flowers) {
+    const fl = scatter(o.flowers, (o.r0 || 5.2) + .3, o.r1 || 28, (o.seed || 77) + 5, o.avoid).map(([x, z, k]) => ({ p: [x, W.hAt(x, z) + .32, z], s: .05 + k * .03, c: pick(o.flowerCols || ['#ffffff', '#ffe27a', '#ff9ec4']) }));
+    W.scene.add(inst(GEO.ico(1, 0), new THREE.MeshBasicMaterial({ color: '#ffffff' }), fl));
+  }
+}
+function addClouds(W, o) {
+  const rr = mulberry(o.seed || 41), list = [];
+  for (let i = 0; i < (o.n || 14); i++) {
+    const a = (o.a0 == null ? -1.4 : o.a0) + rr() * ((o.a1 == null ? 1.4 : o.a1) - (o.a0 == null ? -1.4 : o.a0)), R = 180 + rr() * 120;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.cloud, color: o.color, transparent: true, opacity: o.opacity || .8, depthWrite: false, fog: false }));
+    sp.position.set(Math.sin(a) * R, (o.y0 || 35) + rr() * (o.y1 || 45), Math.cos(a) * R); sp.scale.set(90 + rr() * 110, 45 + rr() * 40, 1);
+    sp.userData.v = (rr() - .5) * .02; sp.renderOrder = -5; W.scene.add(sp); list.push(sp);
+  }
+  W.updaters.push(dt => list.forEach(sp => { const a = Math.atan2(sp.position.x, sp.position.z) + sp.userData.v * dt, R = Math.hypot(sp.position.x, sp.position.z); sp.position.x = Math.sin(a) * R; sp.position.z = Math.cos(a) * R; }));
+}
+
 /* ---- shared props ---- */
 function stoneLanternGeo(stone) {
   return merge([
@@ -218,6 +241,8 @@ function worldBamboo() {
   const torii = new THREE.Mesh(toriiGeo('#d7372b', '#1c1416'), toon({ vertexColors: true })); torii.position.set(0, 0, 17); torii.scale.setScalar(1.25); torii.castShadow = true; W.scene.add(torii);
   addLanterns(W, [[-3.6, 6.2], [3.6, 6.2], [-6, 1], [6, 1], [-3.8, -4.5], [3.8, -4.5]], '#9a9488', '#ffcf7a');
   addRays(W, '#ffd2a0', 6, 22);
+  addGrass(W, { base: '#3f6a22', tip: '#b8d84a', tints: ['#ffffff', '#e8ffd0', '#fff2c0'], n: 1600, flowers: 240, flowerCols: ['#ffffff', '#ffd6e8', '#ffe27a', '#ff9ec4'] });
+  addClouds(W, { color: '#ffb59a', n: 16, opacity: .85 });
   // floating petals & sun motes
   W.ambient.push(new Ambient({ n: 420, tex: TEX.petal, color: '#ffb7d0', color2: '#ff8fbf', size: .085, cx: 0, cy: 4, cz: 2, ax: 12, ay: 4.5, az: 12, sway: .7, vel: r => [.4 + r() * .5, -.5 - r() * .4, -.1 + r() * .2] }));
   W.ambient.push(new Ambient({ n: 70, tex: TEX.glow, color: '#ffd9a0', size: .06, alpha: .7, blending: THREE.AdditiveBlending, cx: 0, cy: 2.5, cz: 2, ax: 6, ay: 2.5, az: 6, sway: .2, twinkle: 1.3, vel: r => [r() * .1, r() * .06, r() * .1], seed: 8 }));
@@ -250,6 +275,8 @@ function worldSnow() {
   W.scene.add(inst(GEO.oct(1), crystalMat, crystals, false));
   scatter(10, 6, 18, 51, laneClear).forEach(([x, z]) => { const h = halo('#7fe0ff', 2.2, .35); h.position.set(x, W.hAt(x, z) + .8, z); W.scene.add(h); });
   addLanterns(W, [[-3.6, 6.2], [3.6, 6.2], [-6, -1], [6, -1]], '#7a8496', '#ffb860');
+  addClouds(W, { color: '#8fa6d6', n: 10, opacity: .55, y0: 45 });
+  W.scene.add(inst(GEO.sph(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), toon({ color: '#f2f7fd' }), scatter(70, 5.3, 30, 91, laneClear).map(([x, z, k]) => ({ p: [x, W.hAt(x, z) - .05, z], s: [.6 + k * 1.4, .25 + k * .4, .6 + k * 1.2] }))));
   const torii = new THREE.Mesh(toriiGeo('#c4302a', '#141418'), toon({ vertexColors: true })); torii.position.set(0, 0, 18); torii.castShadow = true; W.scene.add(torii);
   // aurora ribbons
   const auroraMat = new THREE.ShaderMaterial({
@@ -334,6 +361,7 @@ function worldCastle() {
     }
   }
   W.updaters.push((dt, t) => lanterns.forEach((l, i) => { l.rotation.z = Math.sin(t * 1.3 + i) * .08; l.rotation.x = Math.cos(t * 1.1 + i * .7) * .06; }));
+  addClouds(W, { color: '#4a2a6a', n: 12, opacity: .6, y0: 40 });
   brazier(W, -4, 5, '#ff8a2a'); brazier(W, 4, 5, '#ff8a2a'); brazier(W, -4, -3.5, '#ff8a2a'); brazier(W, 4, -3.5, '#ff8a2a');
   W.ambient.push(new Ambient({ n: 140, tex: TEX.glow, color: '#d8ff7a', color2: '#ffe27a', size: .09, alpha: 1, blending: THREE.AdditiveBlending, cx: 0, cy: 2, cz: 4, ax: 12, ay: 2, az: 12, sway: .5, twinkle: 2.2, vel: r => [(r() - .5) * .3, (r() - .5) * .15, (r() - .5) * .3], seed: 17 }));
   W.ambient.push(new Ambient({ n: 160, tex: TEX.petal, color: '#ff4a2a', color2: '#ffa02a', size: .1, cx: 0, cy: 4, cz: 2, ax: 12, ay: 4, az: 12, sway: .8, vel: r => [.3 + r() * .4, -.6 - r() * .4, (r() - .5) * .2], seed: 19 }));
@@ -400,6 +428,7 @@ function worldVolcano() {
   [[-7, 4], [7, 4], [-7, -3], [7, -3], [-9, 10], [9, 10]].forEach(([x, z], i) => pillars.push({ p: [x, W.hAt(x, z), z], r: [0, i, 0], s: [1, 2 + (i % 3) * 1.6, 1] }));
   W.scene.add(inst(pillar, toon({ vertexColors: true, flatShading: true }), pillars, true));
   W.scene.add(inst(GEO.dodec(1), toon({ color: '#2a1e1c', flatShading: true }), scatter(60, 7, 50, 61, laneClear).map(([x, z, k]) => ({ p: [x, W.hAt(x, z), z], r: [k * 3, k * 4, 0], s: [.5 + k * 2, .4 + k * 1.4, .5 + k * 1.8] })), true));
+  addClouds(W, { color: '#5a1a12', n: 14, opacity: .7, y0: 40 });
   brazier(W, -4.2, 5.5, '#ff6a1a'); brazier(W, 4.2, 5.5, '#ff6a1a'); brazier(W, -4.2, -3.6, '#ff6a1a'); brazier(W, 4.2, -3.6, '#ff6a1a');
   // the sky dragon
   const N = 36;
@@ -455,6 +484,8 @@ function worldDojo() {
   addMountains(W, { base: '#6a4a7a', top: '#b06a7a', snow: '#ffd8c8', snowLine: .82, r0: 70, r1: 140, h0: 20, h1: 45, a0: -1, a1: 1 });
   addCherryTrees(W, [[-5, 13, .9], [6, 15, .6], [0, 20, 1], [-10, 18, .5], [11, 19, .7]], ['#ffb7d0', '#ff9ec4', '#ffd0e0']);
   addLanterns(W, [[-3, 11], [3, 11]], '#9a9488', '#ffcf7a');
+  addGrass(W, { base: '#3f6a22', tip: '#b8d84a', n: 900, r0: 8, r1: 30, avoid: (x, z) => z < 7.5, flowers: 120 });
+  addClouds(W, { color: '#ffb59a', n: 10, opacity: .8, a0: -1, a1: 1 });
   const wood = '#7a4f2e', woodD = '#4a2e1a', paper = '#fff0d0';
   // floor planks
   const planks = [];

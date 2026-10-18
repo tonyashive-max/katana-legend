@@ -192,6 +192,14 @@ function makeTextures() {
     const v = x.createLinearGradient(0, 0, 0, s); v.addColorStop(0, 'rgba(0,0,0,1)'); v.addColorStop(1, 'rgba(0,0,0,0)');
     x.fillStyle = v; x.fillRect(0, 0, s, s);
   });
+  TEX.cloud = ctex(128, (x, s) => {
+    const rr = mulberry(21);
+    for (let i = 0; i < 22; i++) {
+      const px = s * (.18 + rr() * .64), py = s * (.42 + rr() * .2) - Math.sin((px / s) * Math.PI) * s * .14, r = s * (.1 + rr() * .14);
+      const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.fillRect(0, 0, s, s);
+    }
+  });
   TEX.ring = ctex(128, (x, s) => { x.strokeStyle = '#fff'; x.lineWidth = 10; x.beginPath(); x.arc(s / 2, s / 2, s / 2 - 10, 0, Math.PI * 2); x.stroke(); });
 }
 function halo(color, size, opacity) {

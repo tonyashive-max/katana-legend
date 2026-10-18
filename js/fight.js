@@ -226,7 +226,7 @@ function playerLoseLimb(limb) {
 /* ---------- player attacks ---------- */
 function slashPoses(ux, uy) {
   const v = new V3(-ux, -uy, 0).normalize();
-  const C = new V3(-.02, .1, .4);
+  const C = new V3(-.02, .2, .4);
   const p0 = C.clone().addScaledVector(v, -.42); p0.z -= .08;
   const p1 = C.clone().addScaledVector(v, .42); p1.z += .06;
   const d0 = v.clone().multiplyScalar(-.9).add(new V3(0, .18, .35)).normalize();

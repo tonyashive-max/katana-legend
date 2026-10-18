@@ -475,7 +475,7 @@ function boot() {
     curTab = 'dojo';
     enterHub(true);
     renderTop();
-    requestAnimationFrame(t => { lastT = t; requestAnimationFrame(frame); setTimeout(() => { $('#loading').hidden = true; }, 250); });
+    requestAnimationFrame(frame); setTimeout(() => { $('#loading').hidden = true; }, 400);
   } catch (e) {
     console.error(e);
     bootError('This device could not start 3D graphics (' + e.message + '). Try a newer browser.');

@@ -35,7 +35,7 @@ function bezier3(a, c, b, t, out) { const u = 1 - t; return out.set(u * u * a.x 
    p = grip point, d = blade direction, e = which way the cutting edge faces. */
 const POSES = {
   guard:   { p: [-0.04, -0.12, 0.34], d: [0.06, 0.75, 0.66], e: [0, -1, 0.3] },
-  fpGuard: { p: [-0.2, 0.04, 0.42], d: [0.42, 0.78, 0.4], e: [0.3, -0.5, 0.8] },
+  fpGuard: { p: [-0.27, 0.02, 0.4], d: [0.12, 0.93, 0.32], e: [0.3, -0.3, 0.9] },
   rest:    { p: [-0.22, -0.36, 0.14], d: [-0.12, -0.45, 0.9], e: [0, -1, 0] },
   show:    { p: [-0.12, 0.48, 0.12], d: [0.05, 1, 0.08], e: [0, 0, 1] },
   windR:   { p: [-0.32, 0.22, 0.12], d: [-0.35, 0.8, -0.45], e: [0.6, 0, 0.8] },
