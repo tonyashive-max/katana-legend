@@ -454,8 +454,8 @@ function fightCamera(dt) {
   } else if (F.view === 'fp') {
     pos = P.hips.localToWorld(new V3(0, .68, -.12)); look = eChest; fov = 70; k = F.camK;
   } else {
-    pos = P.root.localToWorld(new V3(-.72, 2.05, -2.15));
-    look = P.chest.getWorldPosition(new V3()).lerp(eChest, .72); fov = 55; k = F.camK;
+    pos = P.root.localToWorld(new V3(-1.0, 2.15, -2.05));
+    look = P.chest.getWorldPosition(new V3()).lerp(eChest, .8); fov = 55; k = F.camK;
   }
   F.camK = Math.min(30, F.camK + dt * 14);
   F.camPos.lerp(pos, damp(k, dt)); F.camLook.lerp(look, damp(k, dt));

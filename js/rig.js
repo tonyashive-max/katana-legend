@@ -153,10 +153,10 @@ class Samurai {
     };
     /* hips: obi + armored skirt plates */
     this.hips = new THREE.Group(); this.hips.position.y = .92; this.root.add(this.hips);
-    const hi = [P(GEO.cyl(.19, .2, .08, 16), tr, [0, .02, 0]), P(GEO.cyl(.18, .215, .14, 16), cl, [0, -.07, 0])];
+    const hi = [P(GEO.cyl(.2, .205, .08, 16), tr, [0, .02, 0], null, [1, 1, .68]), P(GEO.cyl(.19, .225, .14, 16), cl, [0, -.07, 0], null, [1, 1, .72])];
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-      hi.push(P(GEO.box(.16, .25, .028, 1, 7, 1), ar, [Math.sin(a) * .21, -.16, Math.cos(a) * .21], [-.24, a, 0, 'YXZ'], null, lam(.125, -.125, .036, arC, arD, -.1)));
+      hi.push(P(GEO.box(.16, .25, .028, 1, 7, 1), ar, [Math.sin(a) * .22, -.16, Math.cos(a) * .16], [-.24, a, 0, 'YXZ'], null, lam(.125, -.125, .036, arC, arD, -.1)));
     }
     this.hipsMesh = this.mk(merge(hi), this.hips);
     /* chest */
@@ -331,7 +331,7 @@ class Samurai {
     const vis = !on;
     this.head.visible = vis; this.chestMesh.visible = vis; this.hipsMesh.visible = vis;
     this.sode.L.visible = vis; this.sode.R.visible = vis;
-    for (const s of ['L', 'R']) { this.th[s].visible = vis && !this.det.legs; this.sn[s].visible = vis && !this.det.legs; this.ft[s].visible = vis && !this.det.legs; this.caps[s].visible = vis && !!this.det['arm' + s]; }
+    for (const s of ['L', 'R']) { if (!this.det['arm' + s]) this.up[s].visible = vis; this.th[s].visible = vis && !this.det.legs; this.sn[s].visible = vis && !this.det.legs; this.ft[s].visible = vis && !this.det.legs; this.caps[s].visible = vis && !!this.det['arm' + s]; }
     if (this.banner) this.banner.visible = vis;
     if (this.scarf) this.scarf[0].visible = vis;
     this.hipCaps.visible = vis && !!this.det.legs;
@@ -365,7 +365,7 @@ class Samurai {
     }
     this.solveAll(dt);
     // flash
-    if (this.flash > 0) { this.flash = Math.max(0, this.flash - dt * 5); this.mat.emissive.setRGB(this.flash * .55, this.flash * .45, this.flash * .3); }
+    if (this.flash > 0) { this.flash = Math.max(0, this.flash - dt * 7); this.mat.emissive.setRGB(this.flash * .32, this.flash * .26, this.flash * .18); }
     else if (this.mat.emissive.r !== 0) this.mat.emissive.setScalar(0);
     // cloth motion
     if (this.banner) {

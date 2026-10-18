@@ -266,7 +266,7 @@ const TrainMode = {
     const look = new V3(0, 1.25, 2.6);
     let pos;
     if (T.view === 'fp') pos = P.hips.localToWorld(new V3(0, .68, -.12));
-    else pos = P.root.localToWorld(new V3(-.72, 2.05, -2.15));
+    else pos = P.root.localToWorld(new V3(-1.0, 2.15, -2.05));
     T.camPos.lerp(pos, damp(14, dt)); T.camLook.lerp(look, damp(14, dt));
     CAM.position.copy(T.camPos); CAM.lookAt(T.camLook);
     CAM.fov = lerp(CAM.fov, T.view === 'fp' ? 70 : 55, damp(8, dt)); CAM.updateProjectionMatrix(); FX.setScale();

@@ -358,8 +358,8 @@ const VsMode = {
       const P = A.rig; P.root.updateMatrixWorld(true); B.rig.root.updateMatrixWorld(true);
       const eChest = B.rig.chest.localToWorld(new V3(0, .18, 0));
       if (VS.view === 'fp') { pos = P.hips.localToWorld(new V3(0, .68, -.12)); fov = 70; }
-      else { pos = P.root.localToWorld(new V3(-.72, 2.05, -2.15)); fov = 55; }
-      look = VS.view === 'fp' ? eChest : P.chest.getWorldPosition(new V3()).lerp(eChest, .72);
+      else { pos = P.root.localToWorld(new V3(-1.0, 2.15, -2.05)); fov = 55; }
+      look = VS.view === 'fp' ? eChest : P.chest.getWorldPosition(new V3()).lerp(eChest, .8);
     } else {
       const asp = VW / VH, d = 4.4 * Math.max(1, 1.3 / asp);
       const a = VS.over ? -Math.PI / 2 + Math.sin(VS.endT * .4) * .5 : -Math.PI / 2;
