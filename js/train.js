@@ -60,7 +60,10 @@ const BambooGame = {
     if (T.spawn <= 0 && T.t < T.dur - .5) { T.spawn = Math.max(.32, .78 - T.t / 70); this.spawn(); if (T.t > 12 && Math.random() < .35) this.spawn(); }
     for (const s of T.items) {
       s.age += dt;
-      if (s.cut) continue;
+      if (s.cut) {
+        if (s.cutT != null && s.m.visible) { s.cutT += dt; if (s.cutT > .6) { s.m.position.y -= dt * 2.5; if (s.m.position.y < -s.h) s.m.visible = false; } }
+        continue;
+      }
       const rise = easeOut(clamp(s.age / .25, 0, 1)), sink = s.age > s.life ? clamp((s.age - s.life) / .3, 0, 1) : 0;
       s.m.position.y = -s.h * (1 - rise) - s.h * sink;
       if (sink >= 1) { s.cut = true; s.m.visible = false; }
@@ -77,7 +80,7 @@ const BambooGame = {
       const hit = seg2(x0, y0, x1, y1, a.x, a.y, b.x, b.y);
       if (!hit) continue;
       const cutY = lerp(base.y, top.y, hit.u);
-      s.cut = true;
+      s.cut = true; s.cutT = 0;
       if (s.stone) {
         T.score = Math.max(0, T.score - 2); sfx.clang(1.2); shake(.05); FX.sparks(new V3(s.x, cutY, s.z), '#ffd27a', 20, 4);
         tPop('-2 STONE!', (x0 + x1) / 2, (y0 + y1) / 2, { size: 30, color: '#ff8a7a' });
@@ -290,11 +293,12 @@ function finishTraining() {
   const ups = addSkillXP(key, xp); S.gold += gold; save();
   sfx.win(); banner('Training complete!');
   hint('');
-  const s = S.sk[key], need = skillNeed(s.l);
+  const s = S.sk[key], need = skillNeed(s.l), summ = G.summary(), myT = T;
   setTimeout(() => {
+    if (T !== myT) return;
     openOverlay(`<div class="modal">
       <div class="kicker">${ups ? 'Level up!' : 'Well done!'}</div>
-      <p>${G.summary()}.</p>
+      <p>${summ}.</p>
       <div class="panel" style="text-align:left">
         <div class="skill"><div class="glyph">${SKILLS[key].g}</div><div><div class="nm">${SKILLS[key].n} <small>+${xp} XP</small></div><div class="bar"><i style="width:${s.l >= 30 ? 100 : Math.round(s.x / need * 100)}%"></i></div></div><div class="lvl">Lv ${s.l}</div></div>
       </div>

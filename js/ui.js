@@ -445,8 +445,8 @@ function perfCheck(raw) {
   PERF.acc += raw; PERF.n++;
   if (PERF.acc > 4) {
     const fps = PERF.n / PERF.acc; PERF.acc = 0; PERF.n = 0; PERF.checks++;
-    if (fps < 40 && (QUALITY.autoPr || 1.5) > 1.01) { QUALITY.autoPr = Math.max(1, (QUALITY.autoPr || 1.5) - .25); applyQuality(); }
-    else if (fps < 30 && QUALITY.autoShadows !== false) { QUALITY.autoShadows = false; applyQuality(); if (CURWORLD && CURWORLD.key) CURWORLD.key.castShadow = false; }
+    if (fps < 34 && (QUALITY.autoPr || 1.5) > 1.01) { QUALITY.autoPr = Math.max(1, (QUALITY.autoPr || 1.5) - .25); applyQuality(); }
+    else if (fps < 22 && QUALITY.autoShadows !== false) { QUALITY.autoShadows = false; applyQuality(); if (CURWORLD && CURWORLD.key) CURWORLD.key.castShadow = false; }
   }
 }
 function frame(now) {
