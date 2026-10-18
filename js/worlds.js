@@ -7,9 +7,9 @@ function newWorld(kind) {
   return { kind, scene, ambient: [], updaters: [], hAt: () => 0, rays: [] };
 }
 function addLights(W, o) {
-  const h = new THREE.HemisphereLight(o.sky, o.ground, o.hemi);
+  const h = new THREE.HemisphereLight(o.sky, o.ground, o.hemi * .72);
   W.scene.add(h);
-  const k = new THREE.DirectionalLight(o.key, o.keyI);
+  const k = new THREE.DirectionalLight(o.key, o.keyI * .8);
   k.position.copy(o.keyDir).normalize().multiplyScalar(22).add(new V3(0, 0, 1.3));
   k.target.position.set(0, 0, 1.3);
   k.castShadow = QUALITY.shadows;
@@ -17,7 +17,7 @@ function addLights(W, o) {
   const sc = k.shadow.camera; sc.left = -6; sc.right = 6; sc.top = 6; sc.bottom = -6; sc.near = 2; sc.far = 50;
   k.shadow.bias = -0.0006; k.shadow.normalBias = 0.02;
   W.scene.add(k, k.target);
-  const r = new THREE.DirectionalLight(o.rim, o.rimI);
+  const r = new THREE.DirectionalLight(o.rim, o.rimI * .6);
   r.position.copy(o.rimDir).normalize().multiplyScalar(20);
   W.scene.add(r);
   W.key = k; W.rim = r; W.hemi = h;
@@ -179,7 +179,7 @@ function brazier(W, x, z, flameCol) {
 function worldBamboo() {
   const W = newWorld(0);
   const sun = new V3(.18, .1, 1);
-  addSky(W, { top: '#2c2160', mid: '#ff9566', bot: '#ffcf8a', sunDir: sun, sunCol: '#ffd9a0', sunSize: 120, fog: '#f0a07e', fogNear: 22, fogFar: 140, haze: .7 });
+  addSky(W, { top: '#2c2160', mid: '#ff9566', bot: '#ffcf8a', sunDir: sun, sunCol: '#ffd9a0', sunDeg: 5.5, fog: '#f0a07e', fogNear: 22, fogFar: 140, haze: .7 });
   addLights(W, { sky: '#ffd6b0', ground: '#4a3a5a', hemi: .75, key: '#ffe2c0', keyI: .95, keyDir: new V3(-.6, 1, -.4), rim: '#ff8a4a', rimI: 1.1, rimDir: new V3(.1, .5, 1) });
   addGround(W, { a: '#6f8a3c', b: '#8a9a48', c: '#c08a6a', clear: 7, hill: 2.5, flat: true });
   addArena(W, { a: '#e3cfa6', b: '#cdb487', rings: 10, stone: '#8a8478' });
@@ -228,7 +228,7 @@ function worldBamboo() {
 function worldSnow() {
   const W = newWorld(1);
   const moon = new V3(-.35, .42, 1);
-  addSky(W, { top: '#0a1534', mid: '#5f84bf', bot: '#c2d6f0', sunDir: moon, sunCol: '#e8f2ff', sunSize: 70, fog: '#9fb8d8', fogNear: 18, fogFar: 120, stars: true, haze: .3 });
+  addSky(W, { top: '#0a1534', mid: '#5f84bf', bot: '#c2d6f0', sunDir: moon, sunCol: '#e8f2ff', sunDeg: 3, fog: '#9fb8d8', fogNear: 18, fogFar: 120, stars: true, haze: .3 });
   addLights(W, { sky: '#b8d4ff', ground: '#4a5a7a', hemi: .8, key: '#e6f0ff', keyI: .85, keyDir: new V3(-.5, 1, .6), rim: '#7fd8ff', rimI: 1.0, rimDir: new V3(.2, .6, 1) });
   addGround(W, { a: '#e9f1fa', b: '#cddcef', c: '#b8c9e6', clear: 7, hill: 3.2, flat: true });
   addArena(W, { a: '#d3e6f6', b: '#a9c8e6', rings: 8, stone: '#5d6b80' });
@@ -273,7 +273,7 @@ function worldSnow() {
 function worldCastle() {
   const W = newWorld(2);
   const moon = new V3(-.4, .32, 1);
-  addSky(W, { top: '#05030e', mid: '#3c1c62', bot: '#5b2a6c', sunDir: moon, sunCol: '#e3b8ff', sunSize: 45, fog: '#2b1842', fogNear: 14, fogFar: 95, stars: true, haze: .5 });
+  addSky(W, { top: '#05030e', mid: '#3c1c62', bot: '#5b2a6c', sunDir: moon, sunCol: '#e3b8ff', sunDeg: 7, fog: '#2b1842', fogNear: 14, fogFar: 95, stars: true, haze: .5 });
   addLights(W, { sky: '#9a7acc', ground: '#2a1a3a', hemi: .7, key: '#d6c2ff', keyI: .7, keyDir: new V3(-.5, 1, .8), rim: '#ff7a4a', rimI: .9, rimDir: new V3(.3, .4, -1) });
   addGround(W, { a: '#3a3446', b: '#2c2838', c: '#221d2c', clear: 9, hill: 1.5, pattern: (x, z, c, n) => { const k = (Math.floor(x / 1.6) + Math.floor(z / 1.6)) & 1; c.multiplyScalar(k ? 1.08 : .9); } });
   addArena(W, { a: '#5a5266', b: '#4a4356', rings: 6, glowRing: '#ffb347' });
@@ -373,7 +373,7 @@ function ribbon(points, width) {
 function worldVolcano() {
   const W = newWorld(3);
   const sun = new V3(-.25, .14, 1);
-  addSky(W, { top: '#1a0507', mid: '#c2331a', bot: '#ff8a3a', sunDir: sun, sunCol: '#ffb070', sunSize: 160, fog: '#6a2010', fogNear: 16, fogFar: 120, haze: .9 });
+  addSky(W, { top: '#1a0507', mid: '#c2331a', bot: '#ff8a3a', sunDir: sun, sunCol: '#ffb070', sunDeg: 7, fog: '#6a2010', fogNear: 16, fogFar: 120, haze: .9 });
   addLights(W, { sky: '#ff9a6a', ground: '#3a0e08', hemi: .75, key: '#ffd0a0', keyI: .8, keyDir: new V3(.6, 1, -.3), rim: '#ff5a1a', rimI: 1.3, rimDir: new V3(-.2, .3, 1) });
   addGround(W, { a: '#3a2a26', b: '#2a1e1c', c: '#4a221a', clear: 8, hill: 3, flat: true, pattern: (x, z, c, n) => { if (n > .66) c.lerp(new COL('#6a2a14'), (n - .66) * 2); } });
   addArena(W, { a: '#2a2026', b: '#1e171c', rings: 7, glowRing: '#ff7a1a' });
@@ -448,7 +448,7 @@ function scrollTex(text) {
 function worldDojo() {
   const W = newWorld('dojo');
   const sun = new V3(.15, .12, 1);
-  addSky(W, { top: '#3a2a6a', mid: '#ff9a6a', bot: '#ffd29a', sunDir: sun, sunCol: '#ffe0b0', sunSize: 110, fog: '#e8a080', fogNear: 30, fogFar: 160, haze: .7 });
+  addSky(W, { top: '#3a2a6a', mid: '#ff9a6a', bot: '#ffd29a', sunDir: sun, sunCol: '#ffe0b0', sunDeg: 5, fog: '#e8a080', fogNear: 30, fogFar: 160, haze: .7 });
   addLights(W, { sky: '#ffe2c0', ground: '#6a4a3a', hemi: .9, key: '#ffd8b0', keyI: .75, keyDir: new V3(.3, 1, 1), rim: '#ffb070', rimI: .8, rimDir: new V3(0, .4, 1) });
   // garden outside
   addGround(W, { a: '#7a9a44', b: '#5e8a3a', c: '#b08a6a', clear: 12, hill: 2, flat: true });

@@ -365,7 +365,7 @@ class Samurai {
     }
     this.solveAll(dt);
     // flash
-    if (this.flash > 0) { this.flash = Math.max(0, this.flash - dt * 5); this.mat.emissive.setScalar(this.flash * .85); }
+    if (this.flash > 0) { this.flash = Math.max(0, this.flash - dt * 5); this.mat.emissive.setRGB(this.flash * .55, this.flash * .45, this.flash * .3); }
     else if (this.mat.emissive.r !== 0) this.mat.emissive.setScalar(0);
     // cloth motion
     if (this.banner) {

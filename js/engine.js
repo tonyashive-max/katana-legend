@@ -69,7 +69,12 @@ function toonGrad() {
   t.minFilter = THREE.NearestFilter; t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
   return t;
 }
-function toon(o) { if (!GRAD) GRAD = toonGrad(); return new THREE.MeshToonMaterial(Object.assign({ gradientMap: GRAD }, o || {})); }
+function toon(o) {
+  if (!GRAD) GRAD = toonGrad();
+  o = o || {};
+  if (o.flatShading) return new THREE.MeshPhongMaterial(Object.assign({ shininess: 0, specular: 0x000000 }, o));
+  return new THREE.MeshToonMaterial(Object.assign({ gradientMap: GRAD }, o));
+}
 const _olCache = {};
 function outlineMat(th, color) {
   const key = th + ':' + (color || 0);
@@ -201,7 +206,7 @@ function makeSky(o) {
     side: THREE.BackSide, depthWrite: false, fog: false,
     uniforms: {
       top: { value: new COL(o.top) }, mid: { value: new COL(o.mid) }, bot: { value: new COL(o.bot) },
-      sunDir: { value: o.sunDir.clone().normalize() }, sunCol: { value: new COL(o.sunCol) }, sunSize: { value: o.sunSize || 900 },
+      sunDir: { value: o.sunDir.clone().normalize() }, sunCol: { value: new COL(o.sunCol) }, sunSize: { value: Math.cos((o.sunDeg || 4) * Math.PI / 180) },
       stars: { value: o.stars ? 1 : 0 }, time: { value: 0 }, haze: { value: o.haze == null ? .35 : o.haze },
     },
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -211,7 +216,8 @@ function makeSky(o) {
       'void main(){ float y = vP.y;',
       ' vec3 c = y > 0.0 ? mix(mid, top, pow(clamp(y * 1.25, 0.0, 1.0), 0.65)) : mix(mid, bot, clamp(-y * 4.0, 0.0, 1.0));',
       ' float s = max(dot(vP, sunDir), 0.0);',
-      ' c += sunCol * (smoothstep(1.0 - 1.0/sunSize*6.0, 1.0 - 1.0/sunSize*5.0, s) * 1.2 + pow(s, 28.0) * 0.45 + pow(s, 5.0) * haze * 0.4);',
+      ' c = mix(c, sunCol * 1.15, smoothstep(sunSize - 0.0012, sunSize + 0.0004, s));',
+      ' c += sunCol * (pow(s, 60.0) * 0.5 + pow(s, 8.0) * haze * 0.35);',
       ' if (stars > 0.5 && y > 0.04) { vec3 q = floor(vP * 210.0); float r = h(q); if (r > 0.9965) { float tw = 0.55 + 0.45 * sin(time * 2.5 + r * 300.0); c += vec3(tw) * smoothstep(0.04, 0.35, y) * (r - 0.9965) * 260.0; } }',
       ' gl_FragColor = vec4(c, 1.0); }',
     ].join('\n'),
