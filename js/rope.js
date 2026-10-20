@@ -8,7 +8,7 @@ const BIOMES = [
     sky: { top: '#2c2160', mid: '#ff9566', bot: '#ffcf8a', sunDir: [.18, .1, 1], sunCol: '#ffd9a0', sunDeg: 5.5, haze: .7, stars: 0 },
     fog: '#f0a07e', fogNear: 26, fogFar: 125,
     hemi: ['#ffd6b0', '#4a3a5a', .55], key: ['#ffe2c0', .76, [-.6, 1, -.4]], rim: ['#ff8a4a', .66, [.1, .5, 1]],
-    g: { a: '#6f8a3c', b: '#8a9a48', path: '#c9a874', bead: '#cdbb9c', rock: '#7a6a5a', rockAmt: .55, wall: 3.4, slope: .32 } },
+    g: { a: '#6f8a3c', b: '#8a9a48', path: '#c9a874', bead: '#bdb6a6', rock: '#7a6a5a', rockAmt: .55, wall: 3.4, slope: .32 } },
   { name: 'Frozen Pass',
     sky: { top: '#0a1534', mid: '#5f84bf', bot: '#c2d6f0', sunDir: [-.35, .42, 1], sunCol: '#e8f2ff', sunDeg: 3, haze: .3, stars: 1 },
     fog: '#9fb8d8', fogNear: 22, fogFar: 115,
@@ -701,7 +701,7 @@ function buildTerrain(W) {
 const _sv = new V3(), _sv2 = new V3();
 /* per-land colour grade for the post pass: warm sunset, crisp snow (less bloom on white), moody castle, hot volcano */
 const LAND_GRADE = [
-  { bloom: .9, th: .6, sat: 1.14, con: 1.05, vig: .3, tint: [1.03, 1, .96] },
+  { bloom: .9, th: .6, sat: 1.07, con: 1.06, vig: .3, tint: [1.01, 1, .98] },
   { bloom: .55, th: .78, sat: 1.08, con: 1.06, vig: .28, tint: [.97, 1, 1.04] },
   { bloom: 1.1, th: .5, sat: 1.18, con: 1.08, vig: .42, tint: [1, .97, 1.05] },
   { bloom: 1.05, th: .55, sat: 1.15, con: 1.07, vig: .38, tint: [1.05, .98, .94] },
