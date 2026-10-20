@@ -343,12 +343,19 @@ function worldCastle() {
   for (let k = 0; k < 18; k++) wins.push({ p: [rnd(-4, 4), castle.position.y + rnd(6, 16), 46 - 4.3], s: [rnd(.4, .7), rnd(.5, .8), .2] });
   W.scene.add(inst(GEO.box(1, 1, 1), glowify(new THREE.MeshBasicMaterial({ color: '#ffb35a', fog: false })), wins));
   // courtyard walls
-  const seg = merge([
-    P(GEO.box(4.2, 1.1, .9), stone, [0, .55, 0]),
+  // plaster walls with dark timber posts, a beam, slatted windows and a fitted-stone base
+  const segItems = [
+    P(GEO.box(4.2, 1.1, .9, 6, 2, 1), stone, [0, .55, 0], null, null, (x, y) => ((Math.floor(x * 1.4 + (y > 0 ? .5 : 0)) & 1) ? shadeHex(stone, .08) : shadeHex(stone, -.1))),
     P(GEO.box(4, 2, .5), wall, [0, 2.1, 0]),
+    P(GEO.box(4.1, .2, .58), '#2a1e22', [0, 3.0, 0]),
+    P(GEO.box(4.1, .14, .58), '#2a1e22', [0, 1.2, 0]),
     P(GEO.box(4.6, .3, 1.3), roof, [0, 3.2, 0]),
     P(GEO.box(4.4, .25, .9), roof, [0, 3.45, 0]),
-  ]);
+    P(GEO.box(4.8, .12, 1.45), shadeHex(roof, .25), [0, 3.05, 0]),
+  ];
+  for (const x of [-1.95, -.98, 0, .98, 1.95]) segItems.push(P(GEO.box(.16, 1.9, .58), '#2a1e22', [x, 2.1, 0]));
+  for (const x of [-1.47, 1.47]) { segItems.push(P(GEO.box(.6, .42, .54), '#2a1e22', [x, 2.25, 0])); for (const k of [-.18, -.06, .06, .18]) segItems.push(P(GEO.box(.05, .34, .58), '#8a7a6a', [x + k, 2.25, 0])); }
+  const seg = merge(segItems);
   const walls = [];
   for (let i = -9; i <= 9; i++) { const a = i * .17; const R = 19; if (Math.abs(i) < 1) continue; walls.push({ p: [Math.sin(a) * R, 0, Math.cos(a) * R], r: [0, a, 0] }); obs(W, Math.sin(a) * R, Math.cos(a) * R, 2.1); }
   for (let i = -6; i <= 6; i++) { const a = Math.PI + i * .2; walls.push({ p: [Math.sin(a) * 17, 0, Math.cos(a) * 17], r: [0, a, 0] }); obs(W, Math.sin(a) * 17, Math.cos(a) * 17, 2.1); }
@@ -428,7 +435,7 @@ function worldVolcano() {
   const W = newWorld(3);
   const sun = new V3(-.25, .14, 1);
   addSky(W, { top: '#1a0507', mid: '#c2331a', bot: '#ff8a3a', sunDir: sun, sunCol: '#ffb070', sunDeg: 7, fog: '#6a2010', fogNear: 16, fogFar: 120, haze: .9 });
-  addLights(W, { sky: '#ff9a6a', ground: '#3a0e08', hemi: .75, key: '#ffd0a0', keyI: .8, keyDir: new V3(.6, 1, -.3), rim: '#ff5a1a', rimI: 1.3, rimDir: new V3(-.2, .3, 1) });
+  addLights(W, { sky: '#d88a7a', ground: '#4a1208', hemi: .7, key: '#ffd8b0', keyI: .9, keyDir: new V3(.6, 1, -.3), rim: '#7a8cff', rimI: .85, rimDir: new V3(-.2, .3, 1) });
   addGround(W, { a: '#3a2a26', b: '#2a1e1c', c: '#4a221a', clear: 8, hill: 3, flat: true, pattern: (x, z, c, n) => { if (n > .66) c.lerp(new COL('#6a2a14'), (n - .66) * 2); } });
   addArena(W, { a: '#2a2026', b: '#1e171c', rings: 7, glowRing: '#ff7a1a' });
   addMountains(W, { base: '#2a1210', top: '#5a1e14', snow: '#ff7a3a', snowLine: .96, r0: 80, r1: 160, h0: 25, h1: 55 });

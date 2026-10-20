@@ -22,7 +22,7 @@ const BIOMES = [
   { name: 'Dragon Peak',
     sky: { top: '#1a0507', mid: '#c2331a', bot: '#ff8a3a', sunDir: [-.25, .14, 1], sunCol: '#ffb070', sunDeg: 7, haze: .9, stars: 0 },
     fog: '#6a2010', fogNear: 20, fogFar: 115,
-    hemi: ['#ff9a6a', '#3a0e08', .55], key: ['#ffd0a0', .64, [.6, 1, -.3]], rim: ['#ff5a1a', .78, [-.2, .3, 1]],
+    hemi: ['#d88a7a', '#4a1208', .52], key: ['#ffd8b0', .7, [.6, 1, -.3]], rim: ['#7a8cff', .5, [-.2, .3, 1]],
     g: { a: '#3a2a26', b: '#2a1e1c', path: '#4a3a36', bead: '#2a2026', rock: '#1e1416', rockAmt: .7, wall: 4.6, slope: .4, cracks: 1 } },
 ];
 
@@ -704,7 +704,7 @@ const LAND_GRADE = [
   { bloom: .9, th: .6, sat: 1.07, con: 1.06, vig: .3, tint: [1.01, 1, .98] },
   { bloom: .55, th: .78, sat: 1.08, con: 1.06, vig: .28, tint: [.97, 1, 1.04] },
   { bloom: 1.1, th: .5, sat: 1.18, con: 1.08, vig: .42, tint: [1, .97, 1.05] },
-  { bloom: 1.05, th: .55, sat: 1.15, con: 1.07, vig: .38, tint: [1.05, .98, .94] },
+  { bloom: 1.05, th: .55, sat: 1.06, con: 1.1, vig: .38, tint: [1, .98, 1.02] },
 ];
 function updateRopeWorld(W, px, pz, s) {
   const w = landWeights(s), A = BIOMES[w.a], B = BIOMES[w.b], t = w.t, U = W.sky.material.uniforms;
