@@ -237,9 +237,9 @@ function makeSky(o) {
 
 /* ---------- particles ---------- */
 const PV = 'attribute float size; attribute vec4 col; varying vec4 vC; uniform float scale; void main(){ vC = col; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = size * scale / max(0.05, -mv.z); gl_Position = projectionMatrix * mv; }';
-const PF = 'uniform sampler2D map; varying vec4 vC; void main(){ vec4 t = texture2D(map, gl_PointCoord); float a = vC.a * t.a; if (a < 0.01) discard; gl_FragColor = vec4(vC.rgb * t.rgb, a); }';
+const PF = 'uniform sampler2D map; uniform float fade; varying vec4 vC; void main(){ vec4 t = texture2D(map, gl_PointCoord); float a = vC.a * t.a * fade; if (a < 0.01) discard; gl_FragColor = vec4(vC.rgb * t.rgb, a); }';
 function pointsMat(tex, blending) {
-  return new THREE.ShaderMaterial({ uniforms: { map: { value: tex }, scale: { value: 500 } }, vertexShader: PV, fragmentShader: PF, transparent: true, depthWrite: false, blending, fog: false });
+  return new THREE.ShaderMaterial({ uniforms: { map: { value: tex }, scale: { value: 500 }, fade: { value: 1 } }, vertexShader: PV, fragmentShader: PF, transparent: true, depthWrite: false, blending, fog: false });
 }
 class PSys {
   constructor(n, tex, blending) {
@@ -558,6 +558,12 @@ const sfx = {
   special() { [392, 523, 659, 784, 1047, 1568].forEach((f, i) => setTimeout(() => AUD.tone(f, .45, .1, 'sawtooth'), i * 45)); sfx.whoosh(); },
   forge() { sfx.clang(.9); setTimeout(() => sfx.clang(.7), 160); setTimeout(() => { AUD.noise(.5, 1200, .5, .2, 'highpass'); }, 320); },
   ui() { AUD.tone(720, .06, .06, 'triangle'); },
+  draw() { const f = AUD.noise(.28, 3200, 1.4, .3, 'bandpass'); if (f && AUD.ctx) f.frequency.exponentialRampToValueAtTime(9000, AUD.ctx.currentTime + .25); AUD.tone(2600, .35, .05, 'sine', 1.6); },
+  sheathe() { const f = AUD.noise(.3, 5000, 1.2, .16, 'bandpass'); if (f && AUD.ctx) f.frequency.exponentialRampToValueAtTime(1800, AUD.ctx.currentTime + .28); setTimeout(() => { AUD.tone(1900, .12, .14, 'square', .7); AUD.noise(.05, 3000, 2, .3, 'highpass'); }, 280); },
+  bell() { [1046, 1568, 2093].forEach((f, i) => AUD.tone(f, 1.4 - i * .3, .12 - i * .03, 'sine', 1, AUD.ctx ? AUD.ctx.currentTime + i * .01 : 0, null, .002)); },
+  ghost() { if (!AUD.ctx) return; const t = AUD.ctx.currentTime; [220, 233, 330].forEach((f, i) => AUD.tone(f, 1.6, .06, 'sine', 1.5 + i * .1, t + i * .12, null, .3)); AUD.noise(1.2, 900, .4, .08, 'bandpass'); },
+  banish() { [880, 1320, 1760, 2640].forEach((f, i) => setTimeout(() => AUD.tone(f, .6, .1, 'sine', 1.2), i * 60)); AUD.noise(.5, 6000, .8, .2, 'highpass'); },
+  laugh() { [0, 1, 2, 3].forEach(i => setTimeout(() => AUD.tone(260 - i * 20, .14, .12, 'sawtooth', .8), i * 150)); },
 };
 
 /* Procedural music: koto plucks on a pentatonic scale over taiko drums. */
@@ -600,7 +606,7 @@ const MUSIC = {
 /* ---------- active world ---------- */
 let CURWORLD = null;
 function disposeWorld(w) {
-  if (!w) return;
+  if (!w || w.keep) return;
   w.scene.traverse(o => {
     if (o.geometry) o.geometry.dispose();
     if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map && !Object.values(TEX).includes(m.map)) m.map.dispose(); if (!Object.values(_olCache).includes(m)) m.dispose(); }); }

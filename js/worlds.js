@@ -10,8 +10,9 @@ function newWorld(kind) {
 function obs(W, x, z, r) { W.obs.push({ x, z, r }); }
 const clearOK = (x, z) => !(POI_CLEAR && POI_CLEAR(x, z));
 function makePoiClear(kind) {
-  const L = typeof kind === 'number' ? LANDS[kind] : null;
-  if (!L) return null;
+  return null;
+  /* eslint-disable no-unreachable */
+  const L = null;
   const big = [L.spawn, L.shrine, L.gate].concat(L.warriors), small = L.orbs;
   return (x, z) => big.some(([px, pz]) => (x - px) * (x - px) + (z - pz) * (z - pz) < 4.4 * 4.4) || small.some(([px, pz]) => (x - px) * (x - px) + (z - pz) * (z - pz) < 2.2 * 2.2);
 }

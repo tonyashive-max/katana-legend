@@ -71,6 +71,7 @@ function hexRGB(h) { const c = new COL(h); return `${Math.round(c.r * 255)},${Ma
 function startFight(idx, from) { startBattle(STAGES[idx], { kind: 'stage', idx, ch: STAGES[idx].ch, from: from || 'hub' }); }
 function startMyth(ch, from) { startBattle(MYTHS[ch], { kind: 'myth', idx: ch, ch, from: from || 'hub' }); }
 function startBattle(st, ctx) {
+  if (!isArmed()) { toast('You have no blade! Equip one at the Dojo first.'); return; }
   transition(() => {
     clearSceneActors();
     const W = buildWorld(st.ch); activateWorld(W);
@@ -84,6 +85,7 @@ function startBattle(st, ctx) {
       E.root.scale.setScalar(st.scale || 1);
     }
     E.root.rotation.order = 'YXZ'; P.root.rotation.order = 'YXZ';
+    P.setSheathed(true); if (E.hasSaya) E.setSheathed(true);
     const dist = st.dragon ? 5.6 : DIST * (1 + ((st.scale || 1) - 1) * .8);
     E.root.position.set(0, 0, dist); E.root.rotation.y = Math.PI;
     W.scene.add(P.root, E.root, P.trail.mesh, E.trail.mesh);
@@ -100,6 +102,7 @@ function startBattle(st, ctx) {
       combo: 0, comboT: 0, parries: 0, lostLimb: false, special: null, trophy: null, atkMul: 1, legsPenalty: 1,
       ex: 0, lunge: 0, kb: 0, returnT: 0, camPos: new V3(), camLook: new V3(), camK: 30, blockPose: null,
       tutorial: S.wins < 3, hintMsg: '', hintT: 0,
+      drawn: false, drawnAt: -1, signaled: false, sigT: 0, signalAt: 0, enemyDrawAt: Infinity, enemyDrawn: false, firstStrike: false, iaiUntil: 0, iaiDone: false, leaf: null,
     };
     P.setFP(F.view === 'fp');
     P.setHold(guardPose(), 10);
@@ -212,6 +215,7 @@ function toIdle() { F.E.setHold('guard', 8); toState('idle', rnd(.5, 1.2) * clam
 /* ---------- enemy hits player ---------- */
 function enemyHitsPlayer() {
   if (F.over) return;
+  if (!F.drawn) setTimeout(() => { if (F && !F.drawn && !F.over) { playerDraw(true); } }, 350);
   const st = F.st, P = F.P, E = F.E;
   const limb = F.fury && st.dragon ? pick(['armL', 'armR', 'head']) : THREAT_LIMB[F.dir];
   let d = st.dmg * rnd(.9, 1.1) * (E.det.armR ? .6 : 1) * (E.det.legs ? .85 : 1);
@@ -271,6 +275,17 @@ function ringInfo(rig, f) {
 function fightHint(msg) { F.hintMsg = msg; F.hintT = 3; }
 function fightSlash(x0, y0, x1, y1) {
   if (!F || F.state === 'intro' || F.over || F.special) return;
+  if (!F.drawn || F.clock - F.drawnAt < .1) return;
+  if (F.firstStrike && !F.iaiDone && F.clock < F.iaiUntil) {
+    const hit = hitTest(F.E, x0, y0, x1, y1);
+    if (hit) {
+      F.iaiDone = true; F.cdUntil = F.clock + .35;
+      banner('IAI STRIKE!', 'Draw and cut in one motion'); sfx.parry(); OV.flash = .4; OV.flashCol = '255,240,200'; slowmo(.35, .5);
+      damageEnemy(hit.part, F.ps.atk * F.atkMul * 2.2, true, hit.world, hit.sx, hit.sy);
+      F.spirit = Math.min(100, F.spirit + 15); addSkillXP('iai', 6); save();
+      return;
+    }
+  }
   if (F.clock < F.cdUntil) return;
   const tired = F.sta < F.ps.staCost;
   F.cdUntil = F.clock + F.ps.cd / 1000 * (F.P.det.armR ? 1.25 : 1) * (tired ? 1.6 : 1) * (F.frozenT > 0 ? 1.8 : 1);
@@ -446,18 +461,77 @@ function trophyUpdate(dt) {
   void ws;
 }
 
+/* ---------- the standoff: wait for the leaf, then draw ---------- */
+function startStandoff() {
+  F.state = 'standoff'; F.t = 0; F.signalAt = F.clock + rnd(1.5, 2.8); F.camK = 4;
+  const col = ['#ff8a3a', '#ffffff', '#ff4a2a', '#ffb03a'][F.st.ch];
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.petal, color: col, transparent: true, depthWrite: false })); sp.scale.setScalar(.22);
+  const h = halo(col, .9, .7); sp.add(h);
+  F.W.scene.add(sp);
+  F.leaf = { sp, y0: 2.9, t0: F.clock, T: F.signalAt - F.clock, x: rnd(-.3, .3) };
+  banner('Wait for it…', 'When the leaf touches the ground, DRAW!');
+  $('#hiltBtn').hidden = false; $('#blockBtn').hidden = true;
+  sfx.taiko(.6);
+}
+function enemyReact() { return clamp(.24 + F.st.tele / 1000 * .36, .38, .8) + F.ps.drawSlow; }
+function standoffUpdate(dt) {
+  F.t += dt;
+  const L = F.leaf;
+  if (L) {
+    const k = clamp((F.clock - L.t0) / L.T, 0, 1);
+    L.sp.position.set(L.x + Math.sin(F.clock * 3.1) * .32, lerp(L.y0, .06, k), F.dist * .5 + Math.cos(F.clock * 2.3) * .2);
+    L.sp.material.rotation = Math.sin(F.clock * 4) * .8;
+    if (k >= 1 && !F.signaled) {
+      F.signaled = true; F.sigT = F.clock; F.enemyDrawAt = F.clock + enemyReact(); F.camK = 60;
+      FX.puff(L.sp.position, 6, '#ffffff', .3); F.W.scene.remove(L.sp); F.leaf = null;
+      banner('DRAW!'); sfx.taiko(1.3); sfx.bell();
+    }
+  }
+  if (F.signaled && !F.enemyDrawn && F.clock >= F.enemyDrawAt) enemyDrawFirst(false);
+}
+function playerDraw(auto) {
+  if (!F || F.drawn || F.over || F.state === 'intro') return false;
+  const early = F.state === 'standoff' && !F.signaled;
+  F.P.drawSword({ to: ['endL', guardPose()], durs: [.14, .3], onOut: () => { if (F) F.returnT = .35; } });
+  sfx.draw(); F.drawn = true; F.drawnAt = F.clock;
+  $('#hiltBtn').hidden = true; $('#blockBtn').hidden = false;
+  if (auto) { banner('Too slow!', 'Draw faster next time'); return true; }
+  if (F.state === 'standoff') {
+    if (F.leaf) { F.W.scene.remove(F.leaf.sp); F.leaf = null; }
+    if (early) { banner('TOO EARLY!', 'Wait for the leaf to land'); F.signaled = true; F.camK = 60; enemyDrawFirst(true); }
+    else if (!F.enemyDrawn) {
+      const rt = F.clock - F.sigT;
+      F.firstStrike = true; F.iaiUntil = F.clock + .55; F.enemyDrawn = true;
+      banner('FIRST STRIKE!', `${rt.toFixed(2)} s`); F.spirit = Math.min(100, F.spirit + 12);
+      if (F.E.hasSaya && F.E.sheathed) F.E.drawSword({ to: 'stagger', reach: .2, slide: .3 }); else F.E.setHold('stagger', 8);
+      toState('stagger', 1.15);
+      addSkillXP('iai', 3); save();
+    }
+  }
+  return true;
+}
+function enemyDrawFirst(early) {
+  if (F.enemyDrawn) return;
+  F.enemyDrawn = true;
+  const go = () => { if (!F || F.over) return; windup(false); F.fury = false; F.tele = early ? .42 : .55; F.E.setHold('wind' + F.dir, 4.2 / F.tele); };
+  if (F.E.hasSaya && F.E.sheathed) F.E.drawSword({ to: 'guard', onOut: go });
+  else { F.E.setHold('show', 8); sfx.taiko(1); setTimeout(go, 120); }
+  if (!early && !F.drawn) { const s = toScreen(F.E.chest.getWorldPosition(new V3())); ovPop(s.x, s.y - 60, 'They drew first!', { size: 26, color: '#ff9a7a' }); }
+}
+
 /* ---------- per-frame ---------- */
 const FightMode = {
   name: 'fight',
+  drawStart() { return playerDraw(false); },
   update(dt) {
     const P = F.P, E = F.E;
     F.clock += dt;
     if (F.state === 'intro') {
       F.introT += dt;
-      const introLen = F.ctx.kind === 'myth' ? 3.6 : 2.8;
-      if (F.introT > introLen - .5 && !F.fightShown) { F.fightShown = true; banner('FIGHT!'); sfx.taiko(1.3); }
-      if (F.introT > introLen) { F.camK = 5; toIdle(); }
-    } else if (!F.over) aiUpdate(dt);
+      const introLen = F.ctx.kind === 'myth' ? 3.4 : 2.6;
+      if (F.introT > introLen) startStandoff();
+    } else if (F.state === 'standoff') standoffUpdate(dt);
+    else if (!F.over) aiUpdate(dt);
     if (F.over) {
       F.endT += dt;
       if (F.outcome === 'win') trophyUpdate(dt);
@@ -483,7 +557,8 @@ const FightMode = {
     $('#staMe').style.width = F.sta + '%';
     $('#staWrap').classList.toggle('low', F.sta < F.ps.staCost);
     // hints
-    if (F.hintT > 0) { F.hintT -= dt; hint(F.hintMsg); }
+    if (F.state === 'standoff') hint(F.signaled ? 'DRAW! Swipe from the gold hilt!' : 'Keep your finger ready on the gold hilt. Draw the moment the leaf lands!');
+    else if (F.hintT > 0) { F.hintT -= dt; hint(F.hintMsg); }
     else if (!F.over && F.state !== 'intro') {
       if (F.spirit >= 100) hint('Spirit is full! Tap SPIRIT STRIKE!');
       else if (F.state === 'windup' && F.fury) hint('Red ring! It cannot be parried. Hold BLOCK!');
@@ -526,6 +601,9 @@ function fightCamera(dt) {
     pos = new V3(c.x + Math.sin(a) * 2.6, 1.7, c.z + Math.cos(a) * 2.6); look = c; fov = 52; k = 3;
   } else if (F.over && F.outcome === 'lose') {
     pos = P.root.localToWorld(new V3(.9, .6 + Math.max(0, 1 - F.endT) * 1.2, -1.2)); look = eChest; fov = 55; k = 3;
+  } else if (F.state === 'standoff' && !F.signaled) {
+    const mid = F.dist / 2, side = Math.max(3.6, F.dist * 1.3);
+    pos = new V3(-side, 1.25 * Math.max(1, big * .8), mid); look = new V3(0, 1.0 * Math.max(1, big * .7), mid); fov = 50; k = F.camK;
   } else if (F.view === 'fp') {
     pos = P.hips.localToWorld(new V3(0, .68, -.2)); look = eChest; fov = big > 1.2 ? 76 : 70; k = F.camK;
   } else {

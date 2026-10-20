@@ -52,7 +52,12 @@ const POSES = {
   blockLow:{ p: [-0.22, -0.3, 0.36], d: [0.55, -0.78, 0.2], e: [0, 0, 1] },
   blockMid:{ p: [-0.18, 0.06, 0.36], d: [1, 0.3, 0.25], e: [0, 0, 1] },
   stagger: { p: [-0.1, -0.38, 0.2], d: [0.3, -0.8, 0.5], e: [0, -0.2, 1] },
+  chiburi: { p: [-0.34, 0.08, 0.32], d: [-0.5, 0.25, 0.83], e: [-0.2, -1, 0] },
+  chiburi2:{ p: [-0.42, -0.2, 0.3], d: [-0.62, -0.45, 0.64], e: [0, -1, -0.2] },
+  iaiHigh: { p: [-0.3, 0.3, 0.3], d: [-0.6, 0.6, 0.5], e: [0.3, 0.4, 0.86] },
 };
+const SLIDE_OUT = .45, SLIDE_IN = .55;
+const _m1 = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), _dv = new V3(), _dq = new Q4(), _ds = new V3();
 const _pv = new V3(), _pe = new V3();
 function poseQuat(P, out) { return quatFromDir(_pv.fromArray(P.d), _pe.fromArray(P.e), out); }
 
@@ -142,8 +147,14 @@ class Samurai {
     opt = opt || {};
     this.look = look; this.swordDef = sword; this.opt = opt;
     this.root = new THREE.Group();
-    this.mat = toon({ vertexColors: true }); this.mat.emissive = new COL(0x000000);
-    this.ol = outlineMat(.011);
+    this.ghost = !!opt.ghost;
+    if (this.ghost) {
+      this.mat = toon({ vertexColors: true, transparent: true, opacity: .5, depthWrite: false });
+      this.mat.emissive = new COL('#2a7cff'); this.baseEmissive = this.mat.emissive.clone();
+      this.ol = outlineMat(.014, '#bff4ff');
+    } else { this.mat = toon({ vertexColors: true }); this.mat.emissive = new COL(0x000000); this.ol = outlineMat(.011); }
+    this.sheathed = false; this.drawAnim = null; this.lFreeT = 0; this.armSwing = 0;
+    this.rCur = new V3(); this.lCur = new V3(); this.handInit = false;
     this.det = {}; this.flash = 0; this.t = Math.random() * 10;
     this.hipsY = .92; this.crouch = 0; this.leanAdd = 0; this.twistAdd = 0; this.sideLean = 0; this.jolt = 0; this.breath = 1;
     this.hipOff = new V3();
@@ -283,7 +294,109 @@ class Samurai {
     this.grip = new THREE.Group(); this.chest.add(this.grip);
     this.sword = buildSword(this.swordDef); this.grip.add(this.sword);
     this.trail = new Trail(this.swordDef.glow || '#ffffff');
+    this.hasSaya = !this.swordDef.club && !this.opt.noSaya;
+    if (this.hasSaya) this.buildSaya();
+    if (this.ghost) { this.ft.L.visible = this.ft.R.visible = false; if (this.saya) this.saya.visible = false; }
     this.solveAll(0);
+  }
+  buildSaya() {
+    const d = this.swordDef, len = this.sword.userData.len + .02;
+    this.sayaLen = len;
+    const lac = d.saya || '#17121c', lacL = shadeHex(lac, .12), trim = d.tsuba || '#8a6a2a';
+    this.saya = new THREE.Group();
+    this.saya.position.set(.17, .06, .12);
+    this.saya.quaternion.copy(quatFromDir(new V3(.45, -.3, -1), new V3(0, 1, 0)));
+    this.hips.add(this.saya);
+    const geo = merge([
+      P(GEO.cyl(.021, .017, len, 10, 10), lac, [0, len / 2, 0], null, [.62, 1, 1.08], (x, y) => (Math.floor((y + len / 2) * 6) % 2 ? lacL : new COL(lac))),
+      P(GEO.cyl(.024, .024, .03, 10), '#e8dcc8', [0, .015, 0], null, [.66, 1, 1.1]),
+      P(GEO.box(.012, .026, .022), lac, [0, .12, .032]),
+      P(GEO.cyl(.019, .014, .05, 10), trim, [0, len - .02, 0], null, [.66, 1, 1.05]),
+      P(GEO.box(.008, .16, .008), '#c0392b', [.004, .2, .05], [.35, 0, 0]),
+    ]);
+    const pa = geo.attributes.position.array;
+    for (let i = 0; i < pa.length; i += 3) pa[i + 2] -= .05 * Math.pow(Math.max(0, pa[i + 1]) / len, 2);
+    geo.computeBoundingSphere();
+    this.sayaMesh = this.mk(geo, this.saya, 'thin');
+  }
+  setSheathed(on) {
+    this.drawAnim = null;
+    if (!this.hasSaya || this.swordDropped) { this.sheathed = false; return; }
+    if (on) this.saya.add(this.sword); else this.grip.add(this.sword);
+    this.sword.position.set(0, 0, 0); this.sword.quaternion.identity();
+    this.sheathed = !!on; this.trail.reset();
+  }
+  /* Draw: right hand reaches for the hilt, the blade slides out, then flows into the given poses. */
+  drawSword(o) {
+    o = o || {};
+    if (this.drawAnim) return false;
+    if (!this.hasSaya || !this.sheathed) { if (o.onOut) o.onOut(); this.afterDraw(o); return false; }
+    this.drawAnim = { mode: 'draw', t: 0, reach: o.reach == null ? .08 : o.reach, slide: o.slide || .13, o };
+    this.seq.length = 0;
+    return true;
+  }
+  afterDraw(o) {
+    const to = o.to || 'guard', list = Array.isArray(to) ? to : [to], durs = o.durs || [];
+    this.seq.length = 0;
+    list.forEach((pz, i) => this.queue(pz, durs[i] || (i === 0 ? .14 : .3), { ease: i === 0 ? easeOut : null, arc: i === 0 ? .3 : .15, cb: i === list.length - 1 ? o.onDone : null }));
+  }
+  finishDraw() {
+    const o = this.drawAnim.o;
+    this.root.updateMatrixWorld(true);
+    _m1.copy(this.chest.matrixWorld).invert().multiply(this.sword.matrixWorld);
+    _m1.decompose(_dv, _dq, _ds);
+    this.grip.add(this.sword); this.sword.position.set(0, 0, 0); this.sword.quaternion.identity();
+    this.gp.copy(_dv); this.gq.copy(_dq); this.hold.p.copy(_dv); this.hold.q.copy(_dq);
+    this.grip.position.copy(_dv); this.grip.quaternion.copy(_dq);
+    this.sheathed = false; this.drawAnim = null; this.lFreeT = o.oneHand == null ? .3 : o.oneHand;
+    this.trail.boost = 1.2;
+    if (o.onOut) o.onOut();
+    this.afterDraw(o);
+  }
+  sayaEntryPose(off) {
+    this.root.updateMatrixWorld(true);
+    _m2.makeTranslation(0, -off, 0);
+    _m1.copy(this.chest.matrixWorld).invert().multiply(this.saya.matrixWorld).multiply(_m2);
+    _m1.decompose(_dv, _dq, _ds);
+    return { p: _dv.clone(), q: _dq.clone() };
+  }
+  /* Sheathe: optional chiburi flick, guide the blade to the scabbard mouth, slide it home. */
+  sheatheSword(o) {
+    o = o || {};
+    if (!this.hasSaya || this.swordDropped || this.sheathed) { if (o.onDone) o.onDone(); return; }
+    if (this.drawAnim) return;
+    const start = () => { this.drawAnim = { mode: 'approach', t: 0, dur: o.approach || .36, p0: this.gp.clone(), q0: this.gq.clone(), o }; this.seq.length = 0; };
+    if (o.chiburi) { this.seq.length = 0; this.queue('chiburi', .18, { ease: easeOut, arc: .08 }); this.queue('chiburi2', .13, { cb: start }); }
+    else start();
+  }
+  stepDraw(dt) {
+    const a = this.drawAnim; if (!a) return false;
+    a.t += dt;
+    if (a.mode === 'draw') {
+      const k = clamp((a.t - a.reach) / a.slide, 0, 1);
+      this.sword.position.set(0, -k * k * SLIDE_OUT, 0);
+      if (k >= 1) this.finishDraw();
+      return false;
+    }
+    if (a.mode === 'approach') {
+      const T = this.sayaEntryPose(SLIDE_IN), k = clamp(a.t / a.dur, 0, 1), e = ease(k);
+      const ctrl = a.p0.clone().lerp(T.p, .5).add(_t1.set(0, .08, .1));
+      bezier3(a.p0, ctrl, T.p, e, this.gp); this.gq.copy(a.q0).slerp(T.q, e);
+      this.hold.p.copy(this.gp); this.hold.q.copy(this.gq);
+      if (k >= 1) {
+        this.saya.add(this.sword); this.sword.quaternion.identity(); this.sword.position.set(0, -SLIDE_IN, 0);
+        a.mode = 'slide'; a.t = 0; a.dur = a.o.slide || .3;
+        if (a.o.onEnter) a.o.onEnter();
+      }
+      return true;
+    }
+    if (a.mode === 'slide') {
+      const k = clamp(a.t / a.dur, 0, 1);
+      this.sword.position.set(0, -(1 - easeOut(k)) * SLIDE_IN, 0);
+      if (k >= 1) { this.sword.position.set(0, 0, 0); this.sheathed = true; this.drawAnim = null; this.trail.reset(); if (a.o.onDone) a.o.onDone(); }
+      return false;
+    }
+    return false;
   }
   buildHelm() {
     const L = this.look, hc = L.helmCol || L.armor, cc = L.crestCol || L.trim, tr = L.trim;
@@ -393,7 +506,10 @@ class Samurai {
   /* --- per frame --- */
   update(dt) {
     this.t += dt;
-    if (this.seq.length) {
+    if (this.lFreeT > 0) this.lFreeT = Math.max(0, this.lFreeT - dt);
+    const driving = this.stepDraw(dt);
+    if (driving) { /* grip driven by the sheathing motion */ }
+    else if (this.seq.length) {
       const s = this.seq[0];
       if (!s.started) {
         s.started = true; s.p0 = this.gp.clone(); s.q0 = this.gq.clone(); s.t = 0;
@@ -409,6 +525,7 @@ class Samurai {
     this.solveAll(dt);
     // flash
     if (this.flash > 0) { this.flash = Math.max(0, this.flash - dt * 7); this.mat.emissive.setRGB(this.flash * .32, this.flash * .26, this.flash * .18); }
+    else if (this.ghost) this.mat.emissive.copy(this.baseEmissive);
     else if (this.mat.emissive.r !== 0) this.mat.emissive.setScalar(0);
     // cloth motion
     if (this.banner) {
@@ -443,8 +560,11 @@ class Samurai {
     const targetY = (legless ? .36 : .92) + this.crouch;
     this.hipsY = dt ? lerp(this.hipsY, targetY, damp(9, dt)) : targetY;
     this.hips.position.set(this.hipOff.x, this.hipsY + bob, this.hipOff.z);
-    const twistT = clamp(this.gp.x * 1.05, -.7, .7) + this.twistAdd;
-    const leanT = clamp((this.gp.z - .3) * .5, -.2, .35) + this.leanAdd;
+    const inSaya = this.hasSaya && (this.sheathed || (this.drawAnim && this.drawAnim.mode !== 'approach'));
+    const drawing = !!this.drawAnim;
+    let twistT, leanT;
+    if (inSaya || drawing) { twistT = this.twistAdd + (drawing ? .38 : 0); leanT = this.leanAdd + (drawing ? .16 : 0); }
+    else { twistT = clamp(this.gp.x * 1.05, -.7, .7) + this.twistAdd; leanT = clamp((this.gp.z - .3) * .5, -.2, .35) + this.leanAdd; }
     const kk = dt ? damp(10, dt) : 1;
     this.chest.rotation.y = lerp(this.chest.rotation.y, twistT, kk);
     this.chest.rotation.x = lerp(this.chest.rotation.x, leanT - this.jolt, kk);
@@ -455,13 +575,30 @@ class Samurai {
     this.grip.position.copy(this.gp); this.grip.quaternion.copy(this.gq);
     // arms
     const dir = _t4.set(0, 1, 0).applyQuaternion(this.gq);
-    const rT = new V3().copy(this.gp).addScaledVector(dir, -.06);
-    const lT = new V3().copy(this.gp).addScaledVector(dir, -.18);
+    let rT = new V3().copy(this.gp).addScaledVector(dir, -.06);
+    let lT = new V3().copy(this.gp).addScaledVector(dir, -.18);
+    if (this.hasSaya && !this.swordDropped && (inSaya || drawing || this.lFreeT > 0)) {
+      this.root.updateMatrixWorld(true);
+      const mouth = this.chest.worldToLocal(this.saya.localToWorld(new V3(0, .07, 0)));
+      lT = mouth;
+      if (inSaya) {
+        const hang = new V3(-.28, -.24 + Math.abs(this.armSwing) * .05, .05 + this.armSwing * .14);
+        if (drawing) {
+          const handle = this.chest.worldToLocal(this.sword.localToWorld(new V3(0, -.12, 0)));
+          const a = this.drawAnim, kk = a.mode === 'draw' ? ease(clamp(a.t / Math.max(.01, a.reach), 0, 1)) : 1;
+          rT = hang.lerp(handle, kk);
+        } else rT = hang;
+      }
+      const k = dt ? damp(inSaya && !drawing ? 12 : 40, dt) : 1;
+      if (!this.handInit) { this.rCur.copy(rT); this.lCur.copy(lT); this.handInit = true; }
+      this.rCur.lerp(rT, k); this.lCur.lerp(lT, dt ? damp(18, dt) : 1);
+      rT = this.rCur.clone(); lT = this.lCur.clone();
+    } else { this.rCur.copy(rT); this.lCur.copy(lT); this.handInit = true; }
     for (const s of ['L', 'R']) {
       if (this.det['arm' + s]) continue;
       let T;
       if (this.swordDropped) T = new V3(this.sh[s].x * 1.25, -.25, .12);
-      else T = s === 'R' ? rT : (this.det.armR ? rT : lT);
+      else T = s === 'R' ? rT : (this.det.armR && !inSaya ? rT : lT);
       const sg = s === 'L' ? 1 : -1;
       solve2(this.sh[s], T, .3, .29, _t3.set(sg * .75, -.55, -.35), this.jE[s], this.jH[s]);
       orientLimb(this.up[s], this.sh[s], this.jE[s], _t2.set(.25 * sg, .2, 1));

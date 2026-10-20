@@ -4,16 +4,20 @@
 let T = null;
 
 function startTraining(kind) {
+  if (!isArmed()) { toast('You have no blade! Equip one first.'); return; }
   transition(() => {
     clearSceneActors();
     const W = buildWorld('dojo'); activateWorld(W);
     const P = new Samurai(lookFromOutfit(outfitDef(S.outfit)), swordDef(eqSword().id), { player: true });
     P.root.rotation.order = 'YXZ'; W.scene.add(P.root, P.trail.mesh);
     T = { kind, W, P, t: 0, score: 0, done: false, view: S.view, camPos: new V3(), camLook: new V3(), returnT: 0, cdUntil: 0, started: false, delay: 1.7, items: [], pops: 0, down: null };
+    if (kind === 'iai') { T.view = 'tp'; T.iaiCam = true; }
     P.setFP(T.view === 'fp'); P.setHold(T.view === 'fp' ? 'fpGuard' : 'guard', 10);
+    if (kind === 'iai') P.setSheathed(true);
     TRAIN_KINDS[kind].init();
     CAM.position.set(0, 1.7, -1.5); T.camPos.copy(CAM.position); T.camLook.set(0, 1.2, 2.5);
     showHUD('train');
+    if (kind === 'iai') $('#viewBtn').hidden = true;
     $('#viewBtn').textContent = T.view === 'fp' ? 'Behind view' : 'First person';
     OV.draw = drawTrainOverlay; OV.trailCol = hexRGB(swordDef(eqSword().id).glow || '#ffffff');
     banner(TRAININGS[kind].name, 'Get ready!');
@@ -250,7 +254,169 @@ const StanceGame = {
   summary() { return `${T.inside.toFixed(1)} seconds of focus`; },
 };
 
-const TRAIN_KINDS = { bamboo: BambooGame, reflex: ReflexGame, parry: ParryGame, stance: StanceGame };
+/* ---------- Iai quick draw ---------- */
+let MAT_GEO = null;
+function matGeo() {
+  if (MAT_GEO) return MAT_GEO;
+  MAT_GEO = merge([P(GEO.cyl(.08, .08, 1, 10, 8), '#d8c48a', [0, .5, 0], null, null, (x, y) => { const v = y + .5; return (Math.abs(v - .2) < .03 || Math.abs(v - .5) < .03 || Math.abs(v - .8) < .03) ? new COL('#7a5a2a') : new COL('#d8c48a').lerp(new COL('#c2ab6a'), (Math.sin(Math.atan2(x, 0.0001 + y) * 9) * .5 + .5) * .3); })]);
+  return MAT_GEO;
+}
+const IaiGame = {
+  init() {
+    T.N = 8; T.i = 0; T.score = 0; T.phase = 'idle'; T.rts = []; T.cuts = 0; T.smooth = 0; T.wait = .3; T.attempts = 0;
+    T.matMat = toon({ vertexColors: true }); T.matMat.emissive = new COL(0);
+    const stand = new THREE.Mesh(merge([P(GEO.box(.6, .1, .6), '#5a3a20', [0, .05, 0]), P(GEO.cyl(.025, .025, .8, 6), '#3a2a1a', [0, .45, 0])]), toon({ vertexColors: true }));
+    stand.castShadow = true; T.W.scene.add(stand); T.stand = stand;
+    const beam = new THREE.Mesh(GEO.box(4, .16, .16), toon({ color: '#4a2e1a' })); beam.position.set(0, 3, 2.1); T.W.scene.add(beam);
+    T.rope = new THREE.Mesh(GEO.cyl(.012, .012, 1, 5), toon({ color: '#c9a06a' })); T.W.scene.add(T.rope);
+    T.pieces = [];
+  },
+  newRound() {
+    T.i++;
+    if (T.i > T.N) { finishTraining(); return; }
+    T.pieces.forEach(m => T.W.scene.remove(m)); T.pieces = [];
+    const lv = S.sk.iai.l, i = T.i;
+    T.motion = lv >= 6 && i >= 3 ? (i % 2 ? 'swing' : 'slide') : lv >= 3 && i >= 4 ? 'slide' : lv >= 2 && i >= 7 ? 'slide' : 'static';
+    T.mspd = lv >= 6 ? 1.35 : 1;
+    T.cx = rnd(-.45, .45); T.mt = rnd(0, 6);
+    const m = new THREE.Mesh(matGeo(), T.matMat); m.castShadow = true; m.add(new THREE.Mesh(matGeo(), outlineMat(.008)));
+    T.W.scene.add(m); T.mat = { m, cut: false };
+    T.stand.visible = T.motion !== 'swing'; T.rope.visible = T.motion === 'swing';
+    T.phase = 'ready'; T.goAt = T.t + rnd(.9, 2.2); T.drawnAt = -1; T.attempts = 0;
+    $('#hiltBtn').hidden = false;
+    setTInfo(`Round ${i} / ${T.N}`, `Score ${T.score}`);
+  },
+  tgtPos() {
+    const t = T.t * T.mspd + T.mt;
+    if (T.motion === 'swing') { const a = Math.sin(t * 2.1) * .55, px = T.cx; return { px, py: 2.92, a, base: new V3(px + Math.sin(a) * 1.95, 2.92 - Math.cos(a) * 1.95, 2.0), top: new V3(px + Math.sin(a) * .95, 2.92 - Math.cos(a) * .95, 2.0) }; }
+    const x = T.motion === 'slide' ? Math.sin(t * 1.7) * .7 : T.cx;
+    return { base: new V3(x, .8, 2.0), top: new V3(x, 1.8, 2.0), x };
+  },
+  placeTarget() {
+    if (!T.mat || T.mat.cut) return;
+    const tp = this.tgtPos(), m = T.mat.m;
+    m.position.copy(tp.base); m.scale.set(1, tp.base.distanceTo(tp.top), 1);
+    m.quaternion.setFromUnitVectors(_t2.set(0, 1, 0), _t3.subVectors(tp.top, tp.base).normalize());
+    T.stand.position.set(tp.base.x, 0, 2.0);
+    if (T.motion === 'swing') { T.rope.position.set((tp.top.x + tp.px) / 2, (tp.top.y + 2.92) / 2 + .04, 2.0); T.rope.scale.set(1, .97, 1); T.rope.quaternion.copy(m.quaternion); }
+  },
+  update(dt) {
+    if (T.phase === 'idle') { T.wait -= dt; if (T.wait <= 0) this.newRound(); return; }
+    this.placeTarget();
+    if (T.phase === 'ready' && T.t >= T.goAt) {
+      T.phase = 'go'; T.goT = T.t; sfx.bell(); T.matMat.emissive.set('#ffb030'); tPop('NOW!', null, VH * .3, { size: 40, color: '#ffe08c' });
+    }
+    if (T.phase === 'go') {
+      T.matMat.emissive.setScalar(0).lerp(_ca.set('#ffb030'), Math.max(0, 1 - (T.t - T.goT) * 2.5));
+      if (T.t - T.goT > 2.8) {
+        if (T.drawnAt < 0) { tPop('Too slow!', null, VH * .3, { size: 30, color: '#ff8a7a' }); T.phase = 'pause'; T.pauseT = .9; $('#hiltBtn').hidden = true; }
+        else this.toSheath('Missed the target');
+      }
+    }
+    if (T.phase === 'cut') { T.cutT -= dt; if (T.cutT <= 0) this.toSheath(); }
+    if (T.phase === 'pause') { T.pauseT -= dt; if (T.pauseT <= 0) { T.phase = 'idle'; T.wait = .2; } }
+    if (T.phase === 'sheath') { T.guide = this.guidePts(); }
+    setTInfo(`Round ${Math.min(T.i, T.N)} / ${T.N}`, `Score ${T.score}`);
+  },
+  drawStart() {
+    if (T.phase !== 'ready' && T.phase !== 'go') return false;
+    if (!T.P.drawSword({ to: ['endL', 'guard'], durs: [.14, .3] })) return false;
+    sfx.draw(); T.drawnAt = T.t; $('#hiltBtn').hidden = true;
+    if (T.phase === 'ready') { tPop('Too early!', null, VH * .3, { size: 32, color: '#ffb38a' }); T.phase = 'early'; setTimeout(() => { if (T && T.phase === 'early') this.toSheath('Wait for the bell next time'); }, 700); return true; }
+    const rt = T.t - T.goT; T.rts.push(rt);
+    const pts = Math.round(clamp((1.15 - rt) / .8, 0, 1) * 10);
+    T.score += pts; tPop(`${rt.toFixed(2)} s`, VW / 2, VH * .24, { size: 28, color: rt < .55 ? '#8fe8ff' : '#ffffff', stroke: '#06203a' });
+    return true;
+  },
+  slash(x0, y0, x1, y1) {
+    if (T.phase !== 'go' || T.drawnAt < 0 || T.t - T.drawnAt < .08 || !T.mat || T.mat.cut) return;
+    const len = Math.hypot(x1 - x0, y1 - y0) || 1;
+    if (T.t - T.drawnAt > .3) { trainSwing(x0, y0, x1, y1); }
+    const tp = this.tgtPos(), a = toScreen(tp.base), b = toScreen(tp.top);
+    const hit = seg2(x0, y0, x1, y1, a.x, a.y, b.x, b.y);
+    if (!hit) return;
+    const iai = T.t - T.drawnAt < .5;
+    T.cuts++; T.score += 5 + (iai ? 5 : 0);
+    this.cutTarget(tp, hit.u);
+    tPop(iai ? 'IAI CUT!' : 'CUT!', (x0 + x1) / 2, (y0 + y1) / 2 - 40, { size: iai ? 42 : 32, color: '#2a1200', stroke: '#fff6d8', burst: iai ? '#ffd23a' : '#9fe8ff', rot: rnd(-.2, .2), life: 1.1, vy: -30 });
+    sfx.hit(); hitstop(60); if (iai) { slowmo(.4, .4); OV.flash = .25; OV.flashCol = '255,240,200'; }
+    T.phase = 'cut'; T.cutT = .75;
+    void len;
+  },
+  cutTarget(tp, u) {
+    const m = T.mat.m; T.mat.cut = true;
+    const L = tp.base.distanceTo(tp.top), cp = tp.base.clone().lerp(tp.top, u), up = _t3.subVectors(tp.top, tp.base).normalize().clone();
+    const mk = (from, h) => { const k = new THREE.Mesh(matGeo(), T.matMat); k.castShadow = true; k.add(new THREE.Mesh(matGeo(), outlineMat(.008))); k.position.copy(from); k.scale.set(1, Math.max(.02, h), 1); k.quaternion.copy(m.quaternion); return k; };
+    const lower = mk(tp.base, u * L), upper = mk(cp, (1 - u) * L);
+    T.W.scene.remove(m); T.W.scene.add(lower, upper); T.pieces.push(lower, upper);
+    const fall = T.motion === 'swing' ? lower : upper;
+    const g = new THREE.Group(); g.position.copy(fall.position); T.W.scene.add(g); fall.position.set(0, 0, 0); g.add(fall); T.pieces.push(g);
+    FX.addDebris(g, new V3(rnd(-1.5, 1.5), T.motion === 'swing' ? 0 : rnd(1.5, 2.5), rnd(.5, 1.5)), new V3(rnd(-4, 4), rnd(-2, 2), rnd(-6, 6)), .08);
+    FX.chips(cp, '#e8d49a', 16, 3); FX.sparks(cp, '#fff6d8', 10, 2.5);
+  },
+  guidePts() {
+    const P = T.P; P.root.updateMatrixWorld(true);
+    const a = toScreen(P.grip.getWorldPosition(new V3())), b = toScreen(P.saya.localToWorld(new V3(0, .05, 0)));
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
+    const cx = mx - dy / d * d * .28, cy = my + dx / d * d * .28 * (dx > 0 ? -1 : 1);
+    const pts = []; for (let k = 0; k <= 24; k++) { const t = k / 24, u = 1 - t; pts.push({ x: u * u * a.x + 2 * u * t * cx + t * t * b.x, y: u * u * a.y + 2 * u * t * cy + t * t * b.y }); }
+    return pts;
+  },
+  toSheath(msg) {
+    if (msg) tPop(msg, null, VH * .3, { size: 24, color: '#ffd6a8' });
+    if (T.P.sheathed) { T.phase = 'pause'; T.pauseT = .6; return; }
+    T.P.setHold('guard', 8);
+    T.phase = 'sheath'; T.stroke = null; T.guide = this.guidePts(); T.attempts = T.attempts || 0;
+  },
+  down(x, y) {
+    if (T.phase !== 'sheath' || !T.guide) return;
+    const s0 = T.guide[0];
+    if (Math.hypot(x - s0.x, y - s0.y) < Math.max(80, VW * .08)) T.stroke = [{ x, y, t: performance.now() }];
+  },
+  move(x, y) { if (T.stroke) T.stroke.push({ x, y, t: performance.now() }); },
+  up() {
+    if (!T.stroke || T.phase !== 'sheath') { T.stroke = null; return; }
+    const st = T.stroke, G = T.guide; T.stroke = null;
+    const end = st[st.length - 1], g1 = G[G.length - 1];
+    if (st.length < 4 || Math.hypot(end.x - g1.x, end.y - g1.y) > Math.max(90, VW * .09)) { tPop('Follow the arc all the way to the sheath', null, VH * .3, { size: 22, color: '#ffd6a8' }); return; }
+    let glen = 0; for (let k = 1; k < G.length; k++) glen += Math.hypot(G[k].x - G[k - 1].x, G[k].y - G[k - 1].y);
+    let dev = 0; st.forEach(p => { let m = 1e9; for (let k = 1; k < G.length; k++) m = Math.min(m, segDist(p.x, p.y, G[k - 1].x, G[k - 1].y, G[k].x, G[k].y)); dev += m; }); dev /= st.length;
+    const sp = []; for (let k = 1; k < st.length; k++) { const dt = st[k].t - st[k - 1].t; if (dt > 2) sp.push(Math.hypot(st[k].x - st[k - 1].x, st[k].y - st[k - 1].y) / dt); }
+    const mean = sp.reduce((a, b) => a + b, 0) / Math.max(1, sp.length), sd = Math.sqrt(sp.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, sp.length)), cv = mean ? sd / mean : 1;
+    const D = (end.t - st[0].t) / 1000;
+    const score = 100 - (dev / Math.max(60, glen)) * 260 - Math.max(0, cv - .45) * 60 - (D < .3 ? 25 : 0) - (D > 2.8 ? 20 : 0);
+    T.attempts++;
+    let grade, pts;
+    if (score >= 72) { grade = 'SMOOTH!'; pts = 10; T.smooth++; } else if (score >= 48) { grade = 'GOOD'; pts = 6; } else { grade = 'JERKY'; pts = 2; }
+    if (grade === 'JERKY' && T.attempts < 2) { tPop('Too jerky. Try one smooth, steady stroke', null, VH * .3, { size: 24, color: '#ffb38a' }); return; }
+    T.score += pts;
+    tPop(grade, VW / 2, VH * .3, { size: grade === 'SMOOTH!' ? 40 : 32, color: grade === 'SMOOTH!' ? '#8fe8ff' : grade === 'GOOD' ? '#d9ffb0' : '#ffb38a', stroke: '#06203a' });
+    T.phase = 'resheath'; T.guide = null;
+    T.P.sheatheSword({ approach: .32, slide: .3, onEnter: () => sfx.sheathe(), onDone: () => { if (T) { T.phase = 'pause'; T.pauseT = .55; } } });
+  },
+  draw(c) {
+    if (T.phase === 'ready' || T.phase === 'go') {
+      const tp = this.tgtPos(), b = toScreen(tp.top);
+      if (T.phase === 'ready') { c.save(); c.font = "900 18px 'Zen Maru Gothic', sans-serif"; c.textAlign = 'center'; c.fillStyle = 'rgba(255,240,210,.85)'; c.strokeStyle = 'rgba(0,0,0,.6)'; c.lineWidth = 4; c.strokeText('Wait for the bell…', b.x, b.y - 30); c.fillText('Wait for the bell…', b.x, b.y - 30); c.restore(); }
+    }
+    if (T.phase === 'sheath' && T.guide) {
+      const G = T.guide, pulse = .6 + .4 * Math.sin(T.t * 6);
+      c.save(); c.setLineDash([10, 12]); c.lineWidth = 6; c.lineCap = 'round'; c.strokeStyle = `rgba(255,224,140,${.55 + .3 * pulse})`; c.shadowColor = '#ffe08c'; c.shadowBlur = 12;
+      c.beginPath(); G.forEach((p, k) => k ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)); c.stroke(); c.setLineDash([]);
+      const a = G[0], b = G[G.length - 1];
+      c.fillStyle = 'rgba(255,224,140,.25)'; c.beginPath(); c.arc(a.x, a.y, 34 + pulse * 6, 0, Math.PI * 2); c.fill(); c.stroke();
+      c.beginPath(); c.arc(b.x, b.y, 26, 0, Math.PI * 2); c.strokeStyle = '#9fe8ff'; c.stroke();
+      c.shadowBlur = 0; c.font = "900 16px 'Zen Maru Gothic', sans-serif"; c.textAlign = 'center'; c.lineWidth = 4; c.strokeStyle = 'rgba(0,0,0,.7)'; c.fillStyle = '#fff';
+      c.strokeText('Drag smoothly', a.x, a.y - 46); c.fillText('Drag smoothly', a.x, a.y - 46);
+      c.strokeText('Sheath', b.x, b.y + 44); c.fillText('Sheath', b.x, b.y + 44);
+      c.restore();
+    }
+  },
+  xp() { return Math.round(T.score * 1.6 + 8); },
+  summary() { const avg = T.rts.length ? (T.rts.reduce((a, b) => a + b, 0) / T.rts.length).toFixed(2) : '—'; return `${T.cuts} of ${T.N} targets cut, ${T.smooth} smooth sheaths, average draw ${avg} s`; },
+};
+
+const TRAIN_KINDS = { bamboo: BambooGame, reflex: ReflexGame, parry: ParryGame, stance: StanceGame, iai: IaiGame };
 
 const TrainMode = {
   name: 'train',
@@ -258,14 +424,15 @@ const TrainMode = {
     const G = TRAIN_KINDS[T.kind];
     if (T.delay > 0) { T.delay -= dt; if (T.delay <= 0) { banner('BEGIN!'); sfx.taiko(1); T.started = true; } }
     else if (!T.done) { T.t += dt; G.update(dt); }
-    if (T.returnT > 0) { T.returnT -= dt; if (T.returnT <= 0) T.P.setHold(T.view === 'fp' ? 'fpGuard' : 'guard', 9); }
+    if (T.returnT > 0) { T.returnT -= dt; if (T.returnT <= 0 && !T.P.sheathed && !T.P.drawAnim) T.P.setHold(T.view === 'fp' ? 'fpGuard' : 'guard', 9); }
     T.P.update(dt);
     if (T.E && (T.done || !T.started)) T.E.update(dt);
     // camera
     const P = T.P; P.root.updateMatrixWorld(true);
     const look = new V3(0, 1.25, 2.6);
     let pos;
-    if (T.view === 'fp') pos = P.hips.localToWorld(new V3(0, .68, -.2));
+    if (T.iaiCam) pos = P.root.localToWorld(new V3(1.15, 1.85, -2.3));
+    else if (T.view === 'fp') pos = P.hips.localToWorld(new V3(0, .68, -.2));
     else pos = P.root.localToWorld(new V3(-1.0, 2.15, -2.05));
     T.camPos.lerp(pos, damp(14, dt)); T.camLook.lerp(look, damp(14, dt));
     CAM.position.copy(T.camPos); CAM.lookAt(T.camLook);
@@ -275,9 +442,10 @@ const TrainMode = {
   slash(x0, y0, x1, y1) {
     if (!T || !T.started || T.done) return;
     const now = performance.now() / 1000; if (now < T.cdUntil) return; T.cdUntil = now + .1;
-    if (T.kind !== 'stance') trainSwing(x0, y0, x1, y1);
+    if (T.kind !== 'stance' && T.kind !== 'iai') trainSwing(x0, y0, x1, y1);
     const G = TRAIN_KINDS[T.kind]; if (G.slash) G.slash(x0, y0, x1, y1);
   },
+  drawStart() { const G = T && T.started && !T.done && TRAIN_KINDS[T.kind]; return G && G.drawStart ? G.drawStart() : false; },
   down(x, y) { const G = T && TRAIN_KINDS[T.kind]; if (G && G.down) G.down(x, y); },
   move(x, y) { const G = T && TRAIN_KINDS[T.kind]; if (G && G.move) G.move(x, y); },
   up() { const G = T && TRAIN_KINDS[T.kind]; if (G && G.up) G.up(); },
@@ -286,6 +454,7 @@ function drawTrainOverlay(c) { if (!T || !T.started || T.done) return; const G =
 
 function finishTraining() {
   if (T.done) return;
+  $('#hiltBtn').hidden = true;
   T.done = true;
   const G = TRAIN_KINDS[T.kind], info = TRAININGS[T.kind], key = info.skill;
   const xp = Math.max(5, Math.round(G.xp())), gold = Math.round(xp / 5);

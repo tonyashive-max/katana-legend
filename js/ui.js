@@ -26,7 +26,7 @@ function showHUD(mode) {
   $('#blockBtn').classList.remove('on'); $('#specialBtn').classList.remove('ready');
   $('#leaveBtn').textContent = 'Leave'; $('#leaveBtn').dataset.armed = '';
   $('#viewBtn').hidden = mode === 'vs-local' || mode === 'explore';
-  $('#actBtn').hidden = true;
+  $('#actBtn').hidden = true; $('#hiltBtn').hidden = true;
 }
 function hideHUD() { $('#hud').hidden = true; $('#tInfo').innerHTML = ''; hint(''); }
 function fmt(n) { return Math.round(n).toLocaleString(); }
@@ -79,8 +79,14 @@ function screenDojo() {
       <div class="eyebrow">${done ? 'Every land conquered' : `Chapter ${ch + 1} · ${CHAPTERS[ch].name}`}</div>
       <h2>${done ? 'Legend of the land' : 'Continue your journey'}</h2>
       <p class="muted" style="margin:6px 0 12px">${done ? 'Return to any land to rematch warriors and beasts for stars, gold and rare blades.' : journeyObjective(ch) + '.'}</p>
-      <div class="row"><button class="btn primary" data-explore="${ch}">🗺 Explore ${CHAPTERS[ch].name}</button><button class="btn" data-tab="quest">Journey map</button></div>
+      <div class="row"><button class="btn primary" data-explore="resume">🗺 Continue journey</button><button class="btn" data-tab="quest">Journey map</button></div>
     </section>
+    ${S.captured.length ? `<section class="panel thief">
+      <div class="eyebrow" style="color:#ffb4a8">Ghost thief</div>
+      <h3>${S.captured.map(c => swordDef((S.swords.find(w => w.u === c.u) || {}).id).name).join(', ')} ${S.captured.length > 1 ? 'were' : 'was'} captured!</h3>
+      <p class="muted" style="margin:6px 0 10px">${isArmed() ? 'You have a blade again. Head back out, find the red beam on the trail, and beat the ghost to win your sword back.' : 'Equip another blade first, then find the ghost (the red beam on the trail) and beat it to win your sword back.'}</p>
+      <div class="row">${isArmed() ? '<button class="btn primary" data-explore="resume">Hunt the ghost</button>' : '<button class="btn primary" data-tab="swords">Equip a blade</button>'}</div>
+    </section>` : ''}
     <section class="panel">
       <div class="row between"><h3>${S.name || 'Shep'}</h3><span class="muted">${o.name}</span></div>
       <div class="stats" style="margin-top:12px">
@@ -191,7 +197,7 @@ function screenSwords() {
         return `<div class="card ${eq ? 'sel' : ''}">
           <div class="row between"><b class="name ${d.r}" style="${d.r !== 'mythic' ? `color:${RAR[d.r].c}` : ''}">${d.name}${w.lvl ? ` +${w.lvl}` : ''}</b><small>${Math.round(swordDmg(w))} dmg</small></div>
           ${bladeSVG(d)}
-          <div class="row">${eq ? '<span class="tag new">Equipped</span>' : `<button class="btn small primary" data-equip="${w.u}">Equip</button><button class="btn small" data-smelt="${w.u}">Smelt · +${smeltValue(w)} steel</button>`}</div>
+          <div class="row">${w.captured ? `<span class="tag boss">Captured by a ghost</span><small>Find it in ${CHAPTERS[(S.captured.find(c => c.u === w.u) || { ch: 0 }).ch].name}</small>` : eq ? '<span class="tag new">Equipped</span>' : `<button class="btn small primary" data-equip="${w.u}">Equip</button><button class="btn small" data-smelt="${w.u}">Smelt · +${smeltValue(w)} steel</button>`}</div>
         </div>`;
       }).join('')}
     </section>
@@ -245,6 +251,9 @@ function enterHub(first) {
     clearSceneActors();
     const ch = currentChapter();
     const W = buildWorld(ch); activateWorld(W);
+    const fb = ensureArmedFallback();
+    if (fb === 'loan') setTimeout(() => toast('Sensei lends you a practice bokken. Go reclaim your blade!'), 700);
+    else if (fb === 'choose') { curTab = 'swords'; setTimeout(() => toast('Equip another blade, then go reclaim the captured one!'), 700); }
     HUB = { W, P: null, rotY: 0, ang: 0, flourishT: 4, previewing: null, camPos: new V3(), camLook: new V3(), clock: 0 };
     hubSetPlayer();
     $('#ui').hidden = false;
@@ -261,14 +270,19 @@ function hubSetPlayer(outfitId, flourish) {
   const P = new Samurai(lookFromOutfit(o), swordDef(eqSword().id), {});
   P.root.rotation.order = 'YXZ'; P.root.rotation.y = HUB.rotY;
   HUB.W.scene.add(P.root, P.trail.mesh);
-  P.setHold('rest', 6);
+  P.setHold('rest', 6); P.setSheathed(true);
+  if (!isArmed()) P.sword.visible = false;
   HUB.P = P; HUB.previewing = outfitId && outfitId !== S.outfit ? outfitId : null;
   if (flourish) hubFlourish(true);
 }
 function hubFlourish(big) {
-  const P = HUB.P; P.seq.length = 0;
-  if (big) { P.queue('show', .45, { arc: .1 }); P.queue('show', .9); P.queue('rest', .6); setTimeout(() => { if (HUB && HUB.P === P) { const bp = P.bladePoint(.7); FX.sparks(bp, P.swordDef.glow || '#ffe08c', 34, 4); FX.glowBurst(bp, P.swordDef.glow || '#ffe08c', 1.4); } }, 450); }
-  else { const r = Math.random(); if (r < .5) { P.queue('windR', .4); P.queue('endR', .16, { ease: easeIn, arc: .3 }); P.queue('guard', .35); P.queue('rest', .6); } else { P.queue('windH', .45); P.queue('endH', .16, { ease: easeIn, arc: .3 }); P.queue('guard', .4); P.queue('rest', .6); } }
+  const P = HUB.P; if (!P || P.drawAnim || !isArmed()) return;
+  const sheathe = delay => setTimeout(() => { if (HUB && HUB.P === P && !P.sheathed) P.sheatheSword({ chiburi: true, onEnter: () => sfx.sheathe() }); }, delay);
+  if (!P.sheathed) { sheathe(0); return; }
+  sfx.draw();
+  if (big) P.drawSword({ to: ['iaiHigh', 'show'], durs: [.2, .5], onDone: () => { if (HUB && HUB.P === P) { const bp = P.bladePoint(.7); FX.sparks(bp, P.swordDef.glow || '#ffe08c', 34, 4); FX.glowBurst(bp, P.swordDef.glow || '#ffe08c', 1.4); } sheathe(900); } });
+  else if (Math.random() < .5) P.drawSword({ to: ['endL', 'guard', 'windR', 'endR', 'guard'], durs: [.14, .32, .4, .16, .35], onDone: () => sheathe(350) });
+  else P.drawSword({ to: ['endL', 'guard', 'windH', 'endH', 'guard'], durs: [.14, .32, .45, .16, .4], onDone: () => sheathe(350) });
 }
 const HubMode = {
   name: 'hub',
@@ -323,12 +337,14 @@ function doCraft() {
 }
 function doSmelt(u, btn) {
   if (btn.dataset.armed !== '1') { btn.dataset.armed = '1'; const w0 = S.swords.find(x => x.u === u); btn.textContent = `Tap again to smelt · +${smeltValue(w0)}`; setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ''; btn.textContent = `Smelt · +${smeltValue(w0)} steel`; } }, 2500); return; }
-  const i = S.swords.findIndex(x => x.u === u); if (i < 0 || u === S.eq) return;
+  const i = S.swords.findIndex(x => x.u === u); if (i < 0 || u === S.eq || S.swords[i].captured) return;
   const w = S.swords[i]; S.steel += smeltValue(w); S.swords.splice(i, 1); save();
   sfx.forge(); toast(`Smelted into ${smeltValue(w)} steel`); showTab(curTab);
 }
 function doEquip(u) {
-  if (!S.swords.some(w => w.u === u)) return;
+  const ww = S.swords.find(w => w.u === u);
+  if (!ww) return;
+  if (ww.captured) { toast('A ghost has that blade. Beat it to get it back!'); return; }
   S.eq = u; save(); sfx.ui(); toast(`Equipped ${swordDef(eqSword().id).name}`);
   if (HUB) hubSetPlayer(null, true);
   if (!$('#ui').hidden) showTab(curTab);
@@ -363,7 +379,7 @@ function openSettings() {
 const PTR = {};
 function wireInput() {
   const gl = $('#gl');
-  const slashMode = () => MODE && MODE.name !== 'hub' && MODE.name !== 'explore';
+  const slashMode = () => MODE && (MODE.slashActive ? MODE.slashActive() : (MODE.name !== 'hub' && MODE.name !== 'explore'));
   gl.addEventListener('pointerdown', e => {
     AUD.init(); MUSIC.start(MODE ? (MODE.name === 'hub' ? 'hub' : MODE.name === 'train' ? 'train' : 'fight') : 'hub');
     try { gl.setPointerCapture(e.pointerId); } catch (er) { /* */ }
@@ -388,10 +404,32 @@ function wireInput() {
   gl.addEventListener('pointerup', e => { AUD.init(); end(e); }); gl.addEventListener('pointercancel', end);
   gl.addEventListener('contextmenu', e => e.preventDefault());
 
+  /* the hilt: swipe out of it to draw, keep going to cut */
+  const hb = $('#hiltBtn'); let HG = null;
+  const tryDraw = () => !!(MODE && MODE.drawStart && MODE.drawStart());
+  hb.addEventListener('pointerdown', e => { e.preventDefault(); AUD.init(); try { hb.setPointerCapture(e.pointerId); } catch (er) { /* */ } HG = { id: e.pointerId, x0: e.clientX, y0: e.clientY, drawn: false, ax: 0, ay: 0 }; hb.classList.add('on'); });
+  hb.addEventListener('pointermove', e => {
+    if (!HG || e.pointerId !== HG.id) return;
+    const x = e.clientX, y = e.clientY;
+    if (!HG.drawn) { if (Math.hypot(x - HG.x0, y - HG.y0) >= 30) { HG.drawn = tryDraw(); HG.ax = x; HG.ay = y; if (!HG.drawn) HG.dead = true; } }
+    else {
+      OV.trail.push({ x, y, t: performance.now() });
+      if (Math.hypot(x - HG.ax, y - HG.ay) >= 44) { if (MODE && MODE.slash) MODE.slash(HG.ax, HG.ay, x, y, e.pointerId); HG.ax = x; HG.ay = y; }
+    }
+  });
+  const hend = e => {
+    if (HG && e.pointerId === HG.id) {
+      if (!HG.drawn && !HG.dead) tryDraw();
+      else if (HG.drawn && Math.hypot(e.clientX - HG.ax, e.clientY - HG.ay) >= 26 && MODE && MODE.slash) MODE.slash(HG.ax, HG.ay, e.clientX, e.clientY, e.pointerId);
+      HG = null;
+    }
+    hb.classList.remove('on');
+  };
+  ['pointerup', 'pointercancel'].forEach(ev => hb.addEventListener(ev, hend));
   const bb = $('#blockBtn');
   const setBlock = on => {
     bb.classList.toggle('on', on);
-    if (MODE === FightMode && F) { F.blocking = on; F.blockPose = null; if (!on && !F.over) F.P.setHold(guardPose(), 9); }
+    if (MODE === FightMode && F && (F.drawn || !on)) { F.blocking = on; F.blockPose = null; if (!on && !F.over) F.P.setHold(guardPose(), 9); }
     if (MODE === VsMode && VS && VS.online) { VS.A.blocking = on; VS.A.blockPose = null; if (!on && VS.A.state === 'ready') VS.A.rig.setHold(VS.view === 'fp' ? 'fpGuard' : 'guard', 9); NET.send('blk', { on }); }
   };
   bb.addEventListener('pointerdown', e => { e.preventDefault(); AUD.init(); try { bb.setPointerCapture(e.pointerId); } catch (er) { /* */ } setBlock(true); });
@@ -419,7 +457,7 @@ function wireInput() {
     const d = b.dataset;
     if (d.tab) { sfx.ui(); showTab(d.tab); }
     else if (d.fight != null) { sfx.taiko(.7); startFight(+d.fight); }
-    else if (d.explore != null) { sfx.ui(); startExplore(+d.explore); }
+    else if (d.explore != null) { sfx.ui(); startExplore(d.explore === 'resume' ? null : +d.explore); }
     else if (d.myth != null) { sfx.taiko(.8); startMyth(+d.myth); }
     else if (d.pz) puzzleAction(d.pz, b);
     else if (b.id === 'actBtn') exploreAct();

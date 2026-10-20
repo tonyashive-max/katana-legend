@@ -94,13 +94,7 @@ const MYTHS = [
 ];
 for (const s of STAGES.concat(MYTHS)) s.rec = Math.round(Math.sqrt(s.hp * s.dmg) / 3.2);
 
-/* Each chapter's land: where the warriors wait, where the spirit orbs hide, the shrine and the spirit gate. */
-const LANDS = [
-  { spawn: [0, -4], bound: 38, warriors: [[-15, 9], [15, 14], [-4, 29]], orbs: [[-26, -12], [24, -20], [23, 31]], shrine: [-24, 25], gate: [6, 37], orb: '#ff9ec4' },
-  { spawn: [0, -4], bound: 38, warriors: [[-15, 9], [16, 13], [-5, 28]], orbs: [[-27, -10], [25, -18], [22, 30]], shrine: [-23, 24], gate: [6, 37], orb: '#7fe8ff' },
-  { spawn: [0, -6], bound: 15.5, warriors: [[-10, 5], [10, 6], [-1, 12]], orbs: [[-10, -10], [11, -8], [-12, 11]], shrine: [11, 12], gate: [0, 16.8], orb: '#c9a0ff' },
-  { spawn: [0, -4], bound: 38, warriors: [[-16, 6], [17, 12], [-3, 27]], orbs: [[-27, -14], [26, -16], [21, 30]], shrine: [-22, 24], gate: [8, 36], orb: '#ffb03a' },
-];
+const ORB_COLS = ['#ff9ec4', '#7fe8ff', '#c9a0ff', '#ffb03a'];
 const PUZZLES = ['lanterns', 'seals', 'moonpath', 'scales'];
 const PUZZLE_NAMES = ['The Lantern Song', 'The Frozen Seals', 'The Moon Path', 'The Dragon Scales'];
 
@@ -109,6 +103,7 @@ const SKILLS = {
   speed: { n: 'Speed', g: '速', d: 'Slash again sooner' },
   guard: { n: 'Guard', g: '守', d: 'Easier parries and stronger blocks' },
   vital: { n: 'Vitality', g: '命', d: 'More health in battle' },
+  iai: { n: 'Iai', g: '抜', d: 'Faster draws and more time against ghosts' },
 };
 
 const TRAININGS = {
@@ -116,7 +111,10 @@ const TRAININGS = {
   reflex: { name: 'Lightning Reflex', skill: 'speed', g: '速', desc: 'Swipe the way the arrow points before the circle closes. It gets faster!' },
   parry: { name: 'Sensei Parry Drill', skill: 'guard', g: '守', desc: 'The sensei swings a practice sword. Swipe through the gold ring right as it flashes.' },
   stance: { name: 'Lantern Focus', skill: 'vital', g: '命', desc: 'Keep your finger on the floating lantern. Stay calm and follow it everywhere.' },
+  iai: { name: 'Iai Quick Draw', skill: 'iai', g: '抜', desc: 'Wait for the bell, swipe from your hilt to draw, cut the straw target, then slide the blade back into its sheath with one smooth stroke. Targets move at higher levels.' },
 };
+const GHOST_LOOK = { cloth: '#5a7ab0', armor: '#d9eeff', trim: '#9fe8ff', helm: 'kabuto', helmCol: '#cfe8ff', crest: 'moon', crestCol: '#9fe8ff', eye: '#ffffff', scarf: '#bff4ff', mask: '#9fc4e8' };
+const GHOST_BLADE = { id: 'ghostblade', name: 'Spirit Blade', r: 'rare', dmg: 0, blade: '#bfefff', edge: '#ffffff', tsuba: '#6a9acc', wrap: '#2a4a7a', glow: '#7fe8ff' };
 
 const DUMMY_LOOK = { cloth: '#6b5233', armor: '#c9a35a', trim: '#7a4a24', helm: 'band', helmCol: '#ffffff', crest: null, eye: '#ffd890' };
 const SENSEI_LOOK = { cloth: '#1f2a4a', armor: '#e9e1cc', trim: '#c0392b', helm: 'band', helmCol: '#c0392b', crest: null, eye: '#ffe6a0' };
@@ -128,7 +126,8 @@ function freshSave() {
     gold: 80, steel: 6, cleared: 0, stars: {}, beaten: {}, journey: [0, 1, 2, 3].map(() => ({ orbs: [0, 0, 0], puzzle: false, myth: false })), mythStars: {},
     swords: [{ u: 1, id: 'bokken', lvl: 0 }], eq: 1, nu: 2,
     outfits: ['ronin'], outfit: 'ronin',
-    sk: { power: { l: 1, x: 0 }, speed: { l: 1, x: 0 }, guard: { l: 1, x: 0 }, vital: { l: 1, x: 0 } },
+    sk: { power: { l: 1, x: 0 }, speed: { l: 1, x: 0 }, guard: { l: 1, x: 0 }, vital: { l: 1, x: 0 }, iai: { l: 1, x: 0 } },
+    roam: null, captured: [], ghosts: 0,
     seen: ['bokken'], sound: true, music: true, quality: 'auto', view: 'fp', wins: 0, parries: 0, name: 'Shep',
   };
 }
@@ -141,6 +140,7 @@ function loadSave() {
       merged.sk = Object.assign(freshSave().sk, o.sk || {});
       if (!Array.isArray(merged.journey) || merged.journey.length !== 4) merged.journey = f.journey;
       if (!merged.swords || !merged.swords.length) merged.swords = f.swords;
+      if (!Array.isArray(merged.captured)) merged.captured = [];
       return merged;
     }
   } catch (e) { /* storage unavailable */ }
@@ -153,6 +153,27 @@ function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } cat
 const swordDef = id => SWORDS.find(s => s.id === id) || SWORDS[0];
 const outfitDef = id => OUTFITS.find(o => o.id === id) || OUTFITS[0];
 function eqSword() { return S.swords.find(w => w.u === S.eq) || S.swords[0]; }
+function isArmed() { const w = S.swords.find(x => x.u === S.eq); return !!w && !w.captured; }
+function usableSwords() { return S.swords.filter(w => !w.captured); }
+/* A ghost takes the equipped blade; it waits at the spot where it was taken. */
+function captureEquipped(ch, x, z) {
+  const w = S.swords.find(v => v.u === S.eq); if (!w || w.captured) return null;
+  w.captured = true; S.captured.push({ u: w.u, ch, x: +x.toFixed(2), z: +z.toFixed(2) }); save();
+  return w;
+}
+function reclaimSword(entry) {
+  const w = S.swords.find(v => v.u === entry.u);
+  S.captured = S.captured.filter(c => c !== entry);
+  if (w) { w.captured = false; S.eq = w.u; }
+  save(); return w;
+}
+function ensureArmedFallback() {
+  if (isArmed()) return null;
+  const free = usableSwords();
+  if (free.length) return 'choose';
+  const w = addSword('bokken'); S.eq = w.u; save();
+  return 'loan';
+}
 function swordDmg(w) { return swordDef(w.id).dmg * (1 + 0.12 * (w.lvl || 0)); }
 function skillNeed(l) { return 40 + l * 30; }
 function stats() {
@@ -165,6 +186,8 @@ function stats() {
     staCost: Math.max(13, 22 - (k.speed.l - 1) * .35),
     parry: Math.min(0.78, 0.42 + (k.guard.l - 1) * 0.022),
     block: Math.min(0.88, 0.55 + (k.guard.l - 1) * 0.018),
+    drawBonus: (k.iai.l - 1) * .035,
+    drawSlow: (k.iai.l - 1) * .012,
   };
 }
 function lookFromOutfit(o) {
