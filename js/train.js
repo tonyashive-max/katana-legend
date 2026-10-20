@@ -421,6 +421,7 @@ const TRAIN_KINDS = { bamboo: BambooGame, reflex: ReflexGame, parry: ParryGame, 
 const TrainMode = {
   name: 'train',
   update(dt) {
+    if (!T) return;
     const G = TRAIN_KINDS[T.kind];
     if (T.delay > 0) { T.delay -= dt; if (T.delay <= 0) { banner('BEGIN!'); sfx.taiko(1); T.started = true; } }
     else if (!T.done) { T.t += dt; G.update(dt); }

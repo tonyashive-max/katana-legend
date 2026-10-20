@@ -339,6 +339,7 @@ function vsRemoteStrikeCheck() {
 const VsMode = {
   name: 'vs',
   update(dt) {
+    if (!VS) return;
     const { A, B } = VS;
     VS.clock += dt;
     if (VS.intro > 0) { VS.intro -= dt; if (VS.intro <= 0) { banner('FIGHT!'); sfx.taiko(1.3); } }

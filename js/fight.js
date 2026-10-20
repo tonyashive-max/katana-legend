@@ -473,7 +473,7 @@ function win(reason) {
   toState('ko'); slowmo(.3, 1.1); hitstop(140);
   F.E.root.visible = true;
   F.E.ko(); F.P.setHold('show', 5);
-  const g = F.E.dropSword(F.W.scene, null, true);
+  const g = F.ctx.kind === 'beast' ? null : F.E.dropSword(F.W.scene, null, true);
   if (g) {
     if (F.st.weapon === 'club') { g.clear(); g.add(buildSword(swordDef(F.st.sword))); }
     g.children.forEach(ch => ch.scale.setScalar(1));
@@ -573,6 +573,7 @@ const FightMode = {
   name: 'fight',
   drawStart() { return playerDraw(false); },
   update(dt) {
+    if (!F) return;
     const P = F.P, E = F.E;
     F.clock += dt;
     if (F.state === 'intro') {
@@ -747,7 +748,7 @@ function showFightResult() {
   if (F.outcome === 'win' && F.ctx.kind === 'beast') {
     const r = grantBeastWin(), ch = F.ctx.ch, ready = gateOpen(ch);
     openOverlay(`<div class="modal win">
-      <div class="kicker">Beast defeated!</div>
+      <div class="kicker">Victory!</div>
       <p><b>${F.st.name}</b> falls, and its spirit flees to the gate.</p>
       <div class="reveal" style="--rc:#ffe08c33;--glow:#ffe08c"><div class="rays"></div><div class="keyicon">🗝️</div></div>
       <h3>The Spirit Key</h3>
