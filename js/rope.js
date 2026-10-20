@@ -460,10 +460,10 @@ function getRopeWorld() {
     if (b.kind === 'warrior' || b.kind === 'gate' || b.kind === 'summit' || b.kind === 'training') {
       // a raked arena: concentric grooves, a darker worn rim and a painted crest ring in the middle
       const R0 = b.r - .4, disc = new THREE.RingGeometry(.01, R0, 72, 40); disc.rotateX(-Math.PI / 2);
-      const pa = disc.attributes.position, col = new Float32Array(pa.count * 3), ca = shadeHex(B.bead, -.06), cb = shadeHex(B.bead, -.2), crest = new COL(ORB_COLS[b.ch]).lerp(shadeHex(B.bead, -.35), .55), tt = new COL();
+      const pa = disc.attributes.position, col = new Float32Array(pa.count * 3), ca = shadeHex(B.bead, b.ch === 0 ? -.24 : -.1), cb = shadeHex(B.bead, b.ch === 0 ? -.4 : -.26), crest = new COL(ORB_COLS[b.ch]).lerp(shadeHex(B.bead, -.5), .4), tt = new COL();
       for (let i = 0; i < pa.count; i++) {
         const x = pa.getX(i), z = pa.getZ(i), rr2 = Math.hypot(x, z), a = Math.atan2(z, x);
-        tt.copy(ca).lerp(cb, Math.pow(Math.sin(rr2 * 5.2) * .5 + .5, 3) * .55);
+        tt.copy(ca).lerp(cb, Math.pow(Math.sin(rr2 * 5.2) * .5 + .5, 3) * .7);
         tt.lerp(cb, smooth(R0 - 1.4, R0, rr2) * .6);
         const ring = 1 - Math.min(1, Math.abs(rr2 - 1.55) / .16); if (ring > 0) tt.lerp(crest, ring * .85);
         const petals = Math.cos(a * 3) > .55 && rr2 > .55 && rr2 < 1.25; if (petals) tt.lerp(crest, .55);
