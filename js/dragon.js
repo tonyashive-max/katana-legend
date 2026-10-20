@@ -267,39 +267,49 @@ class RoamDragon {
     mk(merge([P(GEO.cone(.35, 1.6, 4), mane, [0, .2, -.9], [-1.4, 0, 0]), P(GEO.cone(.3, 1.3, 4), gold, [.3, -.1, -.8], [-1.6, 0, -.5]), P(GEO.cone(.3, 1.3, 4), gold, [-.3, -.1, -.8], [-1.6, 0, .5])]), this.tail);
     /* head, built facing +z */
     this.head = new THREE.Group(); this.root.add(this.head);
+    const R2 = [Math.PI / 2, 0, 0];
     const hd = [
-      P(GEO.box(1.15, .82, 1.3), red, [0, .05, 0]),
-      P(GEO.box(1.25, .2, .5), gold, [0, .48, .35]),
-      P(GEO.box(.92, .5, 1.25), red, [0, -.05, 1.15]),
-      P(GEO.box(.98, .32, .32), dark, [0, .08, 1.78]),
-      P(GEO.sph(.09, 6, 5), '#2a0806', [.24, .18, 1.94]), P(GEO.sph(.09, 6, 5), '#2a0806', [-.24, .18, 1.94]),
-      P(GEO.box(.15, .12, .45), cream, [.38, .3, .55]), P(GEO.box(.15, .12, .45), cream, [-.38, .3, .55]),
+      // faceted skull, long tapered snout with a bulbous nose, gold lip scales
+      P(GEO.ico(.62, 1), red, [0, .08, -.05], null, [1, .82, 1.05]),
+      P(GEO.cyl(.3, .44, 1.35, 6), red, [0, .02, .95], R2, [1, .78, 1]),
+      P(GEO.ico(.33, 0), dark, [0, .1, 1.68], null, [1.2, .85, .9]),
+      P(GEO.cyl(.31, .42, 1.2, 6, 1, false, Math.PI * .75, Math.PI * .5), gold, [0, -.06, .95], R2, [1.04, .82, 1]),
+      P(GEO.sph(.08, 6, 5), '#2a0806', [.17, .2, 1.95]), P(GEO.sph(.08, 6, 5), '#2a0806', [-.17, .2, 1.95]),
+      // fierce brow ridges
+      P(GEO.box(.34, .12, .62), gold, [.3, .42, .38], [.25, .3, -.35]), P(GEO.box(.34, .12, .62), gold, [-.3, .42, .38], [.25, -.3, .35]),
+      P(GEO.cone(.08, .35, 4), gold, [.42, .52, .1], [-1.2, 0, -.4]), P(GEO.cone(.08, .35, 4), gold, [-.42, .52, .1], [-1.2, 0, .4]),
+      // cheek fins that flare back
+      P(GEO.cone(.28, .9, 3), mane, [.55, -.05, -.25], [-1.75, 0, -.55], [1, 1, .25]), P(GEO.cone(.28, .9, 3), mane, [-.55, -.05, -.25], [-1.75, 0, .55], [1, 1, .25]),
+      P(GEO.cone(.2, .7, 3), gold, [.5, -.28, -.15], [-1.9, 0, -.9], [1, 1, .25]), P(GEO.cone(.2, .7, 3), gold, [-.5, -.28, -.15], [-1.9, 0, .9], [1, 1, .25]),
     ];
-    for (let i = 0; i < 5; i++) for (const sg of [-1, 1]) hd.push(P(GEO.cone(.05, .22, 4), cream, [sg * .4, -.38, .75 + i * .22], [Math.PI, 0, 0]));
-    // branching antlers
+    for (let i = 0; i < 6; i++) for (const sg of [-1, 1]) hd.push(P(GEO.cone(.045, .2, 4), cream, [sg * (.3 - i * .025), -.2, .55 + i * .22], [Math.PI, 0, 0]));
+    for (const sg of [-1, 1]) hd.push(P(GEO.cone(.07, .42, 4), cream, [sg * .22, -.22, 1.62], [Math.PI, 0, 0]));
+    // branching antlers sweeping back
     for (const sg of [-1, 1]) {
-      hd.push(P(GEO.cone(.11, 1.6, 5), cream, [sg * .4, .9, -.55], [-.85, 0, sg * -.35]));
-      hd.push(P(GEO.cone(.07, .7, 4), cream, [sg * .62, 1.25, -.25], [-.2, 0, sg * -.9]));
-      hd.push(P(GEO.cone(.06, .55, 4), cream, [sg * .3, 1.45, -.95], [-1.2, 0, sg * -.2]));
+      hd.push(P(GEO.cone(.1, 1.7, 5), cream, [sg * .32, .78, -.6], [-1.05, 0, sg * -.28]));
+      hd.push(P(GEO.cone(.065, .7, 4), cream, [sg * .52, 1.05, -.45], [-.35, 0, sg * -.95]));
+      hd.push(P(GEO.cone(.055, .55, 4), cream, [sg * .36, 1.2, -1.05], [-1.4, 0, sg * -.5]));
     }
-    // flame mane around the back of the head and cheeks
-    for (let i = 0; i < 9; i++) { const a = -1.3 + i * (2.6 / 8); hd.push(P(GEO.cone(.16, .9 + (i % 2) * .35, 4), i % 2 ? mane : gold, [Math.sin(a) * .62, Math.cos(a) * .45 + .05, -.55], [-1.9 + Math.cos(a) * .3, 0, -a * .9])); }
-    for (const sg of [-1, 1]) hd.push(P(GEO.cone(.13, .7, 4), mane, [sg * .62, -.25, .1], [-1.2, 0, sg * 1.2]));
+    // flame mane streaming back from the skull
+    for (let i = 0; i < 11; i++) { const a = -1.5 + i * (3 / 10); hd.push(P(GEO.cone(.15, 1 + (i % 2) * .5, 4), i % 2 ? mane : gold, [Math.sin(a) * .5, Math.cos(a) * .42 + .05, -.6], [-1.95 + Math.cos(a) * .25, 0, -a * .85])); }
     mk(merge(hd), this.head);
-    this.jaw = new THREE.Group(); this.jaw.position.set(0, -.3, .35); this.head.add(this.jaw);
-    const jw = [P(GEO.box(.82, .22, 1.45), gold, [0, -.12, .72]), P(GEO.cone(.18, .6, 4), mane, [0, -.35, .2], [2.6, 0, 0])];
-    for (let i = 0; i < 5; i++) for (const sg of [-1, 1]) jw.push(P(GEO.cone(.045, .2, 4), cream, [sg * .33, .06, .5 + i * .22]));
+    this.jaw = new THREE.Group(); this.jaw.position.set(0, -.25, .3); this.head.add(this.jaw);
+    const jw = [P(GEO.cyl(.24, .36, 1.3, 6), gold, [0, -.1, .7], R2, [1, .55, 1]), P(GEO.cyl(.22, .34, 1.2, 6, 1, false, -Math.PI * .25, Math.PI * .5), red, [0, -.08, .68], R2, [1.05, .6, 1])];
+    for (let i = 0; i < 5; i++) for (const sg of [-1, 1]) jw.push(P(GEO.cone(.04, .18, 4), cream, [sg * (.22 - i * .02), .06, .35 + i * .22]));
+    for (let i = 0; i < 5; i++) jw.push(P(GEO.cone(.08, .5 + (i % 2) * .25, 4), i % 2 ? mane : gold, [(i - 2) * .1, -.28, .25 + Math.abs(i - 2) * .08], [2.4, 0, (i - 2) * .2]));
     mk(merge(jw), this.jaw);
     const eyeMat = new THREE.MeshBasicMaterial({ color: '#fff27a', fog: false }); this.mats.push(eyeMat);
+    const pupil = new THREE.MeshBasicMaterial({ color: '#2a0806', fog: false }); this.mats.push(pupil);
     for (const sg of [-1, 1]) {
-      const e = new THREE.Mesh(GEO.box(.2, .1, .06), eyeMat); e.position.set(sg * .4, .22, .66); e.rotation.z = sg * .25; this.head.add(e);
-      const h = halo('#ffd84a', 1.1, .9); h.position.set(sg * .42, .22, .72); this.head.add(h);
+      const e = new THREE.Mesh(GEO.sph(.13, 8, 6), eyeMat); e.scale.set(.55, .8, 1.25); e.position.set(sg * .4, .28, .5); this.head.add(e);
+      const pu = new THREE.Mesh(GEO.box(.02, .17, .05), pupil); pu.position.set(sg * .47, .28, .52); this.head.add(pu);
+      const h = halo('#ffd84a', 1.2, .9); h.position.set(sg * .46, .28, .52); this.head.add(h);
     }
     // long whiskers that ripple as it flies
     this.whisk = [];
     const wm = toon({ color: '#ffd27a' }); this.mats.push(wm);
     for (const sg of [-1, 1]) {
-      let parent = this.head, off = [sg * .45, -.05, 1.8]; const chain = [];
+      let parent = this.head, off = [sg * .3, .05, 1.85]; const chain = [];
       for (let i = 0; i < 6; i++) { const g = new THREE.Group(); g.position.fromArray(off); parent.add(g); const m = new THREE.Mesh(GEO.box(.05, .05, .5), wm); m.position.z = .25; g.add(m); chain.push(g); parent = g; off = [0, 0, .5]; }
       this.whisk.push({ sg, chain });
     }
