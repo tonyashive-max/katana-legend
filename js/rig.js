@@ -652,7 +652,7 @@ class Samurai {
     this.hipsMesh.visible = false;
     // flowing kimono to the ground with a dark hem, wide obi and a big bow at the back
     this.mk(merge([
-      P(GEO.cyl(.2, .36, .9, 18, 5), kc, [0, -.45, 0], null, [1, 1, .82], (x, y) => y < -.33 ? hem : kC),
+      P(GEO.cyl(.2, .36, .9, 18, 5), kc, [0, -.45, 0], null, [1, 1, .82], (x, y) => y < -.3 ? hem : (y > -.24 && y < -.21) ? new COL(ob) : kC),
       P(GEO.cyl(.215, .215, .17, 16), ob, [0, .02, 0], null, [1, 1, .74]),
       P(GEO.box(.36, .2, .1), ob, [0, .04, -.2]),
       P(GEO.box(.13, .36, .05), shadeHex(ob, -.2), [0, -.14, -.22]),
@@ -663,15 +663,18 @@ class Samurai {
     // tall glossy hair with kanzashi pins and dangling blossoms
     const hair = [
       P(GEO.sph(.128, 14, 10, 0, Math.PI * 2, 0, Math.PI * .62), hc, [0, .012, -.012], null, [1.06, .95, 1.06]),
-      P(GEO.sph(.1, 12, 8), hc, [0, .16, -.03], null, [1.45, .78, 1]),
+      P(GEO.sph(.11, 12, 8), hc, [0, .17, -.03], null, [1.6, .85, 1.05]),
+      P(GEO.sph(.06, 10, 8), hc, [0, .26, -.03], null, [1.2, .8, 1]),
       P(GEO.sph(.075, 10, 8), hc, [0, .09, -.14]),
       P(GEO.sph(.075, 10, 8), hc, [.12, .06, -.03], null, [.65, 1, 1.15]),
       P(GEO.sph(.075, 10, 8), hc, [-.12, .06, -.03], null, [.65, 1, 1.15]),
     ];
     for (const sg of [-1, 1]) {
-      hair.push(P(GEO.cyl(.007, .007, .24, 5), L.pins, [sg * .1, .19, .0], [0, 0, sg * -1.0]));
-      hair.push(P(GEO.sph(.03, 8, 6), L.bloom, [sg * .2, .25, .0]));
-      for (let k = 0; k < 3; k++) hair.push(P(GEO.sph(.014, 6, 5), k % 2 ? L.pins : L.bloom, [sg * .15, .12 - k * .04, .03]));
+      // long pins slid sideways through the bun, with blossoms and dangling strings of beads
+      hair.push(P(GEO.cyl(.008, .008, .34, 5), L.pins, [sg * .04, .17, .02], [0, 0, sg * (Math.PI / 2 - .28)]));
+      hair.push(P(GEO.sph(.034, 8, 6), L.bloom, [sg * .2, .22, .03]));
+      hair.push(P(GEO.sph(.05, 8, 6), L.bloom, [sg * .1, .11, .07], null, [1, 1, .6]));
+      for (let k = 0; k < 4; k++) hair.push(P(GEO.sph(.013, 6, 5), k % 2 ? L.pins : L.bloom, [sg * .2, .18 - k * .038, .03]));
     }
     hair.push(P(GEO.box(.14, .03, .03), L.pins, [0, .22, .04]));
     this.mk(merge(hair), this.head);

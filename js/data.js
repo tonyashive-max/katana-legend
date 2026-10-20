@@ -163,7 +163,7 @@ const TRAININGS = {
   iai: { name: 'Iai Quick Draw', skill: 'iai', g: '抜', desc: 'Wait for the bell, swipe from your hilt to draw, cut the straw target, then slide the blade back into its sheath with one smooth stroke. Targets move at higher levels.' },
 };
 const GHOST_LOOK = { cloth: '#5a7ab0', armor: '#d9eeff', trim: '#9fe8ff', helm: 'kabuto', helmCol: '#cfe8ff', crest: 'moon', crestCol: '#9fe8ff', eye: '#ffffff', scarf: '#bff4ff', mask: '#9fc4e8' };
-const GEISHA_LOOK = { geisha: true, cloth: '#c23a7a', armor: '#c23a7a', trim: '#ffd27a', hem: '#3a1450', mask: '#fbf4ee', eye: '#ff3f8a', lips: '#e0103a', pins: '#ffd27a', bloom: '#ff9ec4' };
+const GEISHA_LOOK = { geisha: true, cloth: '#c23a7a', armor: '#c23a7a', trim: '#ffd27a', hem: '#3a1450', mask: '#ffffff', eye: '#ff3f8a', lips: '#e0103a', pins: '#ffd27a', bloom: '#ff9ec4' };
 const GEISHA_FAN = { id: 'ghostfan', name: 'Spirit Fan', r: 'rare', dmg: 0, fan: true, blade: '#ffe6f2', edge: '#ff6fb0', tsuba: '#3a1a2a', wrap: '#3a1a2a', glow: '#ff7fd0' };
 const GHOST_BLADE = { id: 'ghostblade', name: 'Spirit Blade', r: 'rare', dmg: 0, blade: '#bfefff', edge: '#ffffff', tsuba: '#6a9acc', wrap: '#2a4a7a', glow: '#7fe8ff' };
 

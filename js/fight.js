@@ -761,6 +761,7 @@ function showFightResult() {
       <p class="muted">Bosses break weak blades. Bring one with at least <b>${F.st.breakAt}</b> damage: upgrade it at the forge, forge a legendary recipe, or win a stronger sword. ${B.loan ? 'Sensei gave you a practice bokken for now.' : `You are now holding your <b>${B.next}</b>.`}</p>
       <div class="actions">
         <button class="btn primary" data-res="forge">Go to the forge</button>
+        ${!bladeAtRisk(F.st) ? `<button class="btn" data-res="retry">Fight again with ${B.next}</button>` : ''}
         ${fromJourney ? '<button class="btn" data-res="journey">Back to journey</button>' : ''}
         <button class="btn" data-res="home">Dojo</button>
       </div></div>`);
