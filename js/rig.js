@@ -37,6 +37,7 @@ const POSES = {
   guard:   { p: [-0.04, -0.12, 0.34], d: [0.06, 0.75, 0.66], e: [0, -1, 0.3] },
   fpGuard: { p: [-0.27, 0.02, 0.4], d: [0.12, 0.93, 0.32], e: [0.3, -0.3, 0.9] },
   rest:    { p: [-0.22, -0.36, 0.14], d: [-0.12, -0.45, 0.9], e: [0, -1, 0] },
+  shoulder: { p: [-0.2, 0.2, 0.2], d: [0.12, 0.5, -0.86], e: [0, -1, 0] },
   show:    { p: [-0.12, 0.48, 0.12], d: [0.05, 1, 0.08], e: [0, 0, 1] },
   windR:   { p: [-0.32, 0.22, 0.12], d: [-0.35, 0.8, -0.45], e: [0.6, 0, 0.8] },
   windL:   { p: [0.32, 0.22, 0.12], d: [0.35, 0.8, -0.45], e: [-0.6, 0, 0.8] },
@@ -519,6 +520,8 @@ class Samurai {
   /* --- per frame --- */
   update(dt) {
     this.t += dt;
+    if (this.faceMat) { this.faceMat.opacity = this.mat.opacity; this.faceMat.transparent = this.mat.transparent; }
+    if (this.halo) { this.halo.rotation.z += dt * .8; this.halo.children.forEach((f, i) => { if (f.userData.flame) f.scale.y = 1 + Math.sin(this.t * 9 + i * 1.7) * .25; }); }
     if (this.lFreeT > 0) this.lFreeT = Math.max(0, this.lFreeT - dt);
     const driving = this.stepDraw(dt);
     if (driving) { /* grip driven by the sheathing motion */ }
@@ -538,7 +541,7 @@ class Samurai {
     this.solveAll(dt);
     // flash
     if (this.flash > 0) { this.flash = Math.max(0, this.flash - dt * 7); this.mat.emissive.setRGB(this.flash * .32, this.flash * .26, this.flash * .18); }
-    else if (this.ghost) this.mat.emissive.copy(this.baseEmissive);
+    else if (this.baseEmissive) this.mat.emissive.copy(this.baseEmissive).multiplyScalar(this.halo ? .8 + Math.sin(this.t * 6) * .2 : 1);
     else if (this.mat.emissive.r !== 0) this.mat.emissive.setScalar(0);
     // cloth motion
     if (this.banner) {
@@ -606,6 +609,11 @@ class Samurai {
       if (!this.handInit) { this.rCur.copy(rT); this.lCur.copy(lT); this.handInit = true; }
       this.rCur.lerp(rT, k); this.lCur.lerp(lT, dt ? damp(18, dt) : 1);
       rT = this.rCur.clone(); lT = this.lCur.clone();
+    } else if (this.carry) {
+      // weapon resting on the right shoulder, free left arm swinging with the stride
+      lT = new V3(.29, -.23 + Math.abs(this.armSwing) * .05, .06 - this.armSwing * .17);
+      const k = dt ? damp(10, dt) : 1; if (!this.handInit) { this.lCur.copy(lT); this.handInit = true; }
+      this.lCur.lerp(lT, k); lT = this.lCur.clone(); this.rCur.copy(rT);
     } else { this.rCur.copy(rT); this.lCur.copy(lT); this.handInit = true; }
     for (const s of ['L', 'R']) {
       if (this.det['arm' + s]) continue;
@@ -658,8 +666,25 @@ class Samurai {
       P(GEO.box(.13, .36, .05), shadeHex(ob, -.2), [0, -.14, -.22]),
       P(GEO.cyl(.04, .04, .22, 8), shadeHex(ob, -.3), [0, .04, -.25], [0, 0, Math.PI / 2]),
     ]), this.hips);
-    // white collar
-    this.mk(merge([P(GEO.cyl(.1, .12, .06, 12), '#fbf4ee', [0, .4, 0])]), this.chest, 'thin');
+    // a soft kimono body instead of armour: crossed collar (left over right), inner layer and a high obi
+    this.chestMesh.visible = false;
+    const inner = L.inner || '#ffd6ea';
+    this.mk(merge([
+      P(GEO.cyl(.215, .2, .44, 16, 4), kc, [0, .18, 0], null, [1, 1, .66]),
+      P(GEO.cyl(.225, .225, .14, 16), ob, [0, -.0, 0], null, [1, 1, .7]),
+      P(GEO.box(.42, .025, .16), shadeHex(ob, -.25), [0, .07, .06]),
+      P(GEO.box(.07, .34, .03), '#fbf4ee', [.05, .25, .135], [0, 0, -.42]),
+      P(GEO.box(.07, .34, .03), '#fbf4ee', [-.05, .25, .14], [0, 0, .42]),
+      P(GEO.box(.05, .3, .02), inner, [.085, .23, .128], [0, 0, -.42]),
+      P(GEO.box(.05, .3, .02), inner, [-.085, .23, .133], [0, 0, .42]),
+      P(GEO.cyl(.08, .11, .07, 12), '#fbf4ee', [0, .41, 0]),
+      P(GEO.sph(.06, 8, 6), L.bloom, [.12, .3, .12]),
+    ]), this.chest);
+    // pale hands over the gloves
+    for (const s of ['L', 'R']) this.mk(merge([P(GEO.box(.075, .09, .07), '#fbf1ea', [0, -.29, 0])]), this.fo[s], 'thin');
+    // a face that stays bright and powder-white even in shadow
+    this.faceMat = this.mat.clone(); this.faceMat.emissive = new COL('#ffe6f0').multiplyScalar(this.ghost ? .25 : .35);
+    this.headMesh.material = this.faceMat;
     // tall glossy hair with kanzashi pins and dangling blossoms
     const hair = [
       P(GEO.sph(.128, 14, 10, 0, Math.PI * 2, 0, Math.PI * .62), hc, [0, .012, -.012], null, [1.06, .95, 1.06]),
@@ -681,7 +706,23 @@ class Samurai {
     // red lips and rouge
     this.mk(merge([P(GEO.box(.03, .012, .01), L.lips, [0, -.058, .112])]), this.head, false);
     // long furisode sleeves hanging from the forearms
-    for (const s of ['L', 'R']) this.mk(merge([P(GEO.box(.03, .3, .26), kc, [0, -.16, -.1], null, null, (x, y, z) => z < -.1 ? hem : kC)]), this.fo[s]);
+    for (const s of ['L', 'R']) this.mk(merge([
+      P(GEO.cyl(.13, .16, .36, 10, 3), kc, [0, -.17, -.06], null, [.32, 1, 1], (x, y, z) => y < -.13 ? hem : kC),
+      P(GEO.sph(.06, 6, 5), L.bloom, [0, -.12, -.1], null, [.4, 1, 1]),
+    ]), this.fo[s]);
+  }
+  /* a slowly turning wheel of spirit fire behind the back (the Spirit Warriors wear one) */
+  buildHalo(col) {
+    const g = new THREE.Group(); g.position.set(0, .32, -.26); this.chest.add(g);
+    const m = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    g.add(new THREE.Mesh(GEO.tor(.42, .025, 6, 40), m));
+    g.add(new THREE.Mesh(GEO.tor(.3, .012, 6, 32), m));
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * Math.PI * 2, f = new THREE.Mesh(GEO.cone(.06, .22, 5), m);
+      f.position.set(Math.cos(a) * .44, Math.sin(a) * .44, 0); f.rotation.z = a - Math.PI / 2; f.userData.flame = true; g.add(f);
+    }
+    const h = halo(col, 1.6, .5); g.add(h);
+    this.halo = g; return g;
   }
   bladePoint(f) { const v = new V3(0, this.sword.userData.len * (f == null ? .6 : f), 0); this.root.updateMatrixWorld(true); return this.sword.localToWorld(v); }
   partCenter(part) {

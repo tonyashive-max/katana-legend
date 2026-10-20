@@ -85,7 +85,7 @@ function startBattle(st, ctx) {
       const wdef = st.weapon === 'club' ? CLUB_DEF : swordDef(st.weapon || st.sword);
       E = new Samurai(st.look, wdef, { boss: !!st.boss || !!st.spirit });
       E.root.scale.setScalar(st.scale || 1);
-      if (st.spirit) { E.mat.emissive = new COL(st.look.aura).multiplyScalar(.28); E.baseEmissive = E.mat.emissive.clone(); }
+      if (st.spirit) { E.mat.emissive = new COL(st.look.aura).multiplyScalar(.28); E.baseEmissive = E.mat.emissive.clone(); E.buildHalo(st.look.aura); E.trail.mesh.material.color && E.trail.mesh.material.color.set(st.look.aura); }
     }
     E.root.rotation.order = 'YXZ'; P.root.rotation.order = 'YXZ';
     P.setSheathed(true); if (E.hasSaya) E.setSheathed(true);
@@ -252,17 +252,42 @@ function enemyHitsPlayer() {
   if (F.php <= 0 && !F.over) defeat('Defeated');
   updateFightHUD();
 }
+/* cut a built sword in two along its length: keep the part below (stub) or above (flying half) */
+function splitSwordMesh(group, cut, above) {
+  const done = new Map();
+  group.traverse(o => {
+    if (o.isSprite) { o.visible = false; return; }
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+    let g = done.get(o.geometry);
+    if (!g) {
+      const src = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry, pa = src.attributes.position.array, keep = [];
+      for (let t = 0; t < pa.length / 9; t++) { const cy = (pa[t * 9 + 1] + pa[t * 9 + 4] + pa[t * 9 + 7]) / 3; if ((cy > cut) === above) keep.push(t); }
+      g = new THREE.BufferGeometry();
+      for (const name in src.attributes) {
+        const a = src.attributes[name], n = a.itemSize, out = new Float32Array(keep.length * 3 * n);
+        keep.forEach((t, k) => { for (let j = 0; j < 3 * n; j++) out[k * 3 * n + j] = a.array[t * 3 * n + j]; });
+        g.setAttribute(name, new THREE.BufferAttribute(out, n));
+      }
+      done.set(o.geometry, g);
+    }
+    o.geometry = g;
+  });
+}
 function shatterBlade() {
   const P = F.P, def = swordDef(eqSword().id), name = def.name;
-  const tip = P.bladePoint(.75), mid = P.bladePoint(.4);
+  const tip = P.bladePoint(.75), mid = P.bladePoint(.42), len = P.sword.userData.len, cut = len * .42;
   const res = breakEquipped(); if (!res) return;
   F.broken = { name, loan: res.loan, next: swordDef(res.next.id).name, id: def.id };
-  // the top half spins away, the stub stays in your hands
-  const half = buildSword(def); half.userData.glow && (half.userData.glow.visible = false);
-  half.position.copy(mid); half.rotation.set(rnd(-1, 1), rnd(-3, 3), rnd(-1, 1)); half.scale.setScalar(.75);
-  F.W.scene.add(half);
-  FX.addDebris(half, new V3(rnd(-2.5, 2.5), 5.5, rnd(-3, -1)), new V3(rnd(-12, 12), rnd(-12, 12), rnd(-12, 12)));
-  P.sword.scale.set(1, .45, 1);
+  // the top half spins away; a jagged stub stays in your hands
+  P.root.updateMatrixWorld(true);
+  const half = buildSword(def); splitSwordMesh(half, cut, true);
+  const holder = new THREE.Group(); holder.add(half); half.position.set(0, -cut - (len - cut) / 2, 0);
+  P.sword.matrixWorld.decompose(holder.position, holder.quaternion, holder.scale);
+  holder.position.copy(P.bladePoint(.42 + (1 - .42) / 2)); holder.rotation.setFromQuaternion(holder.quaternion);
+  F.W.scene.add(holder);
+  FX.addDebris(holder, new V3(rnd(-2.5, 2.5), 5.5, rnd(-3, -1)), new V3(rnd(-12, 12), rnd(-12, 12), rnd(-12, 12)), .05);
+  splitSwordMesh(P.sword, cut, false);
+  FX.sparks(mid, '#ffffff', 30, 4);
   sfx.clang(.6); sfx.chop(); shake(.22); hitstop(140); slowmo(.25, 1.1); OV.flash = 1;
   FX.sparks(tip, '#ffffff', 60, 6); FX.sparks(mid, def.glow || '#ffe08c', 40, 5);
   const sc = { x: VW / 2, y: VH * .42 };
@@ -750,7 +775,7 @@ function showFightResult() {
     openOverlay(`<div class="modal win">
       <div class="kicker">Victory!</div>
       <p><b>${F.st.name}</b> falls, and its spirit flees to the gate.</p>
-      <div class="reveal" style="--rc:#ffe08c33;--glow:#ffe08c"><div class="rays"></div><div class="keyicon">🗝️</div></div>
+      <div class="reveal" style="--rc:#ffe08c33;--glow:#ffe08c"><div class="rays"></div><div class="keyicon">${keySVG(ORB_COLS[ch])}</div></div>
       <h3>The Spirit Key</h3>
       <p class="muted">${ready ? 'The spirit gate is ready. Its Spirit Warrior waits behind it, faster than anything you have faced.' : `The key opens the spirit gate once you ${[warriorsBeaten(ch) < 3 ? `defeat the warriors (${warriorsBeaten(ch)}/3)` : '', !S.journey[ch].puzzle ? 'awaken the shrine' : ''].filter(Boolean).join(' and ')}.`}</p>
       <div class="rewards"><span class="chip gold"><i></i>+${r.gold}</span><span class="chip steel"><i></i>+${r.steel}</span></div>

@@ -156,6 +156,24 @@ function screenTrain() {
     }).join('')}
   </div>`;
 }
+function keySVG(col) {
+  const id = 'ks' + (++_svgId); col = col || '#ff9ec4';
+  const petals = [0, 1, 2, 3, 4].map(i => { const a = i * 72 - 90, r = a * Math.PI / 180; return `<circle cx="${60 + Math.cos(r) * 9}" cy="${48 + Math.sin(r) * 9}" r="7" fill="${col}"/>`; }).join('');
+  return `<svg class="keysvg" viewBox="0 0 120 210" width="104" height="182" aria-label="Spirit Key">
+    <defs><linearGradient id="${id}" x1="0" x2="1"><stop offset="0" stop-color="#fff4c0"/><stop offset=".45" stop-color="#ffc24a"/><stop offset="1" stop-color="#a8660a"/></linearGradient></defs>
+    <path d="M38 34 C24 50 20 74 26 96" stroke="#c0281e" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M18 96 h16 l4 34 c-4 6 -20 6 -24 0z" fill="#c0281e"/><path d="M22 100 v28 M26 100 v30 M30 100 v28" stroke="#8a1010" stroke-width="1.5"/>
+    <circle cx="26" cy="96" r="5" fill="#ffc24a" stroke="#5a3a00" stroke-width="1.5"/>
+    <circle cx="60" cy="48" r="34" fill="url(#${id})" stroke="#4a2a00" stroke-width="4"/>
+    <circle cx="60" cy="48" r="23" fill="#2a1030" stroke="#4a2a00" stroke-width="3"/>
+    ${petals}<circle cx="60" cy="48" r="5" fill="#ffe08c"/>
+    <rect x="53" y="80" width="14" height="104" rx="4" fill="url(#${id})" stroke="#4a2a00" stroke-width="3"/>
+    <rect x="49" y="96" width="22" height="8" rx="3" fill="#ffe08c" stroke="#4a2a00" stroke-width="2.5"/>
+    <rect x="49" y="110" width="22" height="8" rx="3" fill="#ffe08c" stroke="#4a2a00" stroke-width="2.5"/>
+    <path d="M67 150 h22 v10 h-10 v8 h12 v12 h-24z" fill="url(#${id})" stroke="#4a2a00" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M58 86 v92" stroke="#fff8d8" stroke-width="2" opacity=".7"/>
+  </svg>`;
+}
 function matChip(id, n) { const M = MATERIALS[id]; return `<span class="chip mat"><i style="background:${M.c}"></i>${n != null ? n + ' ' : ''}${M.n}</span>`; }
 function screenForge() {
   const w = eqSword(), d = swordDef(w.id), c = forgeCost(w), max = (w.lvl || 0) >= 10, fx = swordFx(w);

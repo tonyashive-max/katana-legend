@@ -242,3 +242,126 @@ class DragonBoss {
   setFP() { }
   dispose() { this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.mats.forEach(m => m.dispose()); }
 }
+
+/* ===== Ryujin roaming the road: a long serpent that swims through the air ===== */
+class RoamDragon {
+  constructor() {
+    this.root = new THREE.Group();
+    this.mats = [];
+    const red = '#d2301a', gold = '#ffc24a', dark = '#7a120a', cream = '#fff0c0', mane = '#ffb21a';
+    const mat = toon({ vertexColors: true, flatShading: true }); this.mats.push(mat); this.mat = mat;
+    const ol = outlineMat(.03);
+    const mk = (geo, parent) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.add(new THREE.Mesh(geo, ol)); parent.add(m); return m; };
+    /* body: instanced scaled segments, gold belly, dorsal spines and side frills */
+    this.N = 38; this.gap = .78;
+    const segGeo = merge([
+      P(GEO.sph(.78, 10, 8), red, [0, 0, 0], null, [1, .92, 1.15], (x, y) => y < -.38 ? new COL(gold) : (y < -.2 ? new COL(dark) : new COL(red))),
+      P(GEO.cone(.2, .62, 4), mane, [0, .78, -.05], [-.5, 0, 0]),
+      P(GEO.box(.04, .3, .5), mane, [.62, .18, -.1], [0, 0, -.6]),
+      P(GEO.box(.04, .3, .5), mane, [-.62, .18, -.1], [0, 0, .6]),
+    ]);
+    this.body = new THREE.InstancedMesh(segGeo, mat, this.N); this.body.frustumCulled = false; this.body.castShadow = true; this.root.add(this.body);
+    const olBody = new THREE.InstancedMesh(segGeo, ol, this.N); olBody.frustumCulled = false; this.root.add(olBody); this.olBody = olBody;
+    /* tail fin like a flame */
+    this.tail = new THREE.Group(); this.root.add(this.tail);
+    mk(merge([P(GEO.cone(.35, 1.6, 4), mane, [0, .2, -.9], [-1.4, 0, 0]), P(GEO.cone(.3, 1.3, 4), gold, [.3, -.1, -.8], [-1.6, 0, -.5]), P(GEO.cone(.3, 1.3, 4), gold, [-.3, -.1, -.8], [-1.6, 0, .5])]), this.tail);
+    /* head, built facing +z */
+    this.head = new THREE.Group(); this.root.add(this.head);
+    const hd = [
+      P(GEO.box(1.15, .82, 1.3), red, [0, .05, 0]),
+      P(GEO.box(1.25, .2, .5), gold, [0, .48, .35]),
+      P(GEO.box(.92, .5, 1.25), red, [0, -.05, 1.15]),
+      P(GEO.box(.98, .32, .32), dark, [0, .08, 1.78]),
+      P(GEO.sph(.09, 6, 5), '#2a0806', [.24, .18, 1.94]), P(GEO.sph(.09, 6, 5), '#2a0806', [-.24, .18, 1.94]),
+      P(GEO.box(.15, .12, .45), cream, [.38, .3, .55]), P(GEO.box(.15, .12, .45), cream, [-.38, .3, .55]),
+    ];
+    for (let i = 0; i < 5; i++) for (const sg of [-1, 1]) hd.push(P(GEO.cone(.05, .22, 4), cream, [sg * .4, -.38, .75 + i * .22], [Math.PI, 0, 0]));
+    // branching antlers
+    for (const sg of [-1, 1]) {
+      hd.push(P(GEO.cone(.11, 1.6, 5), cream, [sg * .4, .9, -.55], [-.85, 0, sg * -.35]));
+      hd.push(P(GEO.cone(.07, .7, 4), cream, [sg * .62, 1.25, -.25], [-.2, 0, sg * -.9]));
+      hd.push(P(GEO.cone(.06, .55, 4), cream, [sg * .3, 1.45, -.95], [-1.2, 0, sg * -.2]));
+    }
+    // flame mane around the back of the head and cheeks
+    for (let i = 0; i < 9; i++) { const a = -1.3 + i * (2.6 / 8); hd.push(P(GEO.cone(.16, .9 + (i % 2) * .35, 4), i % 2 ? mane : gold, [Math.sin(a) * .62, Math.cos(a) * .45 + .05, -.55], [-1.9 + Math.cos(a) * .3, 0, -a * .9])); }
+    for (const sg of [-1, 1]) hd.push(P(GEO.cone(.13, .7, 4), mane, [sg * .62, -.25, .1], [-1.2, 0, sg * 1.2]));
+    mk(merge(hd), this.head);
+    this.jaw = new THREE.Group(); this.jaw.position.set(0, -.3, .35); this.head.add(this.jaw);
+    const jw = [P(GEO.box(.82, .22, 1.45), gold, [0, -.12, .72]), P(GEO.cone(.18, .6, 4), mane, [0, -.35, .2], [2.6, 0, 0])];
+    for (let i = 0; i < 5; i++) for (const sg of [-1, 1]) jw.push(P(GEO.cone(.045, .2, 4), cream, [sg * .33, .06, .5 + i * .22]));
+    mk(merge(jw), this.jaw);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: '#fff27a', fog: false }); this.mats.push(eyeMat);
+    for (const sg of [-1, 1]) {
+      const e = new THREE.Mesh(GEO.box(.2, .1, .06), eyeMat); e.position.set(sg * .4, .22, .66); e.rotation.z = sg * .25; this.head.add(e);
+      const h = halo('#ffd84a', 1.1, .9); h.position.set(sg * .42, .22, .72); this.head.add(h);
+    }
+    // long whiskers that ripple as it flies
+    this.whisk = [];
+    const wm = toon({ color: '#ffd27a' }); this.mats.push(wm);
+    for (const sg of [-1, 1]) {
+      let parent = this.head, off = [sg * .45, -.05, 1.8]; const chain = [];
+      for (let i = 0; i < 6; i++) { const g = new THREE.Group(); g.position.fromArray(off); parent.add(g); const m = new THREE.Mesh(GEO.box(.05, .05, .5), wm); m.position.z = .25; g.add(m); chain.push(g); parent = g; off = [0, 0, .5]; }
+      this.whisk.push({ sg, chain });
+    }
+    /* four legs with claws, carried alongside the body */
+    this.legs = [];
+    const legGeo = merge([P(GEO.cyl(.13, .1, .7, 6), red, [0, -.35, 0]), P(GEO.sph(.15, 6, 5), gold, [0, -.72, .05]), P(GEO.cone(.05, .25, 4), cream, [.08, -.85, .15], [1.9, 0, 0]), P(GEO.cone(.05, .25, 4), cream, [-.08, -.85, .15], [1.9, 0, 0]), P(GEO.cone(.05, .25, 4), cream, [0, -.85, .2], [2.0, 0, 0])]);
+    for (const [seg, sg] of [[4, 1], [4, -1], [17, 1], [17, -1]]) { const g = new THREE.Group(); this.root.add(g); mk(legGeo, g); this.legs.push({ g, seg, sg }); }
+    this.hist = []; this.vel = new V3(); this.hp = new V3(); this.t = 0; this.roar = 0; this.jawK = 0; this.flash = 0;
+  }
+  place(p, dir) {
+    this.hp.copy(p); this.hist.length = 0;
+    const d = (dir || new V3(0, 0, 1)).clone().normalize();
+    for (let i = 0; i < this.N * 4; i++) this.hist.push(p.clone().addScaledVector(d, -i * this.gap * .5));
+    this.step(0, p);
+  }
+  headPos() { return this.hp; }
+  step(dt, target, speed) {
+    this.t += dt;
+    if (dt) {
+      const to = _t1.subVectors(target, this.hp), d = to.length(), sp = speed || 6;
+      const want = d > .01 ? to.multiplyScalar(Math.min(sp, d * 2) / d) : to.set(0, 0, 0);
+      this.vel.lerp(want, damp(2.2, dt));
+      this.hp.addScaledVector(this.vel, dt);
+      // a gentle swimming wave on top of the flight path
+      const wv = Math.sin(this.t * 2.4) * .9 * dt;
+      this.hp.x += this.vel.z / (this.vel.length() + .01) * wv; this.hp.z -= this.vel.x / (this.vel.length() + .01) * wv;
+      if (this.hist[0].distanceTo(this.hp) > .18) { this.hist.unshift(this.hp.clone()); if (this.hist.length > this.N * 8) this.hist.length = this.N * 8; }
+    }
+    // place body segments at equal spacing along the trail
+    let acc = 0, hi = 0, prev = this.hp.clone();
+    const pos = [];
+    for (let i = 0; i < this.N; i++) {
+      const want = (i + 1) * this.gap;
+      while (hi < this.hist.length - 1) { const seg = prev.distanceTo(this.hist[hi]); if (acc + seg >= want) break; acc += seg; prev = this.hist[hi]; hi++; }
+      const a = this.hist[Math.min(hi, this.hist.length - 1)], seg = prev.distanceTo(a) || 1, k = clamp((want - acc) / seg, 0, 1);
+      pos.push(prev.clone().lerp(a, k));
+    }
+    for (let i = 0; i < this.N; i++) {
+      const p = pos[i], ahead = i ? pos[i - 1] : this.hp;
+      _io.position.copy(p); _io.up.set(0, 1, 0); _io.lookAt(ahead);
+      const s = 1.05 * (1 - Math.pow(i / this.N, 1.4) * .78); _io.scale.set(s, s, s); _io.updateMatrix();
+      this.body.setMatrixAt(i, _io.matrix); this.olBody.setMatrixAt(i, _io.matrix);
+    }
+    this.body.instanceMatrix.needsUpdate = true; this.olBody.instanceMatrix.needsUpdate = true;
+    const last = pos[this.N - 1], prevL = pos[this.N - 2];
+    this.tail.position.copy(last); this.tail.lookAt(prevL); this.tail.scale.setScalar(.6);
+    // head looks along its flight
+    const fwd = this.vel.lengthSq() > .05 ? this.hp.clone().add(this.vel) : this.hp.clone().add(_t2.subVectors(this.hp, pos[0]));
+    this.head.position.copy(this.hp); this.head.lookAt(fwd); this.head.scale.setScalar(1.15);
+    this.head.rotateX(Math.sin(this.t * 1.7) * .08 - (this.roar > 0 ? .5 : 0));
+    this.roar = Math.max(0, this.roar - dt);
+    this.jawK = lerp(this.jawK, this.roar > 0 ? 1 : .12 + Math.sin(this.t * 1.3) * .06, damp(8, dt || 1));
+    this.jaw.rotation.x = this.jawK * .75;
+    for (const w of this.whisk) w.chain.forEach((g, i) => { g.rotation.set(.18 + Math.sin(this.t * 3 - i * .7) * .25, w.sg * (.25 + Math.cos(this.t * 2.2 - i * .6) * .2), 0); });
+    // legs paddle the air
+    for (const L of this.legs) {
+      const p = pos[L.seg], ahead = pos[L.seg - 1];
+      L.g.position.copy(p); L.g.lookAt(ahead);
+      L.g.translateX(L.sg * .62); L.g.translateY(-.25);
+      L.g.rotateZ(L.sg * .5); L.g.rotateX(Math.sin(this.t * 4 + L.seg + (L.sg > 0 ? 0 : Math.PI)) * .7 - .2);
+    }
+    if (this.flash > 0) { this.flash = Math.max(0, this.flash - dt * 3); }
+  }
+  dispose() { this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.mats.forEach(m => m.dispose()); }
+}

@@ -165,8 +165,20 @@ function buildPOIs() {
       const m = barrierMat(MYTHS[ch].dragon ? '#ff7a1a' : '#8a3aff', '#ff5a8a');
       const plane = new THREE.Mesh(new THREE.PlaneGeometry(4 * sc, 4.4 * sc), m); plane.position.set(0, 2.2 * sc, 0); gg.add(plane);
       plane.visible = !S.journey[ch].myth;
-      const lab = labelSprite('Spirit Gate', '#d9b8ff', `${MYTHS[ch].name} · Power ${MYTHS[ch].rec}`); lab.position.set(G.x, y + 5.6 * sc, G.z); g.add(lab);
-      X.pois.push({ kind: 'gate', ch, x: G.x - G.tx * 2, z: G.z - G.tz * 2, r: 4.2, m, plane });
+      const lab = labelSprite('Spirit Gate', '#d9b8ff', `Spirit Warrior · Power ${SPIRITS[ch].rec}`); lab.position.set(G.x, y + 5.6 * sc, G.z); g.add(lab);
+      // the lock seal on the barrier and the Spirit Key that opens it
+      const seal = new THREE.Group(); seal.position.set(0, 2.2 * sc, 0); gg.add(seal);
+      const sealMat = toon({ vertexColors: true }); sealMat.emissive = new COL('#ffb03a').multiplyScalar(.15);
+      seal.add(new THREE.Mesh(merge([
+        P(GEO.cyl(.62, .62, .08, 28), '#2a1030', [0, 0, 0], [Math.PI / 2, 0, 0]),
+        P(GEO.tor(.62, .07, 6, 28), '#ffc24a', [0, 0, 0]),
+        P(GEO.tor(.46, .025, 5, 24), '#ffc24a', [0, 0, 0]),
+        P(GEO.cyl(.1, .1, .1, 12), '#0a0408', [0, .1, 0], [Math.PI / 2, 0, 0]),
+        P(GEO.box(.09, .26, .1), '#0a0408', [0, -.06, 0]),
+        ...[0, 1, 2, 3, 4, 5, 6, 7].map(i => P(GEO.cone(.05, .14, 4), '#ffc24a', [Math.cos(i * Math.PI / 4) * .74, Math.sin(i * Math.PI / 4) * .74, 0], [0, 0, i * Math.PI / 4 - Math.PI / 2])),
+      ]), sealMat));
+      const key = buildSpiritKey(ORB_COLS[ch]); gg.add(key);
+      X.pois.push({ kind: 'gate', ch, x: G.x - G.tx * 2, z: G.z - G.tz * 2, r: 4.2, m, plane, seal, sealMat, key, sc });
     }
   }
   // the dojo, the training gate and the signs
@@ -223,7 +235,13 @@ function buildPOIs() {
     X.pois.forEach(p => {
       if (p.kind === 'orb') { p.g.position.y = p.baseY + Math.sin(t * 2 + p.k) * .15; p.g.rotation.y += dt * 1.5; }
       if (p.ring) p.ring.material.opacity = .45 + Math.sin(t * 3) * .25;
-      if (p.kind === 'gate') { p.m.uniforms.time.value = t; p.m.uniforms.open.value = gateOpen(p.ch) ? 1 : .15; }
+      if (p.kind === 'gate') {
+        p.m.uniforms.time.value = t; const open = gateOpen(p.ch), j = S.journey[p.ch];
+        p.m.uniforms.open.value = open ? 1 : .15;
+        p.seal.visible = !j.myth; p.key.visible = !!j.key && !j.myth;
+        if (open) { p.key.position.set(0, 2.2 * p.sc, .08); p.key.rotation.set(0, 0, Math.PI / 2); p.sealMat.emissive.setRGB(.6 + Math.sin(t * 4) * .2, .4, .1); p.seal.rotation.z = Math.sin(t * .8) * .1; }
+        else { p.key.position.set(0, 2.2 * p.sc + .1 + Math.sin(t * 2) * .12, -1.4); p.key.rotation.set(0, t * 1.6, 0); }
+      }
       if (p.kind === 'shrine' && S.journey[p.ch].puzzle) p.glow.material.opacity = .55 + Math.sin(t * 2) * .2;
       if (p.kind === 'node') { p.halo.material.opacity = .45 + Math.sin(t * 3 + p.x) * .3; if (Math.random() < dt * 2) FX.add.emit(p.x + rnd(-.3, .3), p.g.position.y + .5, p.z + rnd(-.3, .3), 0, rnd(.3, .8), 0, .8, .06, 0, MATERIALS[p.n.mat].c, 1, 0, .2); }
       if (p.kind === 'tgate') { p.m.uniforms.time.value = t; p.m.uniforms.open.value = .5; }
@@ -231,6 +249,27 @@ function buildPOIs() {
     });
   };
   up.poiUpdater = true; X.W.updaters.push(up);
+}
+/* the Spirit Key: an ornate gold key with a crest in the land's colour and a red tassel */
+function buildSpiritKey(col) {
+  const g = new THREE.Group(), mt = toon({ vertexColors: true }); mt.emissive = new COL('#ffb03a').multiplyScalar(.35);
+  const items = [
+    P(GEO.tor(.26, .065, 8, 24), '#ffc24a', [0, .62, 0]),
+    P(GEO.cyl(.13, .13, .05, 5), col, [0, .62, 0], [Math.PI / 2, 0, 0]),
+    P(GEO.cyl(.05, .05, .95, 8), '#ffc24a', [0, .02, 0]),
+    P(GEO.cyl(.075, .075, .06, 10), '#ffe08c', [0, .28, 0]),
+    P(GEO.cyl(.075, .075, .06, 10), '#ffe08c', [0, .18, 0]),
+    P(GEO.box(.2, .07, .05), '#ffc24a', [.1, -.32, 0]),
+    P(GEO.box(.14, .07, .05), '#ffc24a', [.07, -.18, 0]),
+    P(GEO.box(.06, .12, .05), '#ffc24a', [.17, -.36, 0]),
+  ];
+  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; items.push(P(GEO.sph(.06, 6, 5), col, [Math.cos(a) * .1, .62 + Math.sin(a) * .1, .03])); }
+  const mesh = new THREE.Mesh(merge(items), mt); mesh.add(new THREE.Mesh(mesh.geometry, outlineMat(.012))); g.add(mesh);
+  const tas = new THREE.Mesh(merge([P(GEO.cyl(.015, .015, .3, 5), '#c0281e', [-.18, .75, 0], [0, 0, .9]), P(GEO.cone(.06, .22, 8), '#c0281e', [-.32, .62, 0], [0, 0, 0]), P(GEO.sph(.04, 6, 5), '#ffc24a', [-.32, .74, 0])]), toon({ vertexColors: true }));
+  g.add(tas);
+  const h = halo('#ffe08c', 1.6, .55); h.position.y = .3; g.add(h);
+  g.scale.setScalar(1.3);
+  return g;
 }
 /* ---------- each land's mythical beast roams the road and hunts you ---------- */
 const BEAST_NAP = 75e3, BEAST_WALK = 1.7, BEAST_RUN = 5.5, BEAST_SEE = 20, BEAST_LOSE = 42;
@@ -240,20 +279,31 @@ function buildBeasts() {
   for (let ch = 0; ch < 4; ch++) {
     if (!chapterUnlocked(ch) || S.journey[ch].key) continue;
     const B = R.landBeads(ch), m = MYTHS[ch], s0 = B[1].s, s1 = B[4].s;
-    const rig = m.dragon ? new DragonBoss(m) : new Samurai(m.look, m.weapon === 'club' ? CLUB_DEF : swordDef(m.weapon || m.sword), { boss: true, noSaya: true });
-    if (!m.dragon) rig.root.scale.setScalar(m.scale || 1);
-    rig.root.rotation.order = 'YXZ'; rig.setHold('guard', 6);
+    const rig = m.dragon ? new RoamDragon() : new Samurai(m.look, m.weapon === 'club' ? CLUB_DEF : swordDef(m.weapon || m.sword), { boss: true, noSaya: true });
+    if (!m.dragon) { rig.root.scale.setScalar(m.scale || 1); rig.root.rotation.order = 'YXZ'; rig.setHold('shoulder', 6); rig.carry = true; }
     X.poi.add(rig.root); if (rig.trail) X.poi.add(rig.trail.mesh);
     const lab = labelSprite(m.name, '#ff8a6a', m.title); X.poi.add(lab);
     const s = Math.abs(ps - s0) > Math.abs(ps - s1) ? s0 : s1;
     const p = R.pts[clamp(Math.round(s / R.ds), 0, R.N)];
     const b = { ch, m, rig, lab, s0, s1, s, dir: s === s0 ? 1 : -1, state: 'roam', t: 0, pos: new V3(p.x, ropeWalkHeight(p.x, p.z), p.z), face: 0, phase: 0, speed: 0, fly: m.dragon ? 3.2 : 0, size: m.dragon ? 3.6 : 1.4 + (m.scale || 1) * .9 };
+    if (m.dragon) rig.place(b.pos.clone().add(new V3(0, 5, 0)), new V3(p.tx, 0, p.tz).multiplyScalar(b.dir));
     X.beasts.push(b);
   }
+  X.rings = [];
+}
+const BEAST_DUST = ['#e8d2a8', '#ffffff', '#6a5a7a', '#5a3a2a'];
+function beastRing(p, col, size) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(.7, 1, 40), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  m.rotation.x = -Math.PI / 2; m.position.copy(p); m.position.y += .15; X.poi.add(m);
+  X.rings.push({ m, t: 0, size: size || 8 });
 }
 function beastRoar(b) {
   b.state = 'notice'; b.t = 0; X.hunt = b;
-  if (b.m.dragon) { b.rig.setHold('show', 6); b.rig.breathe(.5); } else b.rig.setHold('windH', 5);
+  const top = b.m.dragon ? b.rig.headPos().clone() : b.pos.clone().add(new V3(0, 2.3 * (b.m.scale || 1), 0));
+  if (b.m.dragon) b.rig.roar = 1.3;
+  else { b.rig.carry = false; b.rig.setHold('windH', 5); b.rig.leanAdd = -.35; b.roarT = 1.1; }
+  beastRing(b.pos, b.m.look.aura || '#ff8a3a', 14); setTimeout(() => X && X.beasts && beastRing(b.pos, '#ffffff', 9), 200);
+  FX.glowBurst(top, b.m.look.aura || '#ff8a3a', 3, .6); FX.puff(b.pos.clone().add(new V3(0, .3, 0)), 22, BEAST_DUST[b.ch], 1.6);
   sfx.taiko(1.4); setTimeout(() => sfx.taiko(1.1), 220); shake(.12); OV.vig = .7; OV.vigCol = '255,60,30';
   banner(`${b.m.name} has seen you!`, 'Run, or stand and fight!');
 }
@@ -264,8 +314,46 @@ function beastCatch(b) {
   sfx.taiko(1.5); shake(.2);
   startBeast(b.ch, 'explore');
 }
+/* Ryujin swims through the sky above the road, then dives at you */
+function dragonRoam(b, dt, dP, napping) {
+  const R = rope(), ptAt = s => R.pts[clamp(Math.round(s / R.ds), 0, R.N)];
+  const D = b.rig, hp = D.headPos();
+  const vis = dP < 160; D.root.visible = vis; b.lab.visible = vis && b.state === 'roam';
+  if (!vis) return;
+  let target, spd = 7;
+  if (X.enc) target = hp.clone();
+  else if (b.state === 'roam') {
+    if (b.s >= b.s1 - .5) b.dir = -1; else if (b.s <= b.s0 + .5) b.dir = 1;
+    b.s += b.dir * 3.2 * dt;
+    const p = ptAt(b.s); b.pos.set(p.x, ropeWalkHeight(p.x, p.z), p.z);
+    const a = b.t * .55;
+    target = b.pos.clone().add(new V3(Math.cos(a) * 9, 7 + Math.sin(b.t * 1.1) * 2, Math.sin(a) * 9));
+    if (!napping && isArmed() && X.land === b.ch && dP < BEAST_SEE + 6 && !X.hunt) beastRoar(b);
+  } else if (b.state === 'notice') {
+    target = b.pos.clone().add(new V3(0, 10, 0)); spd = 5;
+    if (Math.random() < dt * 40) FX.add.emit(hp.x, hp.y, hp.z, rnd(-2, 2), rnd(1, 3), rnd(-2, 2), rnd(.6, 1), .25, 0, pick(['#ffb03a', '#ff6a1a', '#ffe08c']), 1, -.3, .4);
+    if (b.t > 1.3) { b.state = 'chase'; b.t = 0; }
+  } else if (b.state === 'chase') {
+    // the ground anchor chases along the road; the head dives at the player
+    const ps = X.s; let tg;
+    if (Math.abs(ps - b.s) > 6) { const p = ptAt(b.s + Math.sign(ps - b.s) * 8); tg = { x: p.x, z: p.z }; } else tg = { x: X.pos.x, z: X.pos.z };
+    const dx = tg.x - b.pos.x, dz = tg.z - b.pos.z, l = Math.hypot(dx, dz);
+    if (l > .05) { b.pos.x += dx / l * BEAST_RUN * dt; b.pos.z += dz / l * BEAST_RUN * dt; }
+    b.s = ropeQuery(b.pos.x, b.pos.z).s;
+    const near = Math.hypot(X.pos.x - b.pos.x, X.pos.z - b.pos.z);
+    target = new V3(X.pos.x, X.pos.y + 1.4 + Math.min(6, near * .25), X.pos.z); spd = 11;
+    const hd = Math.hypot(hp.x - X.pos.x, hp.z - X.pos.z);
+    if (hd < 2.6 || near < 2) { beastCatch(b); return; }
+    if (dP > BEAST_LOSE + 8 || X.land !== b.ch || !isArmed()) { b.state = 'roam'; X.hunt = null; banner('You escaped!', `${b.m.name} lost your trail`); }
+  }
+  D.step(dt, target, spd);
+  b.lab.position.copy(hp).add(new V3(0, 3, 0));
+  if (Math.random() < dt * 16) { const k = Math.random(); FX.add.emit(hp.x + rnd(-.5, .5), hp.y + rnd(-.3, .5), hp.z + rnd(-.5, .5), 0, rnd(.2, .6), 0, rnd(.6, 1), .1, 0, k < .5 ? '#ffb03a' : '#ff6a1a', 1, -.2, .3); }
+  if (b.state === 'chase' && Math.random() < dt * 25) FX.add.emit(hp.x, hp.y - .2, hp.z, rnd(-1, 1), rnd(-.5, .5), rnd(-1, 1), .5, .18, 0, '#ff7a1a', 1, 0, .3);
+}
 function beastsUpdate(dt) {
   if (!X.beasts || !X.beasts.length) return;
+  X.rings = (X.rings || []).filter(r => { r.t += dt; const k = r.t / .9; r.m.scale.setScalar(1 + k * r.size); r.m.material.opacity = .8 * (1 - k); if (k >= 1) { X.poi.remove(r.m); r.m.geometry.dispose(); r.m.material.dispose(); return false; } return true; });
   const R = rope(), ptAt = s => R.pts[clamp(Math.round(s / R.ds), 0, R.N)];
   for (const b of X.beasts) {
     const dP = Math.hypot(X.pos.x - b.pos.x, X.pos.z - b.pos.z);
@@ -274,6 +362,7 @@ function beastsUpdate(dt) {
     b.t += dt;
     const napping = Date.now() - (S.beastNap[b.ch] || 0) < BEAST_NAP;
     let tgt = null, spd = 0;
+    if (b.m.dragon) { dragonRoam(b, dt, dP, napping); continue; }
     if (X.enc) { /* everything holds still while a ghost appears */ }
     else if (b.state === 'roam') {
       if (b.s >= b.s1 - .5) b.dir = -1; else if (b.s <= b.s0 + .5) b.dir = 1;
@@ -281,13 +370,13 @@ function beastsUpdate(dt) {
       tgt = { x: p.x + p.nx * lat, z: p.z + p.nz * lat }; spd = BEAST_WALK;
       if (!napping && isArmed() && X.land === b.ch && dP < BEAST_SEE && !X.hunt) beastRoar(b);
     } else if (b.state === 'notice') {
-      tgt = null; if (b.t > 1.2) { b.state = 'chase'; b.t = 0; if (!b.m.dragon) b.rig.setHold('guard', 6); }
+      tgt = null; if (b.t > 1.2) { b.state = 'chase'; b.t = 0; b.rig.setHold('windR', 6); }
     } else if (b.state === 'chase') {
       const ps = X.s;
       if (Math.abs(ps - b.s) > 6) { const p = ptAt(b.s + Math.sign(ps - b.s) * 8); tgt = { x: p.x, z: p.z }; } else tgt = { x: X.pos.x, z: X.pos.z };
       spd = BEAST_RUN;
       if (dP < b.size) { beastCatch(b); return; }
-      if (dP > BEAST_LOSE || X.land !== b.ch || !isArmed()) { b.state = 'roam'; X.hunt = null; banner('You escaped!', `${b.m.name} lost your trail`); }
+      if (dP > BEAST_LOSE || X.land !== b.ch || !isArmed()) { b.state = 'roam'; X.hunt = null; b.rig.carry = true; b.rig.setHold('shoulder', 5); banner('You escaped!', `${b.m.name} lost your trail`); }
     }
     // move and stay on the road
     const want = b.state === 'notice' || b.state === 'chase' ? Math.atan2(X.pos.x - b.pos.x, X.pos.z - b.pos.z) : null;
@@ -303,19 +392,40 @@ function beastsUpdate(dt) {
     const flyTo = b.m.dragon ? (b.state === 'chase' ? .6 : 3.2) : 0; b.fly = lerp(b.fly, flyTo, damp(1.5, dt));
     b.rig.root.position.set(b.pos.x, ropeWalkHeight(b.pos.x, b.pos.z) + b.fly, b.pos.z);
     b.rig.root.rotation.y = b.face;
-    if (!b.m.dragon) {
-      const k = 1 / (b.m.scale || 1), P = b.rig;
-      b.phase += dt * (3 + b.speed * 9) * Math.min(1, b.speed * 4) * k * 1.4;
-      const st = .32 * Math.min(1, b.speed * 2), lift = .16 * Math.min(1, b.speed * 2);
-      P.feet.L.set(.17, .035 + Math.max(0, Math.sin(b.phase)) * lift, Math.sin(b.phase) * st - .02);
-      P.feet.R.set(-.17, .035 + Math.max(0, Math.sin(b.phase + Math.PI)) * lift, Math.sin(b.phase + Math.PI) * st + .02);
-      P.crouch = -Math.abs(Math.sin(b.phase)) * .05 * b.speed; P.leanAdd = b.speed * .25;
-      if (b.speed > .05 && Math.sin(b.phase) > .97 && b.m.scale > 1.5) shake(Math.max(0, .05 - dP * .002));
+    {
+      // a heavy, swaying stride: big steps, a dip on every footfall, dust and tremors
+      const P = b.rig, sc = b.m.scale || 1, mv = Math.min(1, b.speed * 3), run = b.state === 'chase';
+      const prevPh = b.phase;
+      b.phase += dt * (2.2 + b.speed * 6) * mv / Math.sqrt(sc) * 1.6;
+      const st = (run ? .42 : .3) * mv, lift = (run ? .2 : .13) * mv;
+      P.feet.L.set(.18, .035 + Math.max(0, Math.sin(b.phase)) * lift, Math.sin(b.phase) * st - .02);
+      P.feet.R.set(-.18, .035 + Math.max(0, Math.sin(b.phase + Math.PI)) * lift, Math.sin(b.phase + Math.PI) * st + .02);
+      P.crouch = -Math.abs(Math.cos(b.phase)) * .07 * mv - (run ? .05 : 0);
+      P.sideLean = Math.sin(b.phase) * .07 * mv;
+      P.twistAdd = Math.sin(b.phase) * .1 * mv;
+      P.armSwing = -Math.sin(b.phase) * mv;
+      if (b.roarT > 0) { b.roarT -= dt; P.leanAdd = -.35; } else P.leanAdd = lerp(P.leanAdd, run ? .3 : .08 * mv, damp(4, dt));
+      if (P.wings) P.wingFlare = run ? .6 + Math.sin(b.t * 9) * .4 : Math.sin(b.t * 2) * .15;
+      // footfalls
+      const hit = Math.floor(prevPh / Math.PI) !== Math.floor(b.phase / Math.PI);
+      if (hit && mv > .2) {
+        const side = Math.floor(b.phase / Math.PI) % 2 ? 1 : -1, fw = new V3(Math.sin(b.face), 0, Math.cos(b.face)), rt = new V3(fw.z, 0, -fw.x);
+        const fp = b.rig.root.position.clone().addScaledVector(rt, side * .2 * sc).addScaledVector(fw, .15 * sc);
+        FX.puff(fp.add(new V3(0, .1, 0)), run ? 7 : 4, BEAST_DUST[b.ch], .5 * sc);
+        if (sc > 1.4) { shake(Math.max(0, (run ? .07 : .04) - dP * .0018)); if (dP < 30) sfx.taiko(.35); }
+      }
+      // breath: frosty for the giant, hot snorts for the ogre
+      if (Math.random() < dt * (run ? 3 : 1.2)) {
+        const hp = P.head.getWorldPosition(new V3()), fw = new V3(Math.sin(b.face), 0, Math.cos(b.face));
+        hp.addScaledVector(fw, .25 * sc);
+        if (b.m.freeze) FX.puff(hp, 3, '#e8fbff', .35 * sc); else if (b.ch === 0) FX.puff(hp, 2, '#ffd8c8', .25 * sc);
+        else if (b.m.teleport) FX.petals(hp, 2, '#15151c', 1.2);
+      }
     }
     b.rig.update(dt);
     const top = b.m.dragon ? 5.5 : 2.4 * (b.m.scale || 1);
     b.lab.position.set(b.pos.x, b.rig.root.position.y + top, b.pos.z);
-    if (b.m.look.aura && Math.random() < dt * 20) FX.add.emit(b.pos.x + rnd(-.6, .6), b.rig.root.position.y + rnd(.2, top - .4), b.pos.z + rnd(-.6, .6), 0, rnd(.3, .9), 0, rnd(.7, 1.2), .08, 0, b.m.look.aura, .8, -.2, .3);
+    if (b.m.look.aura && Math.random() < dt * 12) FX.add.emit(b.pos.x + rnd(-.6, .6), b.rig.root.position.y + rnd(.2, top - .4), b.pos.z + rnd(-.6, .6), 0, rnd(.3, .9), 0, rnd(.7, 1.2), .08, 0, b.m.look.aura, .8, -.2, .3);
   }
 }
 function addThief(c) {
