@@ -161,6 +161,7 @@ function screenForge() {
   const nextDmg = Math.round(d.dmg * (1 + .12 * ((w.lvl || 0) + 1)) * (1 + fx.dmg) * (w.q || 1)), slots = infuseSlots(w), used = (w.inf || []).length;
   const owned = MAT_IDS.filter(id => matCount(id) > 0);
   return `<div class="stack">
+    ${isArmed() ? '' : `<section class="panel thief"><h3>👻 This blade was stolen</h3><p class="muted" style="margin:6px 0 10px">A ghost has your ${d.name}. Equip another blade to forge, or go win it back.</p><button class="btn primary" data-tab="swords">Choose a blade</button></section>`}
     <section class="panel">
       <div class="eyebrow">Master smith's forge</div>
       <div class="row between" style="margin-top:6px"><h2 class="name ${d.r}">${d.name}${w.lvl ? ` +${w.lvl}` : ''}</h2>${rarTag(d)}</div>

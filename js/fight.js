@@ -101,7 +101,7 @@ function startBattle(st, ctx) {
       guardDir: 'R', guardHits: 0, over: false, outcome: null, introT: 0, endT: 0, hitTimes: [], frozenT: 0, deflects: 0,
       combo: 0, comboT: 0, parries: 0, lostLimb: false, special: null, trophy: null, atkMul: 1, legsPenalty: 1,
       ex: 0, lunge: 0, kb: 0, returnT: 0, camPos: new V3(), camLook: new V3(), camK: 30, blockPose: null,
-      tutorial: S.wins < 3, hintMsg: '', hintT: 0,
+      tutorial: S.wins < 3, hintMsg: '', hintT: 0, fragile: bladeAtRisk(st), strain: 0, broken: null,
       drawn: false, drawnAt: -1, signaled: false, sigT: 0, signalAt: 0, enemyDrawAt: Infinity, enemyDrawn: false, firstStrike: false, iaiUntil: 0, iaiDone: false, leaf: null,
     };
     P.setFP(F.view === 'fp');
@@ -118,6 +118,7 @@ function startBattle(st, ctx) {
     updateFightHUD();
     banner(st.name, st.title);
     if (ctx.kind === 'myth') setTimeout(() => { if (F && F.state === 'intro') hint(st.intro); }, 300);
+    if (F.fragile) { setTimeout(() => { if (F && !F.over) { hint(`⚠ Your ${swordDef(eqSword().id).name} is too weak for ${st.name}. It could snap!`); sfx.bell && sfx.bell(); } }, ctx.kind === 'myth' ? 2600 : 600); }
     sfx.taiko(1); if (ctx.kind === 'myth') setTimeout(() => sfx.taiko(1.3), 350);
     MUSIC.start('fight');
     setMode(FightMode);
@@ -236,10 +237,40 @@ function enemyHitsPlayer() {
     ovPop(sc.x + rnd(-60, 60), sc.y, '-' + Math.round(d), { size: F.fury ? 44 : 34, color: '#ff8a7a' });
     if (st.freeze) { F.frozenT = 2.6; ovPop(sc.x, sc.y - 70, 'FROZEN!', { size: 30, color: '#bff4ff', stroke: '#0a2a4a' }); }
   }
+  // a blade that is too weak can snap under a boss's blows
+  if (F.fragile && !F.broken) {
+    F.strain += (F.blocking ? 1 : .6) * (F.fury ? 2 : 1);
+    const deficit = clamp(1 - swordDmg(eqSword()) / st.breakAt, 0, 1);
+    if (F.strain >= 2 && Math.random() < .22 + deficit * 1.4) { shatterBlade(); return; }
+  }
   F.php -= d;
   const key = limb === 'head' ? 'helm' : limb;
   if (F.plimb[limb] <= 0 && !P.det[key]) playerLoseLimb(limb);
   if (F.php <= 0 && !F.over) defeat('Defeated');
+  updateFightHUD();
+}
+function shatterBlade() {
+  const P = F.P, def = swordDef(eqSword().id), name = def.name;
+  const tip = P.bladePoint(.75), mid = P.bladePoint(.4);
+  const res = breakEquipped(); if (!res) return;
+  F.broken = { name, loan: res.loan, next: swordDef(res.next.id).name, id: def.id };
+  // the top half spins away, the stub stays in your hands
+  const half = buildSword(def); half.userData.glow && (half.userData.glow.visible = false);
+  half.position.copy(mid); half.rotation.set(rnd(-1, 1), rnd(-3, 3), rnd(-1, 1)); half.scale.setScalar(.75);
+  F.W.scene.add(half);
+  FX.addDebris(half, new V3(rnd(-2.5, 2.5), 5.5, rnd(-3, -1)), new V3(rnd(-12, 12), rnd(-12, 12), rnd(-12, 12)));
+  P.sword.scale.set(1, .45, 1);
+  sfx.clang(.6); sfx.chop(); shake(.22); hitstop(140); slowmo(.25, 1.1); OV.flash = 1;
+  FX.sparks(tip, '#ffffff', 60, 6); FX.sparks(mid, def.glow || '#ffe08c', 40, 5);
+  const sc = { x: VW / 2, y: VH * .42 };
+  ovPop(sc.x, sc.y, 'YOUR BLADE SNAPPED!', { size: 40, color: '#ffffff', stroke: '#5a0a0a' });
+  banner('Blade broken', name + ' is gone');
+  F.cdUntil = Infinity; F.blocking = false;
+  setTimeout(() => {
+    if (!F || F.over) return;
+    F.php = 0; F.P.hitFlash(1); sfx.hurt(); shake(.2); OV.vig = 1; OV.vigCol = '255,40,30';
+    defeat('Shattered');
+  }, 1300);
   updateFightHUD();
 }
 function playerLoseLimb(limb) {
@@ -274,7 +305,7 @@ function ringInfo(rig, f) {
 }
 function fightHint(msg) { F.hintMsg = msg; F.hintT = 3; }
 function fightSlash(x0, y0, x1, y1) {
-  if (!F || F.state === 'intro' || F.over || F.special) return;
+  if (!F || F.state === 'intro' || F.over || F.special || F.broken) return;
   if (!F.drawn || F.clock - F.drawnAt < .1) return;
   if (F.firstStrike && !F.iaiDone && F.clock < F.iaiUntil) {
     const hit = hitTest(F.E, x0, y0, x1, y1);
@@ -722,7 +753,18 @@ function showFightResult() {
         <button class="btn" data-res="home">Dojo</button>
       </div></div>`);
   } else {
-    openOverlay(`<div class="modal">
+    const B = F.broken;
+    if (B) openOverlay(`<div class="modal">
+      <div class="kicker lose">Blade broken!</div>
+      <div class="reveal broken" style="--rc:#ff3b3b22;--glow:rgba(255,80,60,.3)">${bladeSVG(swordDef(B.id))}</div>
+      <p><b>${F.st.name}</b> snapped your <b>${B.name}</b> in half. It is gone forever.</p>
+      <p class="muted">Bosses break weak blades. Bring one with at least <b>${F.st.breakAt}</b> damage: upgrade it at the forge, forge a legendary recipe, or win a stronger sword. ${B.loan ? 'Sensei gave you a practice bokken for now.' : `You are now holding your <b>${B.next}</b>.`}</p>
+      <div class="actions">
+        <button class="btn primary" data-res="forge">Go to the forge</button>
+        ${fromJourney ? '<button class="btn" data-res="journey">Back to journey</button>' : ''}
+        <button class="btn" data-res="home">Dojo</button>
+      </div></div>`);
+    else openOverlay(`<div class="modal">
       <div class="kicker lose">Defeated</div>
       <p><b>${F.st.name}</b> was too strong this time. Your wounds heal after every battle.</p>
       <p class="muted">Your power is <b>${playerPower()}</b>; this foe is about <b>${F.st.rec}</b>. Train in the dojo, forge your blade, and parry at the gold ring, then strike while they stumble.</p>
@@ -744,6 +786,7 @@ function fightResultAction(act, el) {
   if (act === 'retry' && ctx) { F = null; startBattle(ctx.kind === 'myth' ? MYTHS[ctx.idx] : STAGES[ctx.idx], ctx); return; }
   if (act === 'nextland') { F = null; OV.draw = null; hideHUD(); startExplore(+el.dataset.ch); return; }
   if (act === 'journey') { endFight('journey'); return; }
+  if (act === 'forge') { endFight(); setTimeout(() => showTab('forge'), 450); return; }
   if (act === 'train') { endFight(); setTimeout(() => showTab('train'), 450); return; }
   endFight();
 }

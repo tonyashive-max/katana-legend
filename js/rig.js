@@ -71,6 +71,17 @@ function bladeShape(L, w, c) {
   s.quadraticCurveTo(-w / 2 - c * 0.35, L * 0.55, -w / 2, 0);
   return s;
 }
+function buildFan(def) {
+  const g = new THREE.Group(), items = [], n = 9, R = .36, a0 = -1.15, a1 = 1.15;
+  for (let i = 0; i < n; i++) { const a = lerp(a0, a1, i / (n - 1)); items.push(P(GEO.box(.012, R, .008), def.tsuba, [-Math.sin(a) * R / 2, Math.cos(a) * R / 2, 0], [0, 0, a])); }
+  const paper = new THREE.RingGeometry(.12, R, 20, 2, Math.PI / 2 + a0, a1 - a0);
+  items.push(P(paper, def.blade, [0, 0, .006], null, null, (x, y) => (Math.floor((Math.atan2(x, y) + 2) * 4) % 2 ? def.blade : def.edge)));
+  items.push(P(GEO.cyl(.018, .018, .03, 8), def.edge, [0, 0, 0], [Math.PI / 2, 0, 0]));
+  const geo = merge(items), mat = toon({ vertexColors: true, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geo, mat); mesh.castShadow = true; mesh.add(new THREE.Mesh(geo, outlineMat(.004)));
+  g.add(mesh); g.userData.len = R; g.userData.mat = mat;
+  return g;
+}
 function buildClub(def) {
   const g = new THREE.Group();
   const items = [
@@ -91,6 +102,7 @@ function buildClub(def) {
 function buildSword(def, opt) {
   opt = opt || {};
   if (def.club) return buildClub(def);
+  if (def.fan) return buildFan(def);
   const g = new THREE.Group();
   const L = def.id === 'rusty' ? .58 : .78, w = def.wood ? .036 : .033, c = def.wood ? .02 : .036;
   const bladeCol = new COL(def.blade), edgeCol = new COL(def.edge), spine = shadeHex(def.blade, -.35);
@@ -150,8 +162,8 @@ class Samurai {
     this.ghost = !!opt.ghost;
     if (this.ghost) {
       this.mat = toon({ vertexColors: true, transparent: true, opacity: .5, depthWrite: false });
-      this.mat.emissive = new COL('#2a7cff'); this.baseEmissive = this.mat.emissive.clone();
-      this.ol = outlineMat(.014, '#bff4ff');
+      this.mat.emissive = new COL(opt.ghostCol || '#2a7cff'); this.baseEmissive = this.mat.emissive.clone();
+      this.ol = outlineMat(.014, opt.ghostLine || '#bff4ff');
     } else { this.mat = toon({ vertexColors: true }); this.mat.emissive = new COL(0x000000); this.ol = outlineMat(.011); }
     this.sheathed = false; this.drawAnim = null; this.lFreeT = 0; this.armSwing = 0;
     this.rCur = new V3(); this.lCur = new V3(); this.handInit = false;
@@ -297,6 +309,7 @@ class Samurai {
     this.hasSaya = !this.swordDef.club && !this.opt.noSaya;
     if (this.hasSaya) this.buildSaya();
     if (this.ghost) { this.ft.L.visible = this.ft.R.visible = false; if (this.saya) this.saya.visible = false; }
+    if (L.geisha) this.buildGeisha();
     this.solveAll(0);
   }
   buildSaya() {
@@ -632,6 +645,40 @@ class Samurai {
       }),
     };
     return out;
+  }
+  buildGeisha() {
+    const L = this.look, kc = L.cloth, ob = L.trim, hem = new COL(L.hem), kC = new COL(kc), hc = '#0d0b12';
+    for (const s of ['L', 'R']) { this.sode[s].visible = false; this.th[s].visible = false; this.sn[s].visible = false; this.ft[s].visible = false; }
+    this.hipsMesh.visible = false;
+    // flowing kimono to the ground with a dark hem, wide obi and a big bow at the back
+    this.mk(merge([
+      P(GEO.cyl(.2, .36, .9, 18, 5), kc, [0, -.45, 0], null, [1, 1, .82], (x, y) => y < -.33 ? hem : kC),
+      P(GEO.cyl(.215, .215, .17, 16), ob, [0, .02, 0], null, [1, 1, .74]),
+      P(GEO.box(.36, .2, .1), ob, [0, .04, -.2]),
+      P(GEO.box(.13, .36, .05), shadeHex(ob, -.2), [0, -.14, -.22]),
+      P(GEO.cyl(.04, .04, .22, 8), shadeHex(ob, -.3), [0, .04, -.25], [0, 0, Math.PI / 2]),
+    ]), this.hips);
+    // white collar
+    this.mk(merge([P(GEO.cyl(.1, .12, .06, 12), '#fbf4ee', [0, .4, 0])]), this.chest, 'thin');
+    // tall glossy hair with kanzashi pins and dangling blossoms
+    const hair = [
+      P(GEO.sph(.128, 14, 10, 0, Math.PI * 2, 0, Math.PI * .62), hc, [0, .012, -.012], null, [1.06, .95, 1.06]),
+      P(GEO.sph(.1, 12, 8), hc, [0, .16, -.03], null, [1.45, .78, 1]),
+      P(GEO.sph(.075, 10, 8), hc, [0, .09, -.14]),
+      P(GEO.sph(.075, 10, 8), hc, [.12, .06, -.03], null, [.65, 1, 1.15]),
+      P(GEO.sph(.075, 10, 8), hc, [-.12, .06, -.03], null, [.65, 1, 1.15]),
+    ];
+    for (const sg of [-1, 1]) {
+      hair.push(P(GEO.cyl(.007, .007, .24, 5), L.pins, [sg * .1, .19, .0], [0, 0, sg * -1.0]));
+      hair.push(P(GEO.sph(.03, 8, 6), L.bloom, [sg * .2, .25, .0]));
+      for (let k = 0; k < 3; k++) hair.push(P(GEO.sph(.014, 6, 5), k % 2 ? L.pins : L.bloom, [sg * .15, .12 - k * .04, .03]));
+    }
+    hair.push(P(GEO.box(.14, .03, .03), L.pins, [0, .22, .04]));
+    this.mk(merge(hair), this.head);
+    // red lips and rouge
+    this.mk(merge([P(GEO.box(.03, .012, .01), L.lips, [0, -.058, .112])]), this.head, false);
+    // long furisode sleeves hanging from the forearms
+    for (const s of ['L', 'R']) this.mk(merge([P(GEO.box(.03, .3, .26), kc, [0, -.16, -.1], null, null, (x, y, z) => z < -.1 ? hem : kC)]), this.fo[s]);
   }
   bladePoint(f) { const v = new V3(0, this.sword.userData.len * (f == null ? .6 : f), 0); this.root.updateMatrixWorld(true); return this.sword.localToWorld(v); }
   partCenter(part) {

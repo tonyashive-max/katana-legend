@@ -99,40 +99,40 @@ const STAGES = [
     look: { cloth: '#4a3a2a', armor: '#6d5a43', trim: '#c0452f', helm: 'band', helmCol: '#c0452f', crest: null, eye: '#ffcf8a' } },
   { ch: 0, name: 'Taro', title: 'the Lone Ronin', hp: 170, dmg: 11, tele: 1300, guard: .18, react: .18, combo: .12, feint: 0, low: .05, sword: 'iron', gold: 80, steel: 5,
     look: { cloth: '#283044', armor: '#4b5563', trim: '#d1c7a3', helm: 'kasa', helmCol: '#a8854a', crest: null, eye: '#ffe9a8' } },
-  { ch: 0, boss: 1, name: 'Captain Haru', title: 'the Crimson Fang', hp: 280, dmg: 14, tele: 1180, guard: .24, react: .22, combo: .2, feint: .05, low: .1, sword: 'river', gold: 150, steel: 10, outfit: 'crimson',
+  { ch: 0, boss: 1, breakAt: 10, name: 'Captain Haru', title: 'the Crimson Fang', hp: 280, dmg: 14, tele: 1180, guard: .24, react: .22, combo: .2, feint: .05, low: .1, sword: 'river', gold: 150, steel: 10, outfit: 'crimson',
     look: { cloth: '#3b1a16', armor: '#9c2f24', trim: '#e8b54a', helm: 'kabuto', helmCol: '#6e1f19', crest: 'horns', crestCol: '#e8b54a', eye: '#ff8a5a', banner: '#9c2f24' } },
   { ch: 1, name: 'Brother Gen', title: 'the Mountain Monk', hp: 340, dmg: 17, tele: 1080, guard: .26, react: .26, combo: .2, feint: .05, low: .15, sword: 'crane', gold: 140, steel: 9,
     look: { cloth: '#e6dcc6', armor: '#b58a52', trim: '#8a3324', helm: 'band', helmCol: '#8a3324', crest: null, eye: '#9fe0ff' } },
   { ch: 1, name: 'Sora', title: 'the Ice Ronin', hp: 400, dmg: 19, tele: 1000, guard: .28, react: .3, combo: .25, feint: .1, low: .15, sword: 'moon', gold: 160, steel: 10,
     look: { cloth: '#2e425c', armor: '#8fb0cf', trim: '#ffffff', helm: 'hood', helmCol: '#3d5675', crest: null, eye: '#bfe9ff', scarf: '#bfe9ff' } },
-  { ch: 1, boss: 1, name: 'Yuki', title: 'the Frost Blade', hp: 560, dmg: 23, tele: 940, guard: .32, react: .32, combo: .3, feint: .15, low: .2, sword: 'ember', gold: 240, steel: 16, outfit: 'snow',
+  { ch: 1, boss: 1, breakAt: 17, name: 'Yuki', title: 'the Frost Blade', hp: 560, dmg: 23, tele: 940, guard: .32, react: .32, combo: .3, feint: .15, low: .2, sword: 'ember', gold: 240, steel: 16, outfit: 'snow',
     look: { cloth: '#34557a', armor: '#e5eef8', trim: '#5fb0ff', helm: 'kabuto', helmCol: '#d8e6f4', crest: 'moon', crestCol: '#8fd0ff', eye: '#7fe8ff', banner: '#5fb0ff', aura: '#9fe6ff' } },
   { ch: 2, name: 'Shadow Guard', title: 'of Kuro Castle', hp: 640, dmg: 26, tele: 880, guard: .34, react: .36, combo: .3, feint: .2, low: .2, sword: 'storm', gold: 200, steel: 13,
     look: { cloth: '#191822', armor: '#2c2a3a', trim: '#7f70b8', helm: 'kabuto', helmCol: '#22202e', crest: null, eye: '#c9a0ff' } },
   { ch: 2, name: 'Rei', title: 'the Twin Fang Ninja', hp: 720, dmg: 28, tele: 830, guard: .36, react: .4, combo: .38, feint: .3, low: .25, sword: 'jade', gold: 230, steel: 14,
     look: { cloth: '#121218', armor: '#1f1f27', trim: '#d23a3a', helm: 'hood', helmCol: '#15151c', crest: null, eye: '#ff6b6b', scarf: '#d23a3a' } },
-  { ch: 2, boss: 1, name: 'Lord Kuro', title: 'the Shadow Lord', hp: 950, dmg: 33, tele: 780, guard: .4, react: .42, combo: .42, feint: .3, low: .3, sword: 'sakura', gold: 360, steel: 22, outfit: 'golden',
+  { ch: 2, boss: 1, breakAt: 25, name: 'Lord Kuro', title: 'the Shadow Lord', hp: 950, dmg: 33, tele: 780, guard: .4, react: .42, combo: .42, feint: .3, low: .3, sword: 'sakura', gold: 360, steel: 22, outfit: 'golden',
     look: { cloth: '#241a33', armor: '#15141a', trim: '#d9b13d', helm: 'kabuto', helmCol: '#0e0d12', crest: 'horns', crestCol: '#d9b13d', eye: '#ffd24a', banner: '#5a2a8a', aura: '#8a5aff' } },
   { ch: 3, name: 'Temple Sentinel', title: 'Guardian of the Gate', hp: 1050, dmg: 36, tele: 740, guard: .42, react: .45, combo: .4, feint: .3, low: .3, sword: 'oni', gold: 300, steel: 20,
     look: { cloth: '#2d3323', armor: '#5f6e48', trim: '#e0c77a', helm: 'kabuto', helmCol: '#4a5839', crest: 'oni', crestCol: '#e0c77a', eye: '#baff8a' } },
   { ch: 3, name: 'Goro', title: 'the Fire Oni', hp: 1200, dmg: 40, tele: 700, guard: .42, react: .48, combo: .45, feint: .35, low: .3, sword: 'dragon', gold: 340, steel: 22,
     look: { cloth: '#2a0d08', armor: '#8f1d12', trim: '#ffa01a', helm: 'kabuto', helmCol: '#5c0f0a', crest: 'oni', crestCol: '#ffa01a', eye: '#ffd23a', aura: '#ff6a1a' } },
-  { ch: 3, boss: 1, name: 'The Dragon Shogun', title: 'Master of Dragon Peak', hp: 1550, dmg: 46, tele: 650, guard: .46, react: .5, combo: .55, feint: .4, low: .35, sword: 'void', gold: 600, steel: 36, outfit: 'dragonlord',
+  { ch: 3, boss: 1, breakAt: 33, name: 'The Dragon Shogun', title: 'Master of Dragon Peak', hp: 1550, dmg: 46, tele: 650, guard: .46, react: .5, combo: .55, feint: .4, low: .35, sword: 'void', gold: 600, steel: 36, outfit: 'dragonlord',
     look: { cloth: '#3b0d12', armor: '#1c1e2a', trim: '#ffae1a', helm: 'kabuto', helmCol: '#12131b', crest: 'dragon', crestCol: '#ffae1a', eye: '#e08bff', banner: '#ff7a1a', aura: '#c35cff' } },
 ];
 
 /* Mythical bosses: one behind each chapter's spirit gate. */
 const MYTHS = [
-  { ch: 0, myth: true, name: 'Akaoni', title: 'the Mountain Ogre', hp: 560, dmg: 22, tele: 1300, guard: .1, react: .15, combo: .25, feint: 0, low: .15, fury: .3, scale: 1.75, weapon: 'club', sword: 'ogre', gold: 320, steel: 24,
+  { ch: 0, myth: true, breakAt: 13, name: 'Akaoni', title: 'the Mountain Ogre', hp: 560, dmg: 22, tele: 1300, guard: .1, react: .15, combo: .25, feint: 0, low: .15, fury: .3, scale: 1.75, weapon: 'club', sword: 'ogre', gold: 320, steel: 24,
     intro: 'A giant red ogre with an iron club. Its red-ring smash cannot be parried. Hold BLOCK!',
     look: { cloth: '#3a1a10', armor: '#c8321e', trim: '#2a1a12', helm: 'band', helmCol: '#2a1a12', crest: 'oni', crestCol: '#f2e6c8', eye: '#ffe24a', mask: '#b8281a', skin: '#c8321e', aura: '#ff5a2a' } },
-  { ch: 1, myth: true, name: 'Hyōga', title: 'the Frost Giant', hp: 1050, dmg: 30, tele: 1150, guard: .2, react: .25, combo: .3, feint: .1, low: .25, fury: .3, freeze: true, scale: 1.9, weapon: 'frost', sword: 'frost', gold: 480, steel: 34,
+  { ch: 1, myth: true, breakAt: 21, name: 'Hyōga', title: 'the Frost Giant', hp: 1050, dmg: 30, tele: 1150, guard: .2, react: .25, combo: .3, feint: .1, low: .25, fury: .3, freeze: true, scale: 1.9, weapon: 'frost', sword: 'frost', gold: 480, steel: 34,
     intro: 'Its icy hits freeze your arms and slow your swings. Block the red ring!',
     look: { cloth: '#5a7ea8', armor: '#d9f2ff', trim: '#7fe8ff', helm: 'kabuto', helmCol: '#bfe9ff', crest: 'crystal', crestCol: '#9ff2ff', eye: '#4ad8ff', mask: '#9fcfe8', aura: '#bff4ff' } },
-  { ch: 2, myth: true, name: 'Sōjōbō', title: 'King of the Tengu', hp: 1400, dmg: 34, tele: 760, guard: .3, react: .45, combo: .45, feint: .4, low: .25, fury: .2, teleport: .4, scale: 1.25, weapon: 'tengu', sword: 'tengu', gold: 640, steel: 44,
+  { ch: 2, myth: true, breakAt: 29, name: 'Sōjōbō', title: 'King of the Tengu', hp: 1400, dmg: 34, tele: 760, guard: .3, react: .45, combo: .45, feint: .4, low: .25, fury: .2, teleport: .4, scale: 1.25, weapon: 'tengu', sword: 'tengu', gold: 640, steel: 44,
     intro: 'The Tengu King vanishes in a puff of feathers and strikes from a new spot. Stay sharp!',
     look: { cloth: '#1a1a22', armor: '#2a2230', trim: '#ffb03a', helm: 'tengu', helmCol: '#c0281e', crest: null, eye: '#ffd24a', mask: '#c0281e', wings: '#15151c', aura: '#ffb03a' } },
-  { ch: 3, myth: true, dragon: true, name: 'Ryūjin', title: 'the Sky Dragon', hp: 2400, dmg: 46, tele: 820, guard: .25, react: .3, combo: .45, feint: .3, low: .3, fury: .3, sword: 'ryujin', gold: 1200, steel: 80,
+  { ch: 3, myth: true, dragon: true, breakAt: 38, name: 'Ryūjin', title: 'the Sky Dragon', hp: 2400, dmg: 46, tele: 820, guard: .25, react: .3, combo: .45, feint: .3, low: .3, fury: .3, sword: 'ryujin', gold: 1200, steel: 80,
     intro: 'The dragon itself descends! Parry its bites and claws, block its fire breath, and chop off its horns and claws.',
     look: { aura: '#ffb03a' } },
 ];
@@ -163,6 +163,8 @@ const TRAININGS = {
   iai: { name: 'Iai Quick Draw', skill: 'iai', g: '抜', desc: 'Wait for the bell, swipe from your hilt to draw, cut the straw target, then slide the blade back into its sheath with one smooth stroke. Targets move at higher levels.' },
 };
 const GHOST_LOOK = { cloth: '#5a7ab0', armor: '#d9eeff', trim: '#9fe8ff', helm: 'kabuto', helmCol: '#cfe8ff', crest: 'moon', crestCol: '#9fe8ff', eye: '#ffffff', scarf: '#bff4ff', mask: '#9fc4e8' };
+const GEISHA_LOOK = { geisha: true, cloth: '#c23a7a', armor: '#c23a7a', trim: '#ffd27a', hem: '#3a1450', mask: '#fbf4ee', eye: '#ff3f8a', lips: '#e0103a', pins: '#ffd27a', bloom: '#ff9ec4' };
+const GEISHA_FAN = { id: 'ghostfan', name: 'Spirit Fan', r: 'rare', dmg: 0, fan: true, blade: '#ffe6f2', edge: '#ff6fb0', tsuba: '#3a1a2a', wrap: '#3a1a2a', glow: '#ff7fd0' };
 const GHOST_BLADE = { id: 'ghostblade', name: 'Spirit Blade', r: 'rare', dmg: 0, blade: '#bfefff', edge: '#ffffff', tsuba: '#6a9acc', wrap: '#2a4a7a', glow: '#7fe8ff' };
 
 const DUMMY_LOOK = { cloth: '#6b5233', armor: '#c9a35a', trim: '#7a4a24', helm: 'band', helmCol: '#ffffff', crest: null, eye: '#ffd890' };
@@ -230,6 +232,18 @@ function swordFx(w) {
   const d = swordDef(w.id), o = { dmg: 0, crit: d.crit || 0, guard: 0, spirit: 0, el: d.el || null };
   (w.inf || []).forEach(id => { const f = MATERIALS[id] && MATERIALS[id].fx; if (!f) return; o.dmg += f.dmg || 0; o.crit += f.crit || 0; o.guard += f.guard || 0; o.spirit += f.spirit || 0; if (f.el && d.el !== 'all') o.el = f.el; });
   return o;
+}
+/* bosses snap blades that are too weak for them */
+function bladeAtRisk(st, w) { w = w || eqSword(); return !!(st && st.breakAt && w && swordDmg(w) < st.breakAt); }
+function breakEquipped() {
+  const i = S.swords.findIndex(w => w.u === S.eq); if (i < 0) return null;
+  const w = S.swords.splice(i, 1)[0];
+  S.broken = (S.broken || 0) + 1;
+  const free = usableSwords().sort((a, b) => swordDmg(b) - swordDmg(a));
+  let loan = false;
+  if (free.length) S.eq = free[0].u; else { const b = addSword('bokken'); S.eq = b.u; loan = true; }
+  save();
+  return { w, loan, next: eqSword() };
 }
 function swordDmg(w) { return swordDef(w.id).dmg * (1 + 0.12 * (w.lvl || 0)) * (1 + swordFx(w).dmg) * (w.q || 1); }
 function infuseSlots(w) { return 2 + RAR[swordDef(w.id).r].i; }

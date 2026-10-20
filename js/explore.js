@@ -186,6 +186,7 @@ function buildPOIs() {
     const signs = [[R.dojoBead, 'Welcome, samurai!', 'Drag left side to walk'], [R.trainBead, 'Ghosts!', 'Swipe from the hilt to draw, then slash']];
     const midS = (R.dojoBead.s + R.trainBead.s) / 2, mp = R.pts[Math.round(midS / R.ds)];
     signs.push([{ x: mp.x, z: mp.z, i: Math.round(midS / R.ds) }, 'Lost your sword?', 'Get a new one at the Dojo']);
+    signs.push([R.landBeads(0)[0], 'Two ghosts per land', 'Blue samurai steal swords · Pink geisha send you back']);
     signs.forEach(([b, t1, t2], k) => {
       const p = R.pts[b.i], sd = k % 2 ? -1 : 1, off = b.r ? b.r - 1.2 : ROPE_W - .5, x = b.x + p.nx * sd * off, z = b.z + p.nz * sd * off;
       const st = new THREE.Mesh(merge([P(GEO.box(.16, 1.6, .16), '#4a3020', [0, .8, 0]), P(GEO.box(1.3, .7, .1), '#e8dcc0', [0, 1.5, 0])]), toon({ vertexColors: true }));
@@ -304,9 +305,9 @@ function exploreAct() {
   }
 }
 function actLabel(p) {
-  if (p.kind === 'warrior') return !isArmed() ? 'No blade! Go to the Dojo' : p.done ? `Rematch ${p.st.name}` : `⚔ Duel ${p.st.name}`;
+  if (p.kind === 'warrior') return !isArmed() ? 'No blade! Go to the Dojo' : (p.done ? `Rematch ${p.st.name}` : `⚔ Duel ${p.st.name}`) + (bladeAtRisk(p.st) ? ' ⚠ blade may snap' : '');
   if (p.kind === 'shrine') return S.journey[p.ch].puzzle ? 'Shrine is awake ✓' : orbsFound(p.ch) < 3 ? `Shrine needs orbs (${orbsFound(p.ch)}/3)` : 'Solve the shrine puzzle';
-  if (p.kind === 'gate') return !isArmed() ? 'No blade! Go to the Dojo' : S.journey[p.ch].myth ? `Rematch ${MYTHS[p.ch].name}` : gateOpen(p.ch) ? `Face ${MYTHS[p.ch].name}!` : 'Spirit gate (sealed)';
+  if (p.kind === 'gate') return !isArmed() ? 'No blade! Go to the Dojo' : S.journey[p.ch].myth ? `Rematch ${MYTHS[p.ch].name}` : gateOpen(p.ch) ? `Face ${MYTHS[p.ch].name}!${bladeAtRisk(MYTHS[p.ch]) ? ' ⚠ blade may snap' : ''}` : 'Spirit gate (sealed)';
   if (p.kind === 'summit') return 'Ring the summit bell';
   if (p.kind === 'dojo') return isArmed() ? 'Enter the Dojo' : 'Take a practice sword';
   if (p.kind === 'tgate') return 'Training gate (beat the ghost)';
@@ -337,6 +338,7 @@ function ghostCheck() {
   for (const p of X.pois) if (p.kind === 'thief' && Math.hypot(p.x - X.pos.x, p.z - X.pos.z) < 7.5) { startEncounter({ thief: p }); return; }
   for (const gsp of rope().ghosts) {
     if (X.ghostDone.has(gsp) || !chapterUnlocked(gsp.ch)) continue;
+    if (gsp.type === 'geisha' && !isArmed()) continue;
     if (Date.now() - ((S.ghostClear || {})[gsp.ch + '-' + gsp.k] || 0) < 8 * 60e3) continue;
     if (Math.hypot(gsp.x - X.pos.x, gsp.z - X.pos.z) < 6.5) { X.ghostDone.add(gsp); startEncounter({ spot: gsp }); return; }
   }
@@ -344,8 +346,10 @@ function ghostCheck() {
 function startEncounter(o) {
   const ch = o.thief ? o.thief.entry.ch : o.spot.ch;
   const tw = o.thief ? S.swords.find(v => v.u === o.thief.entry.u) : null;
-  const def = tw ? swordDef(tw.id) : GHOST_BLADE;
-  const ghost = new Samurai(GHOST_LOOK, def, { ghost: true, noSaya: true });
+  const geisha = !!(o.spot && o.spot.type === 'geisha');
+  const def = tw ? swordDef(tw.id) : geisha ? GEISHA_FAN : GHOST_BLADE;
+  const ghost = geisha ? new Samurai(GEISHA_LOOK, def, { ghost: true, noSaya: true, ghostCol: '#ff3fa8', ghostLine: '#ffc4ec' })
+    : new Samurai(GHOST_LOOK, def, { ghost: true, noSaya: true });
   ghost.root.rotation.order = 'YXZ';
   const f = new V3(Math.sin(X.face), 0, Math.cos(X.face));
   let gx = X.pos.x + f.x * 5.4, gz = X.pos.z + f.z * 5.4;
@@ -354,12 +358,13 @@ function startEncounter(o) {
   ghost.root.position.set(gx, gy + .3, gz); ghost.setHold('guard', 8); ghost.mat.opacity = 0;
   X.poi.add(ghost.root, ghost.trail.mesh);
   const win = o.tut ? 3.6 : ([1.6, 1.35, 1.15, .95][ch] + stats().drawBonus) * (o.thief ? .85 : 1);
-  X.enc = { ghost, ch, phase: 'appear', t: 0, t0: 0, win, o, def, sx: gx, sz: gz, gy, drawnAt: -1, op: 0, iai: false };
+  X.enc = { ghost, ch, phase: 'appear', t: 0, t0: 0, win: geisha ? win * 1.1 : win, o, def, sx: gx, sz: gz, gy, drawnAt: -1, op: 0, iai: false, geisha, col: geisha ? '#ffb0e0' : '#9fe8ff' };
   X.joy = null; X.look = null; $('#actBtn').hidden = true; X.near = null;
   if (o.thief) { o.thief.icon.visible = false; o.thief.beam.visible = false; o.thief.lab.visible = false; }
-  banner(o.tut ? 'PRACTICE GHOST' : o.thief ? 'GHOST THIEF!' : 'GHOST SAMURAI!', o.tut ? 'Swipe out of the gold hilt to draw!' : o.thief ? 'It holds your ' + def.name + '!' : 'Draw and strike!');
+  banner(o.tut ? 'PRACTICE GHOST' : o.thief ? 'GHOST THIEF!' : geisha ? 'GEISHA GHOST!' : 'GHOST SAMURAI!', o.tut ? 'Swipe out of the gold hilt to draw!' : o.thief ? 'It holds your ' + def.name + '!' : geisha ? 'Strike before her fan sends you back!' : 'Draw and strike!');
   sfx.ghost();
-  FX.puff(new V3(gx, gy + 1, gz), 12, '#bfe8ff', .7);
+  FX.puff(new V3(gx, gy + 1, gz), 12, geisha ? '#ffc4ec' : '#bfe8ff', .7);
+  if (geisha) FX.petals(new V3(gx, gy + 1.4, gz), 24, '#ffb0e0', 2.5);
 }
 function ghostGesture(kind) {
   const e = X && X.enc; if (!e) return false;
@@ -381,7 +386,8 @@ function ghostSlash(x0, y0, x1, y1) {
 function banishGhost(hit) {
   const e = X.enc, gp = e.ghost.chest.getWorldPosition(new V3());
   e.phase = 'won'; e.t1 = e.t;
-  FX.sparks(gp, '#bff4ff', 70, 6, .09); FX.glowBurst(gp, '#7fe8ff', 2.6, .5); FX.petals(gp, 30, '#bfe8ff', 3.5); FX.puff(gp, 14, '#e8f8ff', .9);
+  const gc = e.geisha ? ['#ffd6f0', '#ff7fd0', '#ffb0e0'] : ['#bff4ff', '#7fe8ff', '#bfe8ff'];
+  FX.sparks(gp, gc[0], 70, 6, .09); FX.glowBurst(gp, gc[1], 2.6, .5); FX.petals(gp, 30, gc[2], 3.5); FX.puff(gp, 14, '#e8f8ff', .9);
   sfx.banish(); hitstop(120); slowmo(.35, .5); OV.flash = .4; OV.flashCol = '200,240,255';
   const s = toScreen(gp); ovPop(s.x, s.y - 30, e.iai ? 'IAI!' : 'BANISHED!', { size: e.iai ? 52 : 40, color: '#2a1200', stroke: '#e8fbff', burst: e.iai ? '#ffe08c' : '#9fe8ff', rot: rnd(-.2, .2), life: 1.2, vy: -30 });
   const gold = (e.iai ? 30 : 15) + e.ch * 12;
@@ -411,6 +417,7 @@ function ghostStrike() {
   X.P.hitFlash(1); X.P.jolt = .8; shake(.12); OV.vig = 1; OV.vigCol = '120,200,255';
   if (e.o.tut) { banner('The ghost got you!', 'Out on the road it would steal your sword. Try again!'); e.tutLost = true; return; }
   if (e.o.spot) { S.ghostClear = S.ghostClear || {}; S.ghostClear[e.o.spot.ch + '-' + e.o.spot.k] = Date.now(); }
+  if (e.geisha) { geishaWhisk(e); return; }
   const w = captureEquipped(e.ch, X.pos.x, X.pos.z);
   const from = X.P.sword.getWorldPosition(new V3());
   X.P.sword.visible = false;
@@ -425,6 +432,27 @@ function ghostStrike() {
     const th = X.pois[X.pois.length - 1]; th.icon.visible = false; th.beam.visible = false; th.lab.visible = false; e.newThief = th;
   }
 }
+/* the geisha's fan whisks you back to a land you already finished (or the dojo from the first land) */
+function geishaWhisk(e) {
+  const back = []; for (let c = 0; c < e.ch; c++) back.push(c);
+  const dest = back.length ? pick(back) : 'dojo';
+  e.whisk = true;
+  X.P.sheatheSword && !X.P.sheathed && X.P.sheatheSword({});
+  OV.vigCol = '255,120,210';
+  const pp = X.P.root.position.clone().add(new V3(0, 1, 0));
+  FX.petals(pp, 60, '#ffb0e0', 5); FX.glowBurst(pp, '#ff7fd0', 3, .8);
+  setTimeout(() => sfx.laugh(), 300);
+  banner('WHISKED AWAY!', dest === 'dojo' ? 'Her fan sends you back to the Dojo' : `Her fan sends you back to ${CHAPTERS[dest].name}`);
+  setTimeout(() => {
+    if (!X || MODE !== ExploreMode) return;
+    S.ghostClear = {}; // every ghost on the road wakes up again
+    const sp = dest === 'dojo' ? dojoSpawn() : landEntry(dest);
+    S.roam = { x: sp.x, z: sp.z, yaw: sp.yaw }; save();
+    X.enc = null;
+    startExplore(dest === 'dojo' ? 'dojo' : dest);
+    setTimeout(() => { if (X && MODE === ExploreMode) banner('The ghosts have risen!', 'Fight your way back up the road'); }, 1700);
+  }, 1500);
+}
 function flySword(def, from, toFn, done) {
   const g = new THREE.Group(); g.add(buildSword(def)); g.position.copy(from); X.poi.add(g);
   X.flyers.push({ g, from: from.clone(), toFn, t: 0, dur: .7, done });
@@ -436,18 +464,24 @@ function encounterUpdate(dt) {
   const toP = new V3(X.pos.x - G.root.position.x, 0, X.pos.z - G.root.position.z);
   G.root.rotation.y = Math.atan2(toP.x, toP.z);
   if (e.phase !== 'lost') { const want = Math.atan2(-toP.x, -toP.z); let d = want - X.face; d = Math.atan2(Math.sin(d), Math.cos(d)); X.face += d * damp(10, dt); }
-  if (Math.random() < dt * 30) { const p = G.root.position; FX.add.emit(p.x + rnd(-.4, .4), p.y + rnd(0, 1.8), p.z + rnd(-.4, .4), 0, rnd(.3, .8), 0, rnd(.6, 1.1), .08, 0, '#9fe8ff', .8, -.2, .3); }
+  if (Math.random() < dt * 30) { const p = G.root.position; FX.add.emit(p.x + rnd(-.4, .4), p.y + rnd(0, 1.8), p.z + rnd(-.4, .4), 0, rnd(.3, .8), 0, rnd(.6, 1.1), .08, 0, e.col, .8, -.2, .3); }
+  if (e.geisha && Math.random() < dt * 6) { const p = G.root.position; FX.petals(new V3(p.x, p.y + 1.6, p.z), 1, '#ffb0e0', 1.2); }
   if (e.phase === 'appear' && e.t > .75) { e.phase = 'draw'; e.t0 = e.t; G.setHold('windH', 3 / e.win); $('#hiltBtn').hidden = false; }
   if (e.phase === 'draw' || e.phase === 'drawn') {
     const k = clamp((e.t - e.t0) / e.win, 0, 1), dir = toP.clone().normalize(), endD = 1.5;
     const sx = e.sx, sz = e.sz, tx = X.pos.x - dir.x * endD, tz = X.pos.z - dir.z * endD;
     G.root.position.set(lerp(sx, tx, easeIn(k)), e.gy + .3 + Math.sin(e.t * 3) * .08, lerp(sz, tz, easeIn(k)));
+    if (e.geisha) { // she dances side to side as she glides in, twirling her fan
+      const sw = Math.sin(e.t * 5.2) * 1.1 * (1 - k * .6);
+      G.root.position.x += -dir.z * sw; G.root.position.z += dir.x * sw;
+      G.root.rotation.y += Math.sin(e.t * 2.6) * .5;
+    }
     if (k >= 1) ghostStrike();
   }
   if (e.phase === 'lost') {
     const u = e.t - e.t1;
     if (u > .8) G.root.position.y += dt * 1.2;
-    if (u > (e.tutLost ? 1.6 : 2.4)) endEncounter();
+    if (u > (e.tutLost ? 1.6 : 2.4) && !e.whisk) endEncounter();
   }
   if (e.phase === 'won' && e.t - e.t1 > 1.1) endEncounter();
   G.update(dt);
@@ -460,7 +494,7 @@ function endEncounter() {
   X.enc = null; X.encCool = X.clock + (e.tutLost ? 2.5 : 6); $('#hiltBtn').hidden = true;
   if (e.tutLost && !X.P.sheathed) X.P.sheatheSword({ onEnter: () => sfx.sheathe() });
   if (e.phase === 'won' && !e.o.thief && isArmed()) X.P.sheatheSword({ chiburi: true, onEnter: () => sfx.sheathe() });
-  if (e.phase === 'lost') { X.P.sword.visible = false; }
+  if (e.phase === 'lost' && !e.geisha) { X.P.sword.visible = false; }
   updateObjective();
 }
 

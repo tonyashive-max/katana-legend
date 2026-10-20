@@ -117,10 +117,12 @@ function buildRopeLayout() {
   const ghosts = [];
   for (let ch = 0; ch < 4; ch++) {
     const B = landBeads(ch);
-    (ch === 0 ? [[1, 2, .62], [3, 4, .5]] : [[1, 2, .62], [3, 4, .5], [4, 5, .55]]).forEach(([a, b, f], k) => {
+    // two ghosts per land: a samurai who steals blades and a geisha who whisks you back down the road
+    [[1, 2, .62], [3, 4, .5]].forEach(([a, b, f], k) => {
       let s = sAt(B[a], B[b], f);
       for (let tries = 0; tries < 6 && !awayFrom(s, usedS, 9); tries++) s += 3;
-      const p = pAt(s); ghosts.push({ ch, k, s, x: p.x, z: p.z }); usedS.push(s);
+      const type = (ch % 2 === 0) === (k === 0) ? 'samurai' : 'geisha';
+      const p = pAt(s); ghosts.push({ ch, k, s, x: p.x, z: p.z, type }); usedS.push(s);
     });
   }
   // torii gates spanning the trail
