@@ -602,8 +602,9 @@ function fightCamera(dt) {
   } else if (F.over && F.outcome === 'lose') {
     pos = P.root.localToWorld(new V3(.9, .6 + Math.max(0, 1 - F.endT) * 1.2, -1.2)); look = eChest; fov = 55; k = 3;
   } else if (F.state === 'standoff' && !F.signaled) {
-    const mid = F.dist / 2, side = Math.max(3.6, F.dist * 1.3);
-    pos = new V3(-side, 1.25 * Math.max(1, big * .8), mid); look = new V3(0, 1.0 * Math.max(1, big * .7), mid); fov = 50; k = F.camK;
+    const mid = F.dist / 2, hh = Math.atan(Math.tan(25 * Math.PI / 180) * (VW / VH));
+    const half = (F.dist + 1.7 * Math.max(1, big)) / 2, side = Math.max(3.4, half / Math.tan(hh) * 1.08);
+    pos = new V3(-side, 1.2 * Math.max(1, big * .8), mid); look = new V3(0, 1.05 * Math.max(1, big * .75), mid); fov = 50; k = F.camK;
   } else if (F.view === 'fp') {
     pos = P.hips.localToWorld(new V3(0, .68, -.2)); look = eChest; fov = big > 1.2 ? 76 : 70; k = F.camK;
   } else {

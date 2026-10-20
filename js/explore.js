@@ -46,7 +46,7 @@ function startExplore(ch, returning) {
     else sp = landEntry(ch == null ? currentChapter() : ch);
     const pos = new V3(sp.x, 0, sp.z);
     X = { W, pos, face: sp.yaw || 0, camYaw: sp.yaw || 0, camPitch: .3, speed: 0, phase: 0, joy: null, look: null, pois: [], near: null, clock: 0,
-      camPos: new V3(), camLook: new V3(), land: -1, s: 0, enc: null, encCool: 2.5, ghostDone: new Set(), saveT: 0, lastGood: pos.clone(), limit: lim, flyers: [], poi: new THREE.Group() };
+      camPos: new V3(), camLook: new V3(), land: -1, s: 0, enc: null, encCool: 4, ghostDone: new Set(), saveT: 0, lastGood: pos.clone(), limit: lim, flyers: [], poi: new THREE.Group() };
     W.scene.add(X.poi);
     W.obs = W.obs.filter(o => !o.poi);
     makePlayer();
@@ -267,6 +267,7 @@ function ghostCheck() {
   for (const p of X.pois) if (p.kind === 'thief' && Math.hypot(p.x - X.pos.x, p.z - X.pos.z) < 7.5) { startEncounter({ thief: p }); return; }
   for (const gsp of rope().ghosts) {
     if (X.ghostDone.has(gsp) || !chapterUnlocked(gsp.ch)) continue;
+    if (Date.now() - ((S.ghostClear || {})[gsp.ch + '-' + gsp.k] || 0) < 8 * 60e3) continue;
     if (Math.hypot(gsp.x - X.pos.x, gsp.z - X.pos.z) < 6.5) { X.ghostDone.add(gsp); startEncounter({ spot: gsp }); return; }
   }
 }
@@ -318,6 +319,7 @@ function banishGhost(hit) {
   const ups = addSkillXP('iai', e.o.thief ? 24 : e.iai ? 16 : 10); save();
   banner(e.iai ? 'IAI STRIKE!' : 'Ghost banished!', `+${gold} gold${ups ? ' · Iai level up!' : ''}`);
   if (ups) sfx.up();
+  if (e.o.spot) { S.ghostClear = S.ghostClear || {}; S.ghostClear[e.o.spot.ch + '-' + e.o.spot.k] = Date.now(); save(); }
   if (e.o.thief) {
     const w = reclaimSword(e.o.thief.entry);
     X.pois = X.pois.filter(p => p !== e.o.thief); [e.o.thief.icon, e.o.thief.beam, e.o.thief.lab].forEach(o => X.poi.remove(o));
@@ -330,6 +332,7 @@ function ghostStrike() {
   e.ghost.seq.length = 0; e.ghost.queue('endH', .14, { ease: easeIn, arc: .3 });
   sfx.slash(1.3); setTimeout(() => sfx.hurt(), 90);
   X.P.hitFlash(1); X.P.jolt = .8; shake(.12); OV.vig = 1; OV.vigCol = '120,200,255';
+  if (e.o.spot) { S.ghostClear = S.ghostClear || {}; S.ghostClear[e.o.spot.ch + '-' + e.o.spot.k] = Date.now(); }
   const w = captureEquipped(e.ch, X.pos.x, X.pos.z);
   const from = X.P.sword.getWorldPosition(new V3());
   X.P.sword.visible = false;
