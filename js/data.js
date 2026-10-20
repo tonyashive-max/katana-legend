@@ -334,6 +334,15 @@ function loadSave() {
       if (!merged.swords || !merged.swords.length) merged.swords = f.swords;
       if (!Array.isArray(merged.captured)) merged.captured = [];
       merged.journey.forEach(j => { if (j.key == null) j.key = !!j.myth; });
+      // older versions let ghosts keep stealing blades; keep only the newest theft and give the rest back
+      const idOf = c => ((merged.swords || []).find(v => v.u === c.u) || {}).id;
+      if (merged.captured.some(c => idOf(c) === 'bokken')) { merged.captured.filter(c => idOf(c) === 'bokken').forEach(c => { const w = merged.swords.find(v => v.u === c.u); if (w) w.captured = false; }); merged.captured = merged.captured.filter(c => idOf(c) !== 'bokken'); }
+      if (merged.captured.length > 1) {
+        const keep = merged.captured[merged.captured.length - 1];
+        merged.captured.slice(0, -1).forEach(c => { const w = (merged.swords || []).find(v => v.u === c.u); if (w) w.captured = false; });
+        merged.captured = [keep]; merged.recovered = true;
+      }
+      (merged.swords || []).forEach(w => { if (w.captured && !merged.captured.some(c => c.u === w.u)) w.captured = false; });
       if (!merged.beastNap) merged.beastNap = {};
       if (!merged.mats || typeof merged.mats !== 'object') merged.mats = {};
       if (!merged.nodeT || typeof merged.nodeT !== 'object') merged.nodeT = {};
@@ -366,8 +375,8 @@ function reclaimSword(entry) {
 }
 function ensureArmedFallback() {
   if (isArmed()) return null;
-  const free = usableSwords();
-  if (free.length) return 'choose';
+  const free = usableSwords().sort((a, b) => swordDmg(b) - swordDmg(a));
+  if (free.length) { S.eq = free[0].u; save(); return 'auto'; }
   const w = addSword('bokken'); S.eq = w.u; save();
   return 'loan';
 }

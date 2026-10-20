@@ -238,12 +238,6 @@ function screenSwords() {
   return `<div class="stack">
     <section class="panel"><div class="row between"><h2>Blade collection</h2><b>${S.seen.length} / ${SWORDS.length}</b></div>
       <div class="bar" style="margin-top:10px"><i style="width:${Math.round(S.seen.length / SWORDS.length * 100)}%;background:linear-gradient(90deg,#ffb53d,#ff5fb0,#b357ff)"></i></div></section>
-    <div class="grid2">${SWORDS.map(d => {
-      const known = S.seen.includes(d.id), owned = S.swords.filter(w => w.id === d.id);
-      return `<div class="card ${known ? '' : 'unknown'}">${bladeSVG(d, { sil: !known })}
-        <div class="nm ${known ? 'name ' + d.r : ''}" style="${known && d.r !== 'mythic' ? `color:${RAR[d.r].c}` : ''}">${known ? d.name : '???'}</div>
-        <small>${known ? `${RAR[d.r].n} · ${d.dmg} dmg${owned.length ? ` · owned ×${owned.length}` : ''}` : (carriers[d.id] ? (d.myth != null ? `Carried by a Spirit Warrior` : `Carried by a warrior`) : 'Mystery forge only')}</small></div>`;
-    }).join('')}</div>
     <section class="panel stack"><h3>Your blades</h3>
       ${S.swords.slice().sort((a, b) => RAR[swordDef(b.id).r].i - RAR[swordDef(a.id).r].i || swordDmg(b) - swordDmg(a)).map(w => {
         const d = swordDef(w.id), eq = w.u === S.eq;
@@ -254,6 +248,13 @@ function screenSwords() {
         </div>`;
       }).join('')}
     </section>
+    <section class="panel"><h3>Every blade in the lands</h3></section>
+    <div class="grid2">${SWORDS.map(d => {
+      const known = S.seen.includes(d.id), owned = S.swords.filter(w => w.id === d.id);
+      return `<div class="card ${known ? '' : 'unknown'}">${bladeSVG(d, { sil: !known })}
+        <div class="nm ${known ? 'name ' + d.r : ''}" style="${known && d.r !== 'mythic' ? `color:${RAR[d.r].c}` : ''}">${known ? d.name : '???'}</div>
+        <small>${known ? `${RAR[d.r].n} · ${d.dmg} dmg${owned.length ? ` · owned ×${owned.length}` : ''}` : (carriers[d.id] ? (d.myth != null ? `Carried by a Spirit Warrior` : `Carried by a warrior`) : 'Mystery forge only')}</small></div>`;
+    }).join('')}</div>
   </div>`;
 }
 function outfitHow(o) {
@@ -306,7 +307,8 @@ function enterHub(first) {
     const W = buildWorld(ch); activateWorld(W);
     const fb = ensureArmedFallback();
     if (fb === 'loan') setTimeout(() => toast('Sensei lends you a practice bokken. Go reclaim your blade!'), 700);
-    else if (fb === 'choose') { curTab = 'swords'; setTimeout(() => toast('Equip another blade, then go reclaim the captured one!'), 700); }
+    else if (fb === 'auto') setTimeout(() => toast(`Sensei hands you your ${swordDef(eqSword().id).name}. Go win back your stolen blade!`), 700);
+    if (S.recovered) { delete S.recovered; save(); setTimeout(() => toast('Sensei tracked down the ghosts and recovered your stolen blades!'), 2400); }
     HUB = { W, P: null, rotY: 0, ang: 0, flourishT: 4, previewing: null, camPos: new V3(), camLook: new V3(), clock: 0 };
     hubSetPlayer();
     $('#ui').hidden = false;

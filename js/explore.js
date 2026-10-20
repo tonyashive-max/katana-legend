@@ -470,10 +470,11 @@ function collectNode(p) {
   if (!S.matTip) { S.matTip = true; save(); setTimeout(() => banner('Materials!', 'Use them at the Forge to power up your blades'), 400); }
 }
 function giveBokken() {
-  let w = S.swords.find(v => v.id === 'bokken' && !v.captured);
-  if (!w) w = addSword('bokken');
+  const free = usableSwords().sort((a, b) => swordDmg(b) - swordDmg(a));
+  let w = free[0], practice = false;
+  if (!w) { w = addSword('bokken'); practice = true; }
   S.eq = w.u; save(); makePlayer(); sfx.up();
-  banner('Practice sword!', 'Sensei hands you a bokken'); updateObjective();
+  banner(practice ? 'Practice sword!' : 'Blade ready!', practice ? 'Sensei hands you a bokken' : `Sensei hands you your ${swordDef(w.id).name}`); updateObjective();
 }
 function collectOrb(p) {
   S.journey[p.ch].orbs[p.k] = 1; save();
@@ -637,6 +638,17 @@ function ghostStrike() {
   if (e.o.tut) { banner('The ghost got you!', 'Out on the road it would steal your sword. Try again!'); e.tutLost = true; return; }
   if (e.o.spot) { S.ghostClear = S.ghostClear || {}; S.ghostClear[e.o.spot.ch + '-' + e.o.spot.k] = Date.now(); }
   if (e.geisha) { geishaWhisk(e); return; }
+  // a ghost can hold only one of your blades at a time, never takes a practice bokken,
+  // and a thief that already has your blade just knocks you back
+  const eqW = S.swords.find(v => v.u === S.eq);
+  if (e.o.thief || S.captured.length > 0 || !eqW || eqW.id === 'bokken') {
+    e.knock = true;
+    banner(e.o.thief ? 'The thief got away!' : 'Knocked back!', e.o.thief ? 'It still holds your blade. Draw faster and try again!' : 'The ghost laughs and fades away');
+    setTimeout(() => sfx.laugh(), 400);
+    X.pos.addScaledVector(new V3(Math.sin(X.face), 0, Math.cos(X.face)), -3);
+    if (!X.P.sheathed) X.P.sheatheSword({ onEnter: () => sfx.sheathe() });
+    return;
+  }
   const w = captureEquipped(e.ch, X.pos.x, X.pos.z);
   const from = X.P.sword.getWorldPosition(new V3());
   X.P.sword.visible = false;
@@ -713,7 +725,7 @@ function endEncounter() {
   X.enc = null; X.encCool = X.clock + (e.tutLost ? 2.5 : 6); $('#hiltBtn').hidden = true;
   if (e.tutLost && !X.P.sheathed) X.P.sheatheSword({ onEnter: () => sfx.sheathe() });
   if (e.phase === 'won' && !e.o.thief && isArmed()) X.P.sheatheSword({ chiburi: true, onEnter: () => sfx.sheathe() });
-  if (e.phase === 'lost' && !e.geisha) { X.P.sword.visible = false; }
+  if (e.phase === 'lost' && !e.geisha && !e.knock) { X.P.sword.visible = false; }
   updateObjective();
 }
 
