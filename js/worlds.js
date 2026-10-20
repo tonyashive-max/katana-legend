@@ -556,7 +556,9 @@ function worldDojo() {
 function buildWorld(kind) {
   POI_CLEAR = makePoiClear(kind);
   if (kind === 'dojo') return worldDojo();
-  return [worldBamboo, worldSnow, worldCastle, worldVolcano][kind]();
+  const W = [worldBamboo, worldSnow, worldCastle, worldVolcano][kind]();
+  if (typeof LAND_GRADE !== 'undefined') W.grade = LAND_GRADE[kind];
+  return W;
 }
 function activateWorld(W) {
   if (CURWORLD && CURWORLD !== W) disposeWorld(CURWORLD);

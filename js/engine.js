@@ -29,6 +29,8 @@ function applyQuality() {
   else if (lv === 'balanced') { QUALITY.pr = Math.min(dpr, 1.3); QUALITY.shadows = true; }
   else if (lv === 'fast') { QUALITY.pr = 1; QUALITY.shadows = false; }
   else { QUALITY.pr = Math.min(dpr, QUALITY.autoPr || 1.5); QUALITY.shadows = QUALITY.autoShadows !== false; }
+  QUALITY.post = lv === 'fast' ? false : (lv === 'auto' ? QUALITY.autoPost !== false : true);
+  if (typeof POST !== 'undefined') POST.on = QUALITY.post;
   if (R) { R.shadowMap.enabled = QUALITY.shadows; resizeGL(); }
 }
 function initGL() {
@@ -612,3 +614,65 @@ function disposeWorld(w) {
     if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map && !Object.values(TEX).includes(m.map)) m.map.dispose(); if (!Object.values(_olCache).includes(m)) m.dispose(); }); }
   });
 }
+
+/* ---------- post: soft bloom on bright, saturated colours + colour grade + vignette ---------- */
+const POST = {
+  on: false, ok: true, rt: null, a: null, b: null, scene: null, cam: null, quad: null, mats: {}, w: 0, h: 0,
+  grade: { bloom: .85, th: .62, sat: 1.12, con: 1.05, vig: .32, tint: [1.02, 1, .98] },
+  init() {
+    const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }';
+    this.mats.bright = new THREE.ShaderMaterial({ uniforms: { t: { value: null }, th: { value: .62 } }, vertexShader: vs, depthTest: false, depthWrite: false,
+      fragmentShader: `uniform sampler2D t; uniform float th; varying vec2 vUv;
+        void main(){ vec3 c = texture2D(t, vUv).rgb; float m = max(c.r, max(c.g, c.b)), n = min(c.r, min(c.g, c.b));
+          float sat = m > 0.001 ? (m - n) / m : 0.; float w = smoothstep(th, 1.0, m) * (0.35 + sat * 1.1);
+          gl_FragColor = vec4(c * w, 1.); }` });
+    this.mats.blur = new THREE.ShaderMaterial({ uniforms: { t: { value: null }, dir: { value: new THREE.Vector2() } }, vertexShader: vs, depthTest: false, depthWrite: false,
+      fragmentShader: `uniform sampler2D t; uniform vec2 dir; varying vec2 vUv;
+        void main(){ vec3 s = texture2D(t, vUv).rgb * .227;
+          s += (texture2D(t, vUv + dir * 1.385).rgb + texture2D(t, vUv - dir * 1.385).rgb) * .316;
+          s += (texture2D(t, vUv + dir * 3.231).rgb + texture2D(t, vUv - dir * 3.231).rgb) * .07;
+          gl_FragColor = vec4(s, 1.); }` });
+    this.mats.comp = new THREE.ShaderMaterial({ uniforms: { t: { value: null }, bl: { value: null }, bloom: { value: .85 }, sat: { value: 1.12 }, con: { value: 1.05 }, vig: { value: .32 }, tint: { value: new THREE.Vector3(1.02, 1, .98) }, asp: { value: 1 } },
+      vertexShader: vs, depthTest: false, depthWrite: false,
+      fragmentShader: `uniform sampler2D t, bl; uniform float bloom, sat, con, vig, asp; uniform vec3 tint; varying vec2 vUv;
+        void main(){ vec3 c = texture2D(t, vUv).rgb; vec3 b = texture2D(bl, vUv).rgb;
+          c += b * bloom;
+          float l = dot(c, vec3(.299, .587, .114)); c = mix(vec3(l), c, sat);
+          c = (c - .5) * con + .5; c *= tint;
+          vec2 q = (vUv - .5) * vec2(asp, 1.); float v = smoothstep(.95, .25, length(q) * .9); c *= mix(1. - vig, 1., v);
+          gl_FragColor = vec4(clamp(c, 0., 1.), 1.); }` });
+    this.scene = new THREE.Scene(); this.cam = new THREE.Camera();
+    this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mats.comp); this.quad.frustumCulled = false; this.scene.add(this.quad);
+  },
+  size() {
+    const pr = R.getPixelRatio(), w = Math.max(2, Math.round(VW * pr)), h = Math.max(2, Math.round(VH * pr));
+    if (w === this.w && h === this.h && this.rt) return;
+    this.w = w; this.h = h;
+    [this.rt, this.a, this.b].forEach(t => t && t.dispose());
+    const isGL2 = R.capabilities.isWebGL2;
+    this.rt = new THREE.WebGLRenderTarget(w, h, { samples: isGL2 ? 4 : 0, depthBuffer: true });
+    const qw = Math.max(2, w >> 2), qh = Math.max(2, h >> 2);
+    this.a = new THREE.WebGLRenderTarget(qw, qh); this.b = new THREE.WebGLRenderTarget(qw, qh);
+    this.mats.comp.uniforms.asp.value = w / h;
+  },
+  pass(mat, target) { this.quad.material = mat; R.setRenderTarget(target); R.render(this.scene, this.cam); },
+  render(scene, cam) {
+    if (!this.on || !this.ok) { R.setRenderTarget(null); R.render(scene, cam); return; }
+    try {
+      if (!this.mats.comp) this.init();
+      this.size();
+      const g = (CURWORLD && CURWORLD.grade) ? Object.assign({}, this.grade, CURWORLD.grade) : this.grade;
+      R.setRenderTarget(this.rt); R.clear(); R.render(scene, cam);
+      this.mats.bright.uniforms.t.value = this.rt.texture; this.mats.bright.uniforms.th.value = g.th; this.pass(this.mats.bright, this.a);
+      const px = 1 / this.a.width, py = 1 / this.a.height;
+      for (let i = 0; i < 2; i++) {
+        const s = 1 + i * 1.5;
+        this.mats.blur.uniforms.t.value = this.a.texture; this.mats.blur.uniforms.dir.value.set(px * s, 0); this.pass(this.mats.blur, this.b);
+        this.mats.blur.uniforms.t.value = this.b.texture; this.mats.blur.uniforms.dir.value.set(0, py * s); this.pass(this.mats.blur, this.a);
+      }
+      const u = this.mats.comp.uniforms;
+      u.t.value = this.rt.texture; u.bl.value = this.a.texture; u.bloom.value = g.bloom; u.sat.value = g.sat; u.con.value = g.con; u.vig.value = g.vig; u.tint.value.set(g.tint[0], g.tint[1], g.tint[2]);
+      this.pass(this.mats.comp, null);
+    } catch (e) { console.error('post off', e); this.ok = false; R.setRenderTarget(null); R.render(scene, cam); }
+  },
+};

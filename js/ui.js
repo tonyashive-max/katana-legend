@@ -582,7 +582,10 @@ function perfCheck(raw) {
   PERF.acc += raw; PERF.n++;
   if (PERF.acc > 4) {
     const fps = PERF.n / PERF.acc; PERF.acc = 0; PERF.n = 0; PERF.checks++;
-    if (fps < 34 && (QUALITY.autoPr || 1.5) > 1.01) { QUALITY.autoPr = Math.max(1, (QUALITY.autoPr || 1.5) - .25); applyQuality(); }
+    const pr = QUALITY.autoPr || 1.5;
+    if (fps < 40 && pr > 1.3) { QUALITY.autoPr = 1.25; applyQuality(); }
+    else if (fps < 40 && QUALITY.autoPost !== false) { QUALITY.autoPost = false; applyQuality(); }
+    else if (fps < 34 && pr > 1.01) { QUALITY.autoPr = 1; applyQuality(); }
     else if (fps < 22 && QUALITY.autoShadows !== false) { QUALITY.autoShadows = false; applyQuality(); if (CURWORLD && CURWORLD.key) CURWORLD.key.castShadow = false; }
   }
 }
@@ -598,7 +601,7 @@ function frame(now) {
     if (MODE && MODE.update) MODE.update(dt);
     FX.update(dt);
     updateWorld(CURWORLD, dt, gameT);
-    if (CURWORLD) R.render(CURWORLD.scene, CAM);
+    if (CURWORLD) POST.render(CURWORLD.scene, CAM);
   } catch (e) { console.error(e); if (!frame.err) { frame.err = true; toast('Error: ' + e.message); } }
   drawOverlay(raw);
 }

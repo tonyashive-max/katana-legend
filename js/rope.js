@@ -673,8 +673,18 @@ function buildTerrain(W) {
 
 /* ---------- per-frame blending of sky, light, fog and weather ---------- */
 const _sv = new V3(), _sv2 = new V3();
+/* per-land colour grade for the post pass: warm sunset, crisp snow (less bloom on white), moody castle, hot volcano */
+const LAND_GRADE = [
+  { bloom: .9, th: .6, sat: 1.14, con: 1.05, vig: .3, tint: [1.03, 1, .96] },
+  { bloom: .55, th: .78, sat: 1.08, con: 1.06, vig: .28, tint: [.97, 1, 1.04] },
+  { bloom: 1.1, th: .5, sat: 1.18, con: 1.08, vig: .42, tint: [1, .97, 1.05] },
+  { bloom: 1.05, th: .55, sat: 1.15, con: 1.07, vig: .38, tint: [1.05, .98, .94] },
+];
 function updateRopeWorld(W, px, pz, s) {
   const w = landWeights(s), A = BIOMES[w.a], B = BIOMES[w.b], t = w.t, U = W.sky.material.uniforms;
+  { const ga = LAND_GRADE[w.a], gb = LAND_GRADE[w.b], g = W.grade || (W.grade = { tint: [1, 1, 1] });
+    for (const k of ['bloom', 'th', 'sat', 'con', 'vig']) g[k] = lerp(ga[k], gb[k], t);
+    for (let i = 0; i < 3; i++) g.tint[i] = lerp(ga.tint[i], gb.tint[i], t); }
   U.top.value.set(A.sky.top).lerp(_cb.set(B.sky.top), t);
   U.mid.value.set(A.sky.mid).lerp(_cb.set(B.sky.mid), t);
   U.bot.value.set(A.sky.bot).lerp(_cb.set(B.sky.bot), t);
