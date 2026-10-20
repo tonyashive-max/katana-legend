@@ -303,7 +303,7 @@ class RoamDragon {
     for (const sg of [-1, 1]) {
       const e = new THREE.Mesh(GEO.sph(.13, 8, 6), eyeMat); e.scale.set(.55, .8, 1.25); e.position.set(sg * .4, .28, .5); this.head.add(e);
       const pu = new THREE.Mesh(GEO.box(.02, .17, .05), pupil); pu.position.set(sg * .47, .28, .52); this.head.add(pu);
-      const h = halo('#ffd84a', 1.2, .9); h.position.set(sg * .46, .28, .52); this.head.add(h);
+      const h = halo('#ffd84a', .55, .8); h.position.set(sg * .46, .28, .52); this.head.add(h);
     }
     // long whiskers that ripple as it flies
     this.whisk = [];

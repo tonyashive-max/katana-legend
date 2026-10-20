@@ -240,7 +240,7 @@ function buildPOIs() {
         p.m.uniforms.open.value = open ? 1 : .15;
         p.seal.visible = !j.myth; p.key.visible = !!j.key && !j.myth;
         if (open) { p.key.position.set(0, 2.2 * p.sc, .08); p.key.rotation.set(0, 0, Math.PI / 2); p.sealMat.emissive.setRGB(.6 + Math.sin(t * 4) * .2, .4, .1); p.seal.rotation.z = Math.sin(t * .8) * .1; }
-        else { p.key.position.set(0, 2.2 * p.sc + .1 + Math.sin(t * 2) * .12, -1.4); p.key.rotation.set(0, t * 1.6, 0); }
+        else { p.key.position.set(0, 2.2 * p.sc + .1 + Math.sin(t * 2) * .12, 1.5); p.key.rotation.set(0, t * 1.6, 0); }
       }
       if (p.kind === 'shrine' && S.journey[p.ch].puzzle) p.glow.material.opacity = .55 + Math.sin(t * 2) * .2;
       if (p.kind === 'node') { p.halo.material.opacity = .45 + Math.sin(t * 3 + p.x) * .3; if (Math.random() < dt * 2) FX.add.emit(p.x + rnd(-.3, .3), p.g.position.y + .5, p.z + rnd(-.3, .3), 0, rnd(.3, .8), 0, .8, .06, 0, MATERIALS[p.n.mat].c, 1, 0, .2); }

@@ -159,7 +159,7 @@ function screenTrain() {
 function keySVG(col) {
   const id = 'ks' + (++_svgId); col = col || '#ff9ec4';
   const petals = [0, 1, 2, 3, 4].map(i => { const a = i * 72 - 90, r = a * Math.PI / 180; return `<circle cx="${60 + Math.cos(r) * 9}" cy="${48 + Math.sin(r) * 9}" r="7" fill="${col}"/>`; }).join('');
-  return `<svg class="keysvg" viewBox="0 0 120 210" width="104" height="182" aria-label="Spirit Key">
+  return `<svg class="keysvg" viewBox="0 0 120 210" width="140" height="245" aria-label="Spirit Key">
     <defs><linearGradient id="${id}" x1="0" x2="1"><stop offset="0" stop-color="#fff4c0"/><stop offset=".45" stop-color="#ffc24a"/><stop offset="1" stop-color="#a8660a"/></linearGradient></defs>
     <path d="M38 34 C24 50 20 74 26 96" stroke="#c0281e" stroke-width="4" fill="none" stroke-linecap="round"/>
     <path d="M18 96 h16 l4 34 c-4 6 -20 6 -24 0z" fill="#c0281e"/><path d="M22 100 v28 M26 100 v30 M30 100 v28" stroke="#8a1010" stroke-width="1.5"/>
