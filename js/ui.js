@@ -155,22 +155,52 @@ function screenTrain() {
     }).join('')}
   </div>`;
 }
+function matChip(id, n) { const M = MATERIALS[id]; return `<span class="chip mat"><i style="background:${M.c}"></i>${n != null ? n + ' ' : ''}${M.n}</span>`; }
 function screenForge() {
-  const w = eqSword(), d = swordDef(w.id), c = forgeCost(w), max = (w.lvl || 0) >= 10;
-  const nextDmg = Math.round(d.dmg * (1 + .12 * ((w.lvl || 0) + 1)));
+  const w = eqSword(), d = swordDef(w.id), c = forgeCost(w), max = (w.lvl || 0) >= 10, fx = swordFx(w);
+  const nextDmg = Math.round(d.dmg * (1 + .12 * ((w.lvl || 0) + 1)) * (1 + fx.dmg) * (w.q || 1)), slots = infuseSlots(w), used = (w.inf || []).length;
+  const owned = MAT_IDS.filter(id => matCount(id) > 0);
   return `<div class="stack">
     <section class="panel">
       <div class="eyebrow">Master smith's forge</div>
       <div class="row between" style="margin-top:6px"><h2 class="name ${d.r}">${d.name}${w.lvl ? ` +${w.lvl}` : ''}</h2>${rarTag(d)}</div>
       <div class="reveal" style="--rc:${RAR[d.r].c}22;--glow:${d.glow || 'rgba(255,220,140,.4)'};margin:10px 0">${bladeSVG(d)}</div>
-      <p class="muted">${d.lore}</p>
+      <div class="row" style="gap:8px">${elTag(fx.el) || '<span class="muted" style="font-size:13px">No element</span>'}<span class="muted" style="font-size:13px">Crit ${Math.round((.05 + fx.crit) * 100)}%</span>${w.q > 1 ? `<span class="tag new">Masterwork +${Math.round((w.q - 1) * 100)}%</span>` : ''}</div>
       <div class="stats" style="margin:12px 0;grid-template-columns:repeat(3,minmax(0,1fr))">
         <div class="stat"><b>${Math.round(swordDmg(w))}</b><span>Damage</span></div>
         <div class="stat"><b>${max ? 'MAX' : nextDmg}</b><span>Next level</span></div>
         <div class="stat"><b>${w.lvl || 0}/10</b><span>Forge level</span></div>
       </div>
-      ${max ? '<p><b>This blade is fully forged!</b></p>' : `<button class="btn primary wide" data-upgrade="1" ${canPay(c) ? '' : 'disabled'}>🔨 Forge +${(w.lvl || 0) + 1} · ${costHTML(c)}</button>`}
-      ${!max && !canPay(c) ? '<p class="muted" style="margin-top:8px;font-size:13px">Win battles for gold and steel, or smelt spare blades for steel.</p>' : ''}
+      ${max ? '<p><b>This blade is fully forged!</b></p>' : `<button class="btn primary wide" data-upgrade="1" ${canPay(c) && isArmed() ? '' : 'disabled'}>🔨 Forge +${(w.lvl || 0) + 1} · ${costHTML(c)}</button>`}
+      <p class="muted" style="margin-top:8px;font-size:13px">Forging is hands-on: pump the bellows, hammer the steel and quench it. A Masterwork adds bonus damage.</p>
+    </section>
+    <section class="panel stack">
+      <div class="row between"><h3>Fuse materials</h3><span class="muted" style="font-weight:900">Slots ${used} / ${slots}</span></div>
+      <div class="slots">${Array.from({ length: slots }, (_, k) => { const id = (w.inf || [])[k]; return id ? `<span class="slot full" style="--c:${MATERIALS[id].c}" title="${MATERIALS[id].n}"></span>` : '<span class="slot"></span>'; }).join('')}</div>
+      <p class="muted" style="font-size:13px">Fuse any material into your blade for a permanent boost. Element materials change the blade's element (the newest one counts). Rarer blades have more slots.</p>
+      ${owned.length ? `<div class="grid2">${owned.map(id => { const M = MATERIALS[id]; return `<div class="card"><div class="row between">${matChip(id, matCount(id))}<small style="color:${RAR[M.r].c}">${RAR[M.r].n}</small></div><small>${M.d}</small><button class="btn small" data-infuse="${id}" ${used < slots && isArmed() ? '' : 'disabled'}>Fuse into blade</button></div>`; }).join('')}</div>` : '<p class="muted">No materials yet. Find glowing crystals along the road and win battles to collect them.</p>'}
+    </section>
+    <section class="panel stack">
+      <h3>Legendary recipes</h3>
+      <p class="muted" style="font-size:13px">Combine a blade you won in battle with the right materials to forge a new legend. These blades are made for the toughest bosses.</p>
+      ${RECIPES.map(r => {
+        const nd = swordDef(r.id), bd = swordDef(r.base), st = recipeReady(r), have = ownsSword(r.id);
+        return `<div class="card recipe ${have ? 'sel' : ''}">
+          <div class="row between"><b class="name ${nd.r}" style="${nd.r !== 'mythic' ? `color:${RAR[nd.r].c}` : ''}">${nd.name}</b>${elTag(nd.el)}</div>
+          ${bladeSVG(nd, { sil: !have && !st.ok })}
+          <small>${r.tip}</small>
+          <ul class="checks">
+            <li class="${st.base ? 'ok' : ''}"><span>${st.base ? '✓' : '○'}</span>Blade: ${S.seen.includes(bd.id) ? bd.name : 'a blade won in battle'} (used up)</li>
+            ${Object.entries(r.mats).map(([id, n]) => `<li class="${matCount(id) >= n ? 'ok' : ''}"><span>${matCount(id) >= n ? '✓' : '○'}</span>${MATERIALS[id].n} ${Math.min(matCount(id), n)}/${n} <small class="muted">· ${CHAPTERS[MATERIALS[id].land].name}</small></li>`).join('')}
+            ${r.sharpen ? '<li class="ok"><span>✦</span>Finish by sharpening on the whetstone</li>' : ''}
+          </ul>
+          ${have ? '<span class="tag new">Forged</span>' : `<button class="btn ${st.ok ? 'primary' : ''}" data-recipe="${r.id}" ${st.ok ? '' : 'disabled'}>🔥 Forge ${nd.name}</button>`}
+        </div>`;
+      }).join('')}
+    </section>
+    <section class="panel">
+      <h3>Material pouch</h3>
+      <div class="grid2" style="margin-top:8px">${MAT_IDS.map(id => { const M = MATERIALS[id], n = matCount(id); return `<div class="card ${n ? '' : 'unknown'}" style="gap:2px"><div class="row between">${matChip(id)}<b>${n}</b></div><small>${CHAPTERS[M.land].name} · ${RAR[M.r].n}</small></div>`; }).join('')}</div>
     </section>
     <section class="panel">
       <div class="row between"><h3>Mystery forge</h3>${costHTML(CRAFT_COST)}</div>
@@ -195,7 +225,7 @@ function screenSwords() {
       ${S.swords.slice().sort((a, b) => RAR[swordDef(b.id).r].i - RAR[swordDef(a.id).r].i || swordDmg(b) - swordDmg(a)).map(w => {
         const d = swordDef(w.id), eq = w.u === S.eq;
         return `<div class="card ${eq ? 'sel' : ''}">
-          <div class="row between"><b class="name ${d.r}" style="${d.r !== 'mythic' ? `color:${RAR[d.r].c}` : ''}">${d.name}${w.lvl ? ` +${w.lvl}` : ''}</b><small>${Math.round(swordDmg(w))} dmg</small></div>
+          <div class="row between"><b class="name ${d.r}" style="${d.r !== 'mythic' ? `color:${RAR[d.r].c}` : ''}">${d.name}${w.lvl ? ` +${w.lvl}` : ''}</b><small>${Math.round(swordDmg(w))} dmg ${elTag(swordFx(w).el)}</small></div>
           ${bladeSVG(d)}
           <div class="row">${w.captured ? `<span class="tag boss">Captured by a ghost</span><small>Find it in ${CHAPTERS[(S.captured.find(c => c.u === w.u) || { ch: 0 }).ch].name}</small>` : eq ? '<span class="tag new">Equipped</span>' : `<button class="btn small primary" data-equip="${w.u}">Equip</button><button class="btn small" data-smelt="${w.u}">Smelt · +${smeltValue(w)} steel</button>`}</div>
         </div>`;
@@ -311,9 +341,32 @@ const HubMode = {
 /* ---------- actions ---------- */
 function doUpgrade() {
   const w = eqSword(), c = forgeCost(w);
-  if ((w.lvl || 0) >= 10 || !canPay(c)) return;
-  pay(c); w.lvl = (w.lvl || 0) + 1; save();
-  sfx.forge(); toast(`${swordDef(w.id).name} is now +${w.lvl}!`);
+  if ((w.lvl || 0) >= 10 || !canPay(c) || !isArmed()) return;
+  startForge({ kind: 'upgrade', w, onDone: (grade) => {
+    if (!canPay(c)) return { msg: 'Not enough gold or steel.' };
+    pay(c); w.lvl = (w.lvl || 0) + 1;
+    const bonus = grade === 'Masterwork' ? .02 : grade === 'Fine' ? .01 : 0;
+    w.q = Math.min(1.15, (w.q || 1) + bonus); save();
+    return { lvl: w.lvl, msg: bonus ? `Now +${w.lvl}, with a ${Math.round(bonus * 100)}% masterwork bonus!` : `Now +${w.lvl}. Hit the beats for a masterwork bonus next time.` };
+  } });
+}
+function doRecipe(id) {
+  const r = RECIPES.find(x => x.id === id); if (!r || !recipeReady(r).ok) return;
+  startForge({ kind: 'recipe', r, onDone: (grade) => {
+    if (!recipeReady(r).ok) return { msg: 'Missing ingredients.' };
+    for (const [m, n] of Object.entries(r.mats)) S.mats[m] -= n;
+    const bi = S.swords.findIndex(w => w.id === r.base && !w.captured && w.u !== S.eq);
+    const idx = bi >= 0 ? bi : S.swords.findIndex(w => w.id === r.base && !w.captured);
+    S.swords.splice(idx, 1);
+    const nw = addSword(r.id); nw.q = grade === 'Masterwork' ? 1.1 : grade === 'Fine' ? 1.05 : 1; S.eq = nw.u; save();
+    return { msg: `${swordDef(r.id).name} is forged and equipped!${nw.q > 1 ? ` ${grade} quality: +${Math.round((nw.q - 1) * 100)}% damage.` : ''}` };
+  } });
+}
+function doInfuse(id) {
+  const w = eqSword();
+  if (!isArmed() || !infuse(w, id)) return;
+  sfx.forge(); const M = MATERIALS[id];
+  toast(`${M.n} fused into ${swordDef(w.id).name}: ${M.d}`);
   if (HUB) hubSetPlayer(null, true);
   showTab('forge');
 }
@@ -322,7 +375,7 @@ function doCraft() {
   pay(CRAFT_COST);
   let roll = Math.random() * 100, rar = 'common';
   for (const [r, p] of CRAFT_ODDS) { if (roll < p) { rar = r; break; } roll -= p; }
-  const pool = SWORDS.filter(s => s.r === rar && s.id !== 'bokken' && s.myth == null);
+  const pool = SWORDS.filter(s => s.r === rar && s.id !== 'bokken' && s.myth == null && !s.forged);
   const d = pick(pool), isNew = !S.seen.includes(d.id), w = addSword(d.id); save();
   sfx.forge(); setTimeout(() => { RAR[d.r].i >= 3 ? sfx.win() : sfx.coin(); }, 500);
   openOverlay(`<div class="modal ${RAR[d.r].i >= 3 ? 'win' : ''}">
@@ -447,7 +500,7 @@ function wireInput() {
     const b = $('#leaveBtn');
     if (MODE === ExploreMode) { endExplore(); return; }
     if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Tap again to leave'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Leave'; }, 2200); return; }
-    if (MODE === FightMode) endFight(F && F.ctx.from === 'explore' ? 'journey' : 'home'); else if (MODE === TrainMode) endTraining(); else if (MODE === VsMode) endVersus(); else if (MODE === ExploreMode) endExplore();
+    if (MODE === FightMode) endFight(F && F.ctx.from === 'explore' ? 'journey' : 'home'); else if (MODE === TrainMode) endTraining(); else if (MODE === VsMode) endVersus(); else if (MODE === ExploreMode) endExplore(); else if (MODE === ForgeMode) { endForge(); setTimeout(() => showTab('forge'), 450); }
   });
   $('#settingsBtn').addEventListener('click', () => { sfx.ui(); openSettings(); });
 
@@ -463,6 +516,9 @@ function wireInput() {
     else if (b.id === 'actBtn') exploreAct();
     else if (d.train) { startTraining(d.train); }
     else if (d.upgrade) doUpgrade();
+    else if (d.recipe) doRecipe(d.recipe);
+    else if (d.infuse) doInfuse(d.infuse);
+    else if (d.forgeres) forgeResultAction();
     else if (d.craft) doCraft();
     else if (d.smelt) doSmelt(+d.smelt, b);
     else if (d.equip) { doEquip(+d.equip); if (d.close) closeOverlay(); }

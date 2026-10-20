@@ -29,12 +29,14 @@ function barrierMat(c1, c2) {
 }
 
 function firstLockedLand() { for (let ch = 0; ch < 4; ch++) if (!S.journey[ch].myth) return ch; return -1; }
-function limitS() { const L = firstLockedLand(); return L < 0 ? Infinity : rope().gates[L].s + .1; }
+function limitS() { if (!S.tutDone) return rope().tutGate.s + .1; const L = firstLockedLand(); return L < 0 ? Infinity : rope().gates[L].s + .1; }
+function blockGate() { if (!S.tutDone) return rope().tutGate; const L = firstLockedLand(); return L < 0 ? null : rope().gates[L]; }
+function dojoSpawn() { const R = rope(), b = R.dojoBead, p = R.pts[b.i]; return { x: b.x - p.tx * 2, z: b.z - p.tz * 2, yaw: Math.atan2(p.tx, p.tz) }; }
 function sampleAt(x, z) { const q = ropeQuery(x, z); return rope().pts[clamp(Math.round(q.s / rope().ds), 0, rope().N)]; }
 function landEntry(ch) { const R = rope(), b = R.landBeads(ch)[0], p = R.pts[b.i]; return { x: b.x - p.tx * 3, z: b.z - p.tz * 3, yaw: Math.atan2(p.tx, p.tz) }; }
 
 function startExplore(ch, returning) {
-  if (ch != null && !chapterUnlocked(ch)) { toast('Defeat the mythical boss of the previous land first.'); return; }
+  if (typeof ch === 'number' && !chapterUnlocked(ch)) { toast('Defeat the mythical boss of the previous land first.'); return; }
   transition(() => {
     clearSceneActors();
     const W = getRopeWorld(); activateWorld(W);
@@ -42,6 +44,8 @@ function startExplore(ch, returning) {
     const lim = limitS();
     let sp = null;
     if (returning && EXPLORE_RETURN) sp = EXPLORE_RETURN;
+    else if (ch === 'dojo') sp = dojoSpawn();
+    else if (!S.tutDone && (ch == null || ch === 0)) sp = (S.roam && ropeQuery(S.roam.x, S.roam.z, lim).d < .5) ? S.roam : dojoSpawn();
     else if (ch == null && S.roam && ropeQuery(S.roam.x, S.roam.z, lim).d < .5) sp = S.roam;
     else sp = landEntry(ch == null ? currentChapter() : ch);
     const pos = new V3(sp.x, 0, sp.z);
@@ -80,7 +84,8 @@ function endExplore() {
 function updateObjective() {
   if (!X || X.land < 0) return;
   const ch = X.land, cap = S.captured.length && isArmed() ? ' · A ghost holds your blade nearby!' : '';
-  $('#tInfo').innerHTML = `<b>${CHAPTERS[ch].name}</b>${!isArmed() ? 'Your hands are empty. Return to the Dojo and equip a blade.' : journeyObjective(ch) + cap}`;
+  if (!S.tutDone) { $('#tInfo').innerHTML = `<b>Training Grounds</b>${!isArmed() ? 'Take a practice sword from the Dojo building.' : 'Walk down the path and defeat the practice ghost.'}`; return; }
+  $('#tInfo').innerHTML = `<b>${CHAPTERS[ch].name}</b>${!isArmed() ? 'Your hands are empty. Walk back to the Dojo at the start of the road for a practice sword, or equip a blade from the menu.' : journeyObjective(ch) + cap}`;
 }
 
 /* ---------- points of interest ---------- */
@@ -164,6 +169,44 @@ function buildPOIs() {
       X.pois.push({ kind: 'gate', ch, x: G.x - G.tx * 2, z: G.z - G.tz * 2, r: 4.2, m, plane });
     }
   }
+  // the dojo, the training gate and the signs
+  {
+    const D = R.dojoPos, fx = D.x + Math.sin(D.face) * 4.6, fz = D.z + Math.cos(D.face) * 4.6;
+    X.pois.push({ kind: 'dojo', x: fx, z: fz, r: 3.2 });
+    const T = R.tutGate;
+    if (!S.tutDone) {
+      const gg = new THREE.Group(); gg.position.set(T.x, ropeWalkHeight(T.x, T.z), T.z); gg.rotation.y = Math.atan2(T.nx, T.nz) + Math.PI / 2; g.add(gg);
+      const rope = new THREE.Mesh(GEO.cyl(.07, .07, ROPE_W * 2 + .6, 8), toon({ color: '#e8d49a' })); rope.rotation.z = Math.PI / 2; rope.position.y = 2.4; gg.add(rope);
+      for (let k = -2; k <= 2; k++) { const pz = new THREE.Mesh(GEO.box(.12, .5, .02), new THREE.MeshBasicMaterial({ color: '#ffffff' })); pz.position.set(k * 1.1, 2.05, 0); gg.add(pz); }
+      for (const sd of [-1, 1]) { const post = new THREE.Mesh(GEO.cyl(.1, .12, 2.6, 8), toon({ color: '#4a2e1a' })); post.position.set(sd * (ROPE_W + .3), 1.3, 0); gg.add(post); }
+      const m = barrierMat('#ffe08c', '#9fe8ff'); const pl = new THREE.Mesh(new THREE.PlaneGeometry(ROPE_W * 2, 2.4), m); pl.position.y = 1.2; gg.add(pl);
+      const lab = labelSprite('Training Gate', '#ffe08c', 'Beat the practice ghost'); lab.position.set(T.x, gg.position.y + 3.4, T.z); g.add(lab);
+      X.pois.push({ kind: 'tgate', x: T.x - T.tx * 1.5, z: T.z - T.tz * 1.5, r: 3, m, grp: gg, lab });
+    }
+    const signs = [[R.dojoBead, 'Welcome, samurai!', 'Drag left side to walk'], [R.trainBead, 'Ghosts!', 'Swipe from the hilt to draw, then slash']];
+    const midS = (R.dojoBead.s + R.trainBead.s) / 2, mp = R.pts[Math.round(midS / R.ds)];
+    signs.push([{ x: mp.x, z: mp.z, i: Math.round(midS / R.ds) }, 'Lost your sword?', 'Get a new one at the Dojo']);
+    signs.forEach(([b, t1, t2], k) => {
+      const p = R.pts[b.i], sd = k % 2 ? -1 : 1, off = b.r ? b.r - 1.2 : ROPE_W - .5, x = b.x + p.nx * sd * off, z = b.z + p.nz * sd * off;
+      const st = new THREE.Mesh(merge([P(GEO.box(.16, 1.6, .16), '#4a3020', [0, .8, 0]), P(GEO.box(1.3, .7, .1), '#e8dcc0', [0, 1.5, 0])]), toon({ vertexColors: true }));
+      st.position.set(x, ropeWalkHeight(x, z), z); st.rotation.y = Math.atan2(-p.nx * sd, -p.nz * sd); g.add(st);
+      const lab = labelSprite(t1, '#fff6d8', t2); lab.position.set(x, st.position.y + 2.5, z); g.add(lab);
+      X.W.obs.push({ x, z, r: .3, poi: true });
+    });
+  }
+  // material nodes
+  R.nodes.forEach(n => {
+    if (!chapterUnlocked(n.ch)) return;
+    const key = n.ch + '-' + n.k; if (Date.now() - (S.nodeT[key] || 0) < 5 * 60e3) return;
+    const M = MATERIALS[n.mat], y = ropeWalkHeight(n.x, n.z);
+    const ng = new THREE.Group(); ng.position.set(n.x, y, n.z);
+    const rock = new THREE.Mesh(GEO.dodec(.42), toon({ color: n.ch === 1 ? '#7a8496' : n.ch === 3 ? '#2a1e1c' : '#6a6458', flatShading: true })); rock.scale.set(1, .6, 1); rock.position.y = .15; rock.castShadow = true; ng.add(rock);
+    const cm = new THREE.MeshBasicMaterial({ color: M.c });
+    for (let i = 0; i < (n.rare ? 5 : 3); i++) { const cr = new THREE.Mesh(GEO.oct(1), cm); cr.scale.set(.07, .22 + Math.random() * .16, .07); cr.position.set(Math.cos(i * 2.1) * .18, .4, Math.sin(i * 2.1) * .18); cr.rotation.set(rnd(-.4, .4), 0, rnd(-.4, .4)); ng.add(cr); }
+    const h = halo(M.c, n.rare ? 1.8 : 1.2, .75); h.position.y = .5; ng.add(h);
+    g.add(ng);
+    X.pois.push({ kind: 'node', n, key, x: n.x, z: n.z, r: 1.6, g: ng, halo: h });
+  });
   // summit
   if (S.journey[3].myth) {
     const sb = R.beads.find(b => b.kind === 'summit'), y = ropeWalkHeight(sb.x, sb.z);
@@ -180,6 +223,8 @@ function buildPOIs() {
       if (p.ring) p.ring.material.opacity = .45 + Math.sin(t * 3) * .25;
       if (p.kind === 'gate') { p.m.uniforms.time.value = t; p.m.uniforms.open.value = gateOpen(p.ch) ? 1 : .15; }
       if (p.kind === 'shrine' && S.journey[p.ch].puzzle) p.glow.material.opacity = .55 + Math.sin(t * 2) * .2;
+      if (p.kind === 'node') { p.halo.material.opacity = .45 + Math.sin(t * 3 + p.x) * .3; if (Math.random() < dt * 2) FX.add.emit(p.x + rnd(-.3, .3), p.g.position.y + .5, p.z + rnd(-.3, .3), 0, rnd(.3, .8), 0, .8, .06, 0, MATERIALS[p.n.mat].c, 1, 0, .2); }
+      if (p.kind === 'tgate') { p.m.uniforms.time.value = t; p.m.uniforms.open.value = .5; }
       if (p.kind === 'thief') { p.icon.rotation.y += dt * 2; p.icon.position.y = p.baseY + Math.sin(t * 2.5) * .2; p.beam.material.opacity = .25 + Math.sin(t * 4) * .1; }
     });
   };
@@ -187,6 +232,8 @@ function buildPOIs() {
 }
 function addThief(c) {
   const w = S.swords.find(v => v.u === c.u); if (!w) return;
+  const q = ropeQuery(c.x, c.z, X.limit);
+  if (!q.sh || q.d > -.3) { if (q.sh) { const dx = c.x - q.cx, dz = c.z - q.cz, l = Math.hypot(dx, dz) || 1; c.x = q.cx + dx / l * (q.rad - 1); c.z = q.cz + dz / l * (q.rad - 1); } else { const e = landEntry(c.ch); c.x = e.x; c.z = e.z; } save(); }
   const y = ropeWalkHeight(c.x, c.z);
   const icon = new THREE.Group(); icon.position.set(c.x, y + 2.2, c.z);
   const sw = buildSword(swordDef(w.id)); sw.rotation.z = Math.PI; sw.position.y = .4; icon.add(sw); icon.add(halo('#ff5a5a', 2.6, .7));
@@ -197,6 +244,21 @@ function addThief(c) {
   X.pois.push({ kind: 'thief', entry: c, x: c.x, z: c.z, r: 0, icon, beam, lab, baseY: y + 2.2 });
 }
 function refreshShrine(p) { p.slots.forEach(([m, h], k) => { const on = !!S.journey[p.ch].orbs[k]; m.visible = on; h.visible = on; }); }
+function collectNode(p) {
+  const M = MATERIALS[p.n.mat], n = p.n.rare ? 1 + (Math.random() < .3) : M.r === 'common' ? 2 : 1 + (Math.random() < .5);
+  addMat(p.n.mat, n); S.nodeT[p.key] = Date.now(); save();
+  FX.sparks(p.g.position.clone().add(new V3(0, .4, 0)), M.c, 26, 3.5); sfx.coin();
+  X.poi.remove(p.g); X.pois = X.pois.filter(q => q !== p);
+  const s = toScreen(p.g.position.clone().add(new V3(0, 1, 0)));
+  ovPop(s.x, s.y, `+${n} ${M.n}`, { size: 26, color: M.c, stroke: '#1a0e00', vy: -50, life: 1.3 });
+  if (!S.matTip) { S.matTip = true; save(); setTimeout(() => banner('Materials!', 'Use them at the Forge to power up your blades'), 400); }
+}
+function giveBokken() {
+  let w = S.swords.find(v => v.id === 'bokken' && !v.captured);
+  if (!w) w = addSword('bokken');
+  S.eq = w.u; save(); makePlayer(); sfx.up();
+  banner('Practice sword!', 'Sensei hands you a bokken'); updateObjective();
+}
 function collectOrb(p) {
   S.journey[p.ch].orbs[p.k] = 1; save();
   const pos = p.g.position.clone(), col = ORB_COLS[p.ch];
@@ -212,7 +274,7 @@ function collectOrb(p) {
 function exploreAct() {
   if (!X || !X.near || X.enc) return;
   const p = X.near;
-  if ((p.kind === 'warrior' || p.kind === 'gate') && !isArmed()) { toast('You have no blade! Return to the Dojo and equip one.'); return; }
+  if ((p.kind === 'warrior' || p.kind === 'gate') && !isArmed()) { toast('You have no blade! Walk back to the Dojo at the start of the road for a practice sword.'); return; }
   const back = new V3(X.pos.x - p.x, 0, X.pos.z - p.z); if (back.lengthSq() < .01) back.set(0, 0, -1); back.normalize();
   EXPLORE_RETURN = { x: p.x + back.x * (p.r + .6), z: p.z + back.z * (p.r + .6), yaw: Math.atan2(-back.x, -back.z) };
   if (ropeQuery(EXPLORE_RETURN.x, EXPLORE_RETURN.z, X.limit).d > -.2) EXPLORE_RETURN = { x: X.pos.x, z: X.pos.z, yaw: X.face };
@@ -232,6 +294,10 @@ function exploreAct() {
     if (warriorsBeaten(p.ch) < 3) need.push(`defeat the warriors (${warriorsBeaten(p.ch)}/3)`);
     if (!S.journey[p.ch].puzzle) need.push('awaken the shrine');
     toast('The gate is sealed. First ' + need.join(' and ') + '.');
+  } else if (p.kind === 'dojo') {
+    if (!isArmed()) giveBokken(); else endExplore();
+  } else if (p.kind === 'tgate') {
+    toast('Beat the practice ghost first. Walk into the training ring!');
   } else if (p.kind === 'summit') {
     sfx.win(); banner('Katana Legend!', 'Every land is yours');
     for (let i = 0; i < 5; i++) setTimeout(() => X && FX.sparks(new V3(p.x + rnd(-3, 3), 3 + rnd(0, 3), p.z + rnd(-3, 3)), pick(['#ffe08c', '#ff8fc0', '#7fe8ff']), 50, 6), i * 250);
@@ -242,6 +308,8 @@ function actLabel(p) {
   if (p.kind === 'shrine') return S.journey[p.ch].puzzle ? 'Shrine is awake ✓' : orbsFound(p.ch) < 3 ? `Shrine needs orbs (${orbsFound(p.ch)}/3)` : 'Solve the shrine puzzle';
   if (p.kind === 'gate') return !isArmed() ? 'No blade! Go to the Dojo' : S.journey[p.ch].myth ? `Rematch ${MYTHS[p.ch].name}` : gateOpen(p.ch) ? `Face ${MYTHS[p.ch].name}!` : 'Spirit gate (sealed)';
   if (p.kind === 'summit') return 'Ring the summit bell';
+  if (p.kind === 'dojo') return isArmed() ? 'Enter the Dojo' : 'Take a practice sword';
+  if (p.kind === 'tgate') return 'Training gate (beat the ghost)';
   return '';
 }
 
@@ -250,7 +318,8 @@ function objectiveTarget() {
   if (!X || X.land < 0) return null;
   const R = rope(), ch = X.land, j = S.journey[ch];
   const near = list => list.reduce((b, p) => (!b || Math.hypot(p.x - X.pos.x, p.z - X.pos.z) < Math.hypot(b.x - X.pos.x, b.z - X.pos.z)) ? p : b, null);
-  if (!isArmed()) return null;
+  if (!isArmed()) return X.pois.find(p => p.kind === 'dojo') || null;
+  if (!S.tutDone) return { x: R.tutGhost.x, z: R.tutGhost.z };
   const thieves = X.pois.filter(p => p.kind === 'thief');
   if (thieves.length) return near(thieves);
   if (orbsFound(ch) < 3) return near(X.pois.filter(p => p.kind === 'orb' && p.ch === ch));
@@ -264,6 +333,7 @@ function objectiveTarget() {
 /* ---------- ghost samurai ---------- */
 function ghostCheck() {
   if (!X || X.enc || !isArmed() || X.clock < X.encCool) return;
+  if (!S.tutDone) { const T = rope().tutGhost; if (Math.hypot(T.x - X.pos.x, T.z - X.pos.z) < 6) startEncounter({ spot: T, tut: true }); return; }
   for (const p of X.pois) if (p.kind === 'thief' && Math.hypot(p.x - X.pos.x, p.z - X.pos.z) < 7.5) { startEncounter({ thief: p }); return; }
   for (const gsp of rope().ghosts) {
     if (X.ghostDone.has(gsp) || !chapterUnlocked(gsp.ch)) continue;
@@ -283,11 +353,11 @@ function startEncounter(o) {
   const gy = ropeWalkHeight(gx, gz);
   ghost.root.position.set(gx, gy + .3, gz); ghost.setHold('guard', 8); ghost.mat.opacity = 0;
   X.poi.add(ghost.root, ghost.trail.mesh);
-  const win = ([1.6, 1.35, 1.15, .95][ch] + stats().drawBonus) * (o.thief ? .85 : 1);
+  const win = o.tut ? 3.6 : ([1.6, 1.35, 1.15, .95][ch] + stats().drawBonus) * (o.thief ? .85 : 1);
   X.enc = { ghost, ch, phase: 'appear', t: 0, t0: 0, win, o, def, sx: gx, sz: gz, gy, drawnAt: -1, op: 0, iai: false };
   X.joy = null; X.look = null; $('#actBtn').hidden = true; X.near = null;
   if (o.thief) { o.thief.icon.visible = false; o.thief.beam.visible = false; o.thief.lab.visible = false; }
-  banner(o.thief ? 'GHOST THIEF!' : 'GHOST SAMURAI!', o.thief ? 'It holds your ' + def.name + '!' : 'Draw and strike!');
+  banner(o.tut ? 'PRACTICE GHOST' : o.thief ? 'GHOST THIEF!' : 'GHOST SAMURAI!', o.tut ? 'Swipe out of the gold hilt to draw!' : o.thief ? 'It holds your ' + def.name + '!' : 'Draw and strike!');
   sfx.ghost();
   FX.puff(new V3(gx, gy + 1, gz), 12, '#bfe8ff', .7);
 }
@@ -319,7 +389,14 @@ function banishGhost(hit) {
   const ups = addSkillXP('iai', e.o.thief ? 24 : e.iai ? 16 : 10); save();
   banner(e.iai ? 'IAI STRIKE!' : 'Ghost banished!', `+${gold} gold${ups ? ' · Iai level up!' : ''}`);
   if (ups) sfx.up();
+  if (e.o.tut) {
+    S.tutDone = true; addMat('ironsand', 2); save(); X.limit = limitS();
+    const tg = X.pois.find(p => p.kind === 'tgate'); if (tg) { X.poi.remove(tg.grp); X.poi.remove(tg.lab); X.pois = X.pois.filter(p => p !== tg); }
+    setTimeout(() => { if (X) banner('Training complete!', 'The road to Bamboo Village is open'); }, 1300);
+    e.ghost.root.visible = false; return;
+  }
   if (e.o.spot) { S.ghostClear = S.ghostClear || {}; S.ghostClear[e.o.spot.ch + '-' + e.o.spot.k] = Date.now(); save(); }
+  if (e.o.spot) { const got = rollDrops(e.ch, 'ghost'); setTimeout(() => { if (!X) return; const t = Object.entries(got).map(([id, n]) => `+${n} ${MATERIALS[id].n}`).join(' · '); ovPop(VW / 2, VH * .36, t, { size: 24, color: '#ffe08c', vy: -30, life: 1.6 }); }, 700); save(); }
   if (e.o.thief) {
     const w = reclaimSword(e.o.thief.entry);
     X.pois = X.pois.filter(p => p !== e.o.thief); [e.o.thief.icon, e.o.thief.beam, e.o.thief.lab].forEach(o => X.poi.remove(o));
@@ -332,6 +409,7 @@ function ghostStrike() {
   e.ghost.seq.length = 0; e.ghost.queue('endH', .14, { ease: easeIn, arc: .3 });
   sfx.slash(1.3); setTimeout(() => sfx.hurt(), 90);
   X.P.hitFlash(1); X.P.jolt = .8; shake(.12); OV.vig = 1; OV.vigCol = '120,200,255';
+  if (e.o.tut) { banner('The ghost got you!', 'Out on the road it would steal your sword. Try again!'); e.tutLost = true; return; }
   if (e.o.spot) { S.ghostClear = S.ghostClear || {}; S.ghostClear[e.o.spot.ch + '-' + e.o.spot.k] = Date.now(); }
   const w = captureEquipped(e.ch, X.pos.x, X.pos.z);
   const from = X.P.sword.getWorldPosition(new V3());
@@ -369,7 +447,7 @@ function encounterUpdate(dt) {
   if (e.phase === 'lost') {
     const u = e.t - e.t1;
     if (u > .8) G.root.position.y += dt * 1.2;
-    if (u > 2.4) endEncounter();
+    if (u > (e.tutLost ? 1.6 : 2.4)) endEncounter();
   }
   if (e.phase === 'won' && e.t - e.t1 > 1.1) endEncounter();
   G.update(dt);
@@ -379,7 +457,8 @@ function endEncounter() {
   X.poi.remove(e.ghost.root); X.poi.remove(e.ghost.trail.mesh); e.ghost.dispose();
   if (e.newThief) { e.newThief.icon.visible = true; e.newThief.beam.visible = true; e.newThief.lab.visible = true; }
   if (e.o.thief && X.pois.includes(e.o.thief)) { e.o.thief.icon.visible = true; e.o.thief.beam.visible = true; e.o.thief.lab.visible = true; }
-  X.enc = null; X.encCool = X.clock + 6; $('#hiltBtn').hidden = true;
+  X.enc = null; X.encCool = X.clock + (e.tutLost ? 2.5 : 6); $('#hiltBtn').hidden = true;
+  if (e.tutLost && !X.P.sheathed) X.P.sheatheSword({ onEnter: () => sfx.sheathe() });
   if (e.phase === 'won' && !e.o.thief && isArmed()) X.P.sheatheSword({ chiburi: true, onEnter: () => sfx.sheathe() });
   if (e.phase === 'lost') { X.P.sword.visible = false; }
   updateObjective();
@@ -416,8 +495,8 @@ const ExploreMode = {
     const q = ropeQuery(x.pos.x, x.pos.z, x.limit);
     if (!q.sh) x.pos.copy(x.lastGood);
     else if (q.d > -.15) { const dx = x.pos.x - q.cx, dz = x.pos.z - q.cz, l = Math.hypot(dx, dz) || 1, rr = q.rad - .15; x.pos.x = q.cx + dx / l * rr; x.pos.z = q.cz + dz / l * rr; }
-    const L = firstLockedLand();
-    if (L >= 0) { const G = R.gates[L], dx = x.pos.x - G.x, dz = x.pos.z - G.z, along = dx * G.tx + dz * G.tz; if (along > -.6 && Math.hypot(dx, dz) < 14) { x.pos.x -= G.tx * (along + .6); x.pos.z -= G.tz * (along + .6); } }
+    const G0 = blockGate();
+    if (G0) { const G = G0, dx = x.pos.x - G.x, dz = x.pos.z - G.z, along = dx * G.tx + dz * G.tz; if (along > -.6 && Math.hypot(dx, dz) < 14) { x.pos.x -= G.tx * (along + .6); x.pos.z -= G.tz * (along + .6); } }
     for (const o of x.W.obs) {
       const dx = x.pos.x - o.x, dz = x.pos.z - o.z, rr = o.r + .38, d2 = dx * dx + dz * dz;
       if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2); x.pos.x = o.x + dx / d * rr; x.pos.z = o.z + dz / d * rr; }
@@ -461,6 +540,7 @@ const ExploreMode = {
         if (p.kind === 'thief') continue;
         const d = Math.hypot(x.pos.x - p.x, x.pos.z - p.z);
         if (p.kind === 'orb') { if (d < p.r) collectOrb(p); continue; }
+        if (p.kind === 'node') { if (d < p.r) collectNode(p); continue; }
         if (d < p.r && d < nd) { near = p; nd = d; }
       }
       if (near !== x.near) {
@@ -494,7 +574,7 @@ const ExploreMode = {
     CAM.position.copy(x.camPos); CAM.lookAt(x.camLook);
     CAM.fov = lerp(CAM.fov, fov, damp(6, dt)); CAM.updateProjectionMatrix(); FX.setScale();
     applyShake(dt);
-    if (x.enc) hint(x.enc.phase === 'draw' ? 'Swipe from the gold hilt to DRAW, then slash the ghost!' : x.enc.phase === 'drawn' ? 'Slash the ghost now!' : '');
+    if (x.enc) hint(x.enc.phase === 'draw' ? (x.enc.o.tut ? 'Touch the gold DRAW button and swipe outward to pull your sword!' : 'Swipe from the gold hilt to DRAW, then slash the ghost!') : x.enc.phase === 'drawn' ? 'Now swipe across the ghost to slash it!' : '');
     else if (x.clock < 7 && S.wins < 2) hint('Drag on the left side to walk · drag on the right side to look around');
     else hint('');
   },
@@ -555,13 +635,15 @@ function drawExploreOverlay(c) {
   c.lineWidth = BRANCH_W * 2 * sc; c.strokeStyle = 'rgba(232,214,170,.4)';
   R.branches.forEach(br => { if (Math.hypot(br.bx - X.pos.x, br.bz - X.pos.z) > 80) return; c.beginPath(); br.path.forEach((p, i) => { const [mx, my] = map(p.x, p.z); i ? c.lineTo(mx, my) : c.moveTo(mx, my); }); c.stroke(); });
   R.beads.forEach(b => { if (Math.hypot(b.x - X.pos.x, b.z - X.pos.z) > 80) return; const [mx, my] = map(b.x, b.z); c.fillStyle = 'rgba(232,214,170,.4)'; c.beginPath(); c.arc(mx, my, b.r * sc, 0, Math.PI * 2); c.fill(); });
-  const L = firstLockedLand(); if (L >= 0) { const G = R.gates[L], [mx, my] = map(G.x, G.z); c.strokeStyle = '#b48aff'; c.lineWidth = 3; c.beginPath(); c.arc(mx, my, 5, 0, Math.PI * 2); c.stroke(); }
+  const BG = blockGate(); if (BG) { const G = BG, [mx, my] = map(G.x, G.z); c.strokeStyle = '#b48aff'; c.lineWidth = 3; c.beginPath(); c.arc(mx, my, 5, 0, Math.PI * 2); c.stroke(); }
   for (const p of X.pois) {
     const [mx, my] = map(p.x, p.z);
     if (p.kind === 'orb') { c.fillStyle = ORB_COLS[p.ch]; c.beginPath(); c.arc(mx, my, 4 + Math.sin(X.clock * 5) * 1.2, 0, Math.PI * 2); c.fill(); }
     else if (p.kind === 'warrior') { c.fillStyle = p.done ? '#7a8a7a' : p.st.boss ? '#ff6a4a' : '#ffd27a'; c.beginPath(); c.moveTo(mx, my - 6); c.lineTo(mx + 5, my + 4); c.lineTo(mx - 5, my + 4); c.closePath(); c.fill(); }
     else if (p.kind === 'shrine') { c.fillStyle = S.journey[p.ch].puzzle ? '#ffe08c' : '#e8dcc0'; c.fillRect(mx - 5, my - 5, 10, 10); }
     else if (p.kind === 'gate') { c.strokeStyle = gateOpen(p.ch) ? '#d9b8ff' : '#7a6a8a'; c.lineWidth = 3; c.beginPath(); c.moveTo(mx - 6, my + 5); c.lineTo(mx - 6, my - 5); c.lineTo(mx + 6, my - 5); c.lineTo(mx + 6, my + 5); c.stroke(); }
+    else if (p.kind === 'node') { c.fillStyle = MATERIALS[p.n.mat].c; c.save(); c.translate(mx, my); c.rotate(Math.PI / 4); c.fillRect(-2.5, -2.5, 5, 5); c.restore(); }
+    else if (p.kind === 'dojo') { c.fillStyle = '#ffe08c'; c.font = "900 12px serif"; c.textAlign = 'center'; c.fillText('道', mx, my + 4); }
     else if (p.kind === 'thief') { c.strokeStyle = '#ff5a5a'; c.lineWidth = 3; c.beginPath(); c.moveTo(mx - 5, my + 5); c.lineTo(mx + 5, my - 5); c.moveTo(mx - 5, my - 5); c.lineTo(mx + 5, my + 5); c.stroke(); }
   }
   c.restore();

@@ -32,7 +32,7 @@ const perpv = h => new V3(Math.cos(h), 0, -Math.sin(h));
 function buildRopeLayout() {
   const rr = mulberry(20261019);
   const PLAN = ['entry', 'warrior', 'shrine', 'warrior', 'warrior', 'gate'];
-  const RAD = { entry: 8.5, warrior: 9.5, shrine: 9.5, gate: 10.5, summit: 10 };
+  const RAD = { entry: 8.5, warrior: 9.5, shrine: 9.5, gate: 10.5, summit: 10, dojo: 9, training: 9.5 };
   const ctrl = [new V3(0, 0, -18), new V3(0, 0, -9)], beads = [];
   let pos = new V3(0, 0, 0), heading = 0, side = 1;
   ctrl.push(pos.clone());
@@ -44,10 +44,12 @@ function buildRopeLayout() {
     ctrl.push(pos.clone().lerp(end, .5).addScaledVector(perpv(avg), side * (2.5 + rr() * 4.5)));
     ctrl.push(end); pos = end; heading = nh;
   };
+  beads.push({ ch: 0, kind: 'dojo', k: -2, wi: -1, x: pos.x, z: pos.z, r: RAD.dojo });
+  step(28); beads.push({ ch: 0, kind: 'training', k: -1, wi: -1, x: pos.x, z: pos.z, r: RAD.training });
   for (let ch = 0; ch < 4; ch++) {
     let wi = 0;
     PLAN.forEach((kind, k) => {
-      if (!(ch === 0 && k === 0)) step(kind === 'entry' ? 40 : 31 + rr() * 9);
+      step(kind === 'entry' ? (ch === 0 ? 34 : 40) : 31 + rr() * 9);
       beads.push({ ch, kind, k, wi: kind === 'warrior' ? wi++ : -1, x: pos.x, z: pos.z, r: RAD[kind] });
     });
   }
@@ -64,13 +66,15 @@ function buildRopeLayout() {
   });
   const nearestI = (x, z) => { let bi = 0, bd = 1e9; pts.forEach((p, i) => { const d = (p.x - x) ** 2 + (p.z - z) ** 2; if (d < bd) { bd = d; bi = i; } }); return bi; };
   beads.forEach(b => { b.i = nearestI(b.x, b.z); b.s = pts[b.i].s; });
-  const landBeads = ch => beads.filter(b => b.ch === ch && b.kind !== 'summit');
+  const landBeads = ch => beads.filter(b => b.ch === ch && b.kind !== 'summit' && b.kind !== 'dojo' && b.kind !== 'training');
+  const dojoBead = beads.find(b => b.kind === 'dojo'), trainBead = beads.find(b => b.kind === 'training');
   const bound = [0, 1, 2].map(ch => { const g = landBeads(ch)[5], e = landBeads(ch + 1)[0]; return (g.s + e.s) / 2; });
   const landStart = [0, bound[0], bound[1], bound[2]], landEnd = [bound[0], bound[1], bound[2], total];
   const gates = [0, 1, 2, 3].map(ch => {
     const g = landBeads(ch)[5], i = Math.min(N, Math.round((g.s + g.r - 1.6) / ds)), p = pts[i];
     return { ch, i, s: p.s, x: p.x, z: p.z, tx: p.tx, tz: p.tz, nx: p.nx, nz: p.nz };
   });
+  const tutGate = (() => { const i = Math.min(N, Math.round((trainBead.s + trainBead.r - 1.4) / ds)), p = pts[i]; return { s: p.s, x: p.x, z: p.z, tx: p.tx, tz: p.tz, nx: p.nx, nz: p.nz }; })();
   const sAt = (b1, b2, f) => b1.s + (b2.s - b1.s) * f;
   const pAt = s => pts[clamp(Math.round(s / ds), 0, N)];
   // orb branches
@@ -113,7 +117,7 @@ function buildRopeLayout() {
   const ghosts = [];
   for (let ch = 0; ch < 4; ch++) {
     const B = landBeads(ch);
-    [[1, 2, .62], [3, 4, .5], [4, 5, .55]].forEach(([a, b, f], k) => {
+    (ch === 0 ? [[1, 2, .62], [3, 4, .5]] : [[1, 2, .62], [3, 4, .5], [4, 5, .55]]).forEach(([a, b, f], k) => {
       let s = sAt(B[a], B[b], f);
       for (let tries = 0; tries < 6 && !awayFrom(s, usedS, 9); tries++) s += 3;
       const p = pAt(s); ghosts.push({ ch, k, s, x: p.x, z: p.z }); usedS.push(s);
@@ -127,7 +131,26 @@ function buildRopeLayout() {
     for (let tries = 0; tries < 6 && !awayFrom(s, usedS, 8); tries++) s += 3;
     const p = pAt(s); toriis.push({ ch, s, x: p.x, z: p.z, tx: p.tx, tz: p.tz, nx: p.nx, nz: p.nz }); usedS.push(s);
   });
-  return { pts, ds, N, total, beads, bound, landStart, landEnd, gates, branches, crossings, ghosts, toriis, landBeads };
+  // material nodes: common ones along the trail edges, rare ones in the orb nooks
+  const nodes = [];
+  const POOLS = [['ironsand', 'charcoal'], ['pineresin', 'frostcrystal'], ['lacquer', 'obsidian'], ['dragonscale', 'dragonscale']];
+  const RARE = [['sakura', 'sakura', 'sakura'], ['stariron', 'frostcrystal', 'stariron'], ['moonsilver', 'obsidian', 'moonsilver'], ['embercore', 'phoenixash', 'embercore']];
+  for (let ch = 0; ch < 4; ch++) {
+    const B = landBeads(ch); let made = 0, guard = 0;
+    while (made < 9 && guard++ < 200) {
+      const s = B[0].s + rr() * (B[5].s - B[0].s), p = pAt(s), sd = rr() < .5 ? 1 : -1;
+      if (!awayFrom(s, usedS, 5) || nodes.some(n => Math.abs(n.s - s) < 9)) continue;
+      const x = p.x + p.nx * sd * (ROPE_W - .9), z = p.z + p.nz * sd * (ROPE_W - .9);
+      nodes.push({ ch, k: made, s, x, z, mat: POOLS[ch][made % 2] }); made++;
+    }
+    branches.filter(b => b.ch === ch).forEach((b, i) => {
+      const dx = b.ex - b.bx, dz = b.ez - b.bz, l = Math.hypot(dx, dz) || 1;
+      nodes.push({ ch, k: 20 + i, s: b.baseS, x: b.ex + dx / l * 2.2, z: b.ez + dz / l * 2.2, mat: RARE[ch][i % 3], rare: true });
+    });
+  }
+  { const p = pAt(dojoBead.s + 10); nodes.push({ ch: 0, k: 40, s: p.s, x: p.x + p.nx * (ROPE_W - .9), z: p.z + p.nz * (ROPE_W - .9), mat: 'ironsand', tut: true }); }
+  const tutGhost = { ch: 0, k: 99, s: trainBead.s, x: trainBead.x, z: trainBead.z, tut: true };
+  return { pts, ds, N, total, beads, bound, landStart, landEnd, gates, branches, crossings, ghosts, toriis, landBeads, nodes, dojoBead, trainBead, tutGate, tutGhost };
 }
 
 let ROPE = null;
@@ -432,7 +455,7 @@ function getRopeWorld() {
   /* warrior bead arenas */
   R.beads.forEach(b => {
     const g = chunkOf(b.s).g, B = BIOMES[b.ch].g;
-    if (b.kind === 'warrior' || b.kind === 'gate' || b.kind === 'summit') {
+    if (b.kind === 'warrior' || b.kind === 'gate' || b.kind === 'summit' || b.kind === 'training') {
       const disc = new THREE.CircleGeometry(b.r - .4, 64); disc.rotateX(-Math.PI / 2);
       const pa = disc.attributes.position, col = new Float32Array(pa.count * 3), ca = new COL(B.bead), cb = shadeHex(B.bead, -.12), tt = new COL();
       for (let i = 0; i < pa.count; i++) { const rr2 = Math.hypot(pa.getX(i), pa.getZ(i)); tt.copy(ca).lerp(cb, (Math.sin(rr2 * 4) * .5 + .5) * .7); col[i * 3] = tt.r; col[i * 3 + 1] = tt.g; col[i * 3 + 2] = tt.b; }
@@ -463,6 +486,28 @@ function getRopeWorld() {
       ice.position.set(b.x, .07, b.z); ice.receiveShadow = true; g.add(ice);
     }
   });
+  /* the dojo at the start of the road, and the training grounds */
+  {
+    const db = R.dojoBead, p0 = R.pts[0], dx = p0.x - db.x, dz = p0.z - db.z, l = Math.hypot(dx, dz) || 1;
+    const x = db.x + dx / l * (db.r + 3.5), z = db.z + dz / l * (db.r + 3.5), face = Math.atan2(db.x - x, db.z - z);
+    const dojo = merge([
+      P(GEO.box(9, .5, 7), '#6a5a52', [0, .25, 0]), P(GEO.box(8, 3.2, 6), '#eadfc6', [0, 2.1, 0]),
+      ...[-3.8, -1.3, 1.3, 3.8].map(xx => P(GEO.box(.3, 3.2, 6.1), '#4a2e1a', [xx, 2.1, 0])),
+      P(GEO.box(2.4, 2.6, .2), '#3a2214', [0, 1.8, 3.02]),
+      P(GEO.cone(6.4, 2.6, 4), '#2f3540', [0, 4.9, 0], [0, Math.PI / 4, 0], [1.45, 1, 1.1]),
+      P(GEO.box(10, .3, .5), '#1e2228', [0, 6.2, 0]), P(GEO.box(1.8, .9, .15), '#f2e6c8', [0, 3.6, 3.08]),
+    ]);
+    const m = new THREE.Mesh(dojo, toon({ vertexColors: true })); m.position.set(x, ropeHeight(x, z), z); m.rotation.y = face; m.castShadow = true;
+    chunkOf(0).g.add(m); R.dojoPos = { x, z, face };
+    const sign = labelSprite('DOJO', '#2a1200'); sign.position.set(x + Math.sin(face) * 3.2, m.position.y + 3.6, z + Math.cos(face) * 3.2); sign.scale.set(1.6, .5, 1); chunkOf(0).g.add(sign);
+    W.obs.push({ x, z, r: 3.6 });
+    const tb = R.trainBead, tp = R.pts[tb.i];
+    [[.62, .4], [-.62, .4], [.62, -.4], [-.62, -.4]].forEach(([u, v]) => {
+      const px = tb.x + (tp.nx * u + tp.tx * v) * tb.r, pz = tb.z + (tp.nz * u + tp.tz * v) * tb.r;
+      const d = new THREE.Mesh(merge([P(GEO.cyl(.03, .03, 1.1, 6), '#4a2e1a', [0, .55, 0]), P(GEO.cyl(.09, .09, .9, 10), '#d8c48a', [0, 1.4, 0]), P(GEO.box(.6, .07, .07), '#4a2e1a', [0, 1.55, 0])]), toon({ vertexColors: true }));
+      d.position.set(px, ropeHeight(px, pz), pz); d.castShadow = true; chunkOf(tb.s).g.add(d); W.obs.push({ x: px, z: pz, r: .3 });
+    });
+  }
   /* landmarks: castle keep, volcano, summit pagoda, the sky dragon */
   {
     const gb = R.landBeads(2)[5], p = R.pts[gb.i];

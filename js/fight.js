@@ -110,7 +110,7 @@ function startBattle(st, ctx) {
     CAM.position.set(Math.sin(1) * 3, 1.8, dist + Math.cos(1) * 3); F.camPos.copy(CAM.position); F.camLook.set(0, 1.3, dist);
     showHUD('fight');
     $('#meName').innerHTML = (S.name || 'Shep').toUpperCase() + `<small>${outfitDef(S.outfit).name}</small>`;
-    $('#foeName').innerHTML = st.name.toUpperCase() + `<small>${st.title}</small>`;
+    $('#foeName').innerHTML = st.name.toUpperCase() + `<small>${st.weak ? `Weak to ${ELEMENTS[st.weak].i} ${ELEMENTS[st.weak].n}` : st.title}</small>`;
     $('#stageLbl').textContent = ctx.kind === 'myth' ? `Mythical boss · ${CHAPTERS[st.ch].name}` : `${CHAPTERS[st.ch].name} · Power ${playerPower()} vs ${st.rec}`;
     dollSVG($('#dollMe'), false); dollSVG($('#dollFoe'), true);
     $('#viewBtn').textContent = F.view === 'fp' ? 'Behind view' : 'First person';
@@ -281,7 +281,7 @@ function fightSlash(x0, y0, x1, y1) {
     if (hit) {
       F.iaiDone = true; F.cdUntil = F.clock + .35;
       banner('IAI STRIKE!', 'Draw and cut in one motion'); sfx.parry(); OV.flash = .4; OV.flashCol = '255,240,200'; slowmo(.35, .5);
-      damageEnemy(hit.part, F.ps.atk * F.atkMul * 2.2, true, hit.world, hit.sx, hit.sy);
+      damageEnemy(hit.part, F.ps.atk * F.atkMul * 2.2 * elemMul(hit), true, hit.world, hit.sx, hit.sy);
       F.spirit = Math.min(100, F.spirit + 15); addSkillXP('iai', 6); save();
       return;
     }
@@ -317,15 +317,29 @@ function fightSlash(x0, y0, x1, y1) {
     const spam = F.hitTimes.length * .12;
     if (Math.random() < (F.st.react || 0) + spam + (tired ? .25 : 0)) { deflect(); return; }
   }
-  let dmg = F.ps.atk * F.atkMul * rnd(.9, 1.1) * (1 + Math.min(.5, F.combo * .05)) * PARTMUL[hit.part];
+  let dmg = F.ps.atk * F.atkMul * rnd(.9, 1.1) * (1 + Math.min(.5, F.combo * .05)) * PARTMUL[hit.part] * elemMul(hit);
   let crit = false;
-  if (F.state === 'stagger') { dmg *= 1.6; crit = true; } else if (F.state === 'recover') dmg *= 1.25;
+  if (F.state === 'stagger') { dmg *= 1.6; crit = true; }
+  else if (Math.random() < F.ps.crit) { dmg *= 1.6; crit = true; } else if (F.state === 'recover') dmg *= 1.25;
   if (tired) dmg *= .35;
   damageEnemy(hit.part, dmg, crit, hit.world, hit.sx, hit.sy, tired);
   if (!F.over && (F.state === 'idle' || F.state === 'guard' || F.state === 'recover')) {
     F.hitTimes.push(F.clock); F.hitTimes = F.hitTimes.filter(t => F.clock - t < 1.6);
     if (F.hitTimes.length >= 3 && Math.random() < .5 + (F.st.react || 0)) { F.hitTimes.length = 0; windup(false, true); }
   }
+}
+/* element bonus: the right element hits hard, the wrong one bounces off */
+function elemMul(hit) {
+  const el = F.ps.el, st = F.st; if (!el) return 1;
+  let m = 1;
+  if (el === 'all') m = st.weak ? 1.4 : 1.1;
+  else if (st.weak === el) m = 1.4;
+  else if (st.resist === el) m = .75;
+  if (hit && F.clock > (F.elPop || 0)) {
+    if (m > 1.2) { F.elPop = F.clock + 1.4; ovPop(hit.sx, hit.sy - 70, 'WEAK! ' + ELEMENTS[st.weak].i, { size: 30, color: ELEMENTS[st.weak].c, stroke: '#1a0800' }); }
+    else if (m < 1) { F.elPop = F.clock + 2.5; ovPop(hit.sx, hit.sy - 70, 'RESISTED', { size: 24, color: '#c9c2b0' }); }
+  }
+  return m;
 }
 function deflect() {
   const bp = F.E.bladePoint(.5);
@@ -350,7 +364,7 @@ function damageEnemy(part, dmg, crit, world, sx, sy, weak) {
   if (!weak) FX.glowBurst(world, glow, .7);
   sfx.hit(); shake(crit ? .05 : .02); hitstop(crit ? 70 : 30);
   F.combo++; F.comboT = 1.3;
-  F.spirit = Math.min(100, F.spirit + (weak ? 1 : 5));
+  F.spirit = Math.min(100, F.spirit + (weak ? 1 : 5) * F.ps.spiritGain);
   ovPop(sx + rnd(-30, 30), sy - 20, (crit ? 'CRIT ' : '') + Math.round(dmg), { size: crit ? 40 : weak ? 22 : 32, color: crit ? '#ffe08c' : weak ? '#c9c2b0' : '#ffffff' });
   if (F.combo >= 3 && F.combo % 3 === 0) ovPop(VW / 2, VH * .32, F.combo + ' HIT COMBO', { size: 28, color: '#8fe8ff', stroke: '#06203a', vy: -20 });
   if (F.elimb[part] != null && !weak) {
@@ -411,7 +425,7 @@ function specialUpdate(dt) {
     if (sp.hits === 2 && F.elimb[part] != null && !F.st.myth) F.elimb[part] = Math.min(F.elimb[part], 1);
     const w = F.E.partCenter(part), s = toScreen(w);
     FX.petals(w, 18, swordDef(eqSword().id).glow || '#ffe08c', 3);
-    damageEnemy(part, F.ps.atk * F.atkMul * 2.4, true, w, s.x, s.y);
+    damageEnemy(part, F.ps.atk * F.atkMul * 2.4 * elemMul({ sx: s.x, sy: s.y }), true, w, s.x, s.y);
     sp.hits++;
     if (F.over) break;
   }
@@ -464,6 +478,7 @@ function trophyUpdate(dt) {
 /* ---------- the standoff: wait for the leaf, then draw ---------- */
 function startStandoff() {
   F.state = 'standoff'; F.t = 0; F.signalAt = F.clock + rnd(1.5, 2.8); F.camK = 4;
+  F.P.setFP(false);
   const col = ['#ff8a3a', '#ffffff', '#ff4a2a', '#ffb03a'][F.st.ch];
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.petal, color: col, transparent: true, depthWrite: false })); sp.scale.setScalar(.22);
   const h = halo(col, .9, .7); sp.add(h);
@@ -482,7 +497,7 @@ function standoffUpdate(dt) {
     L.sp.position.set(L.x + Math.sin(F.clock * 3.1) * .32, lerp(L.y0, .06, k), F.dist * .5 + Math.cos(F.clock * 2.3) * .2);
     L.sp.material.rotation = Math.sin(F.clock * 4) * .8;
     if (k >= 1 && !F.signaled) {
-      F.signaled = true; F.sigT = F.clock; F.enemyDrawAt = F.clock + enemyReact(); F.camK = 60;
+      F.signaled = true; F.sigT = F.clock; F.enemyDrawAt = F.clock + enemyReact(); F.camK = 60; F.P.setFP(F.view === 'fp');
       FX.puff(L.sp.position, 6, '#ffffff', .3); F.W.scene.remove(L.sp); F.leaf = null;
       banner('DRAW!'); sfx.taiko(1.3); sfx.bell();
     }
@@ -498,7 +513,7 @@ function playerDraw(auto) {
   if (auto) { banner('Too slow!', 'Draw faster next time'); return true; }
   if (F.state === 'standoff') {
     if (F.leaf) { F.W.scene.remove(F.leaf.sp); F.leaf = null; }
-    if (early) { banner('TOO EARLY!', 'Wait for the leaf to land'); F.signaled = true; F.camK = 60; enemyDrawFirst(true); }
+    if (early) { banner('TOO EARLY!', 'Wait for the leaf to land'); F.signaled = true; F.camK = 60; F.P.setFP(F.view === 'fp'); enemyDrawFirst(true); }
     else if (!F.enemyDrawn) {
       const rt = F.clock - F.sigT;
       F.firstStrike = true; F.iaiUntil = F.clock + .55; F.enemyDrawn = true;
@@ -677,6 +692,7 @@ function grantWin() {
   if (stars > prev) { r.newStars = stars - prev; book[key] = stars; r.gold += r.newStars * 50; }
   r.stars = stars;
   S.gold += r.gold; S.steel += r.steel; S.wins++;
+  r.mats = rollDrops(ctx.ch, myth ? 'myth' : st.boss ? 'boss' : 'warrior');
   save();
   return r;
 }
@@ -694,6 +710,7 @@ function showFightResult() {
       <div><div class="rar ${d.r}" style="color:${rc.c}">${rc.n}</div><h3 class="name ${d.r}">${d.name}</h3></div>
       <p class="muted">${r.newSword ? 'You won their blade! It is in your collection now.' : ownsSword(r.sword) ? `You already own this blade, so it was smelted into ${r.smelt} steel.` : `No blade this time (rematches drop it 1 time in 3). You got ${r.smelt} steel.`}</p>
       <div class="rewards"><span class="chip gold"><i></i>+${r.gold}</span><span class="chip steel"><i></i>+${r.steel}</span>${r.newStars ? `<span class="chip">+${r.newStars} ★</span>` : ''}</div>
+      <div class="rewards">${Object.entries(r.mats || {}).map(([id, n]) => `<span class="chip mat"><i style="background:${MATERIALS[id].c}"></i>+${n} ${MATERIALS[id].n}</span>`).join('')}</div>
       ${r.outfit ? `<p><span class="tag new">New outfit</span> <b>${outfitDef(r.outfit).name}</b> unlocked!</p>` : ''}
       ${r.chapterDone ? `<p><span class="tag new">Chapter complete</span> ${nextCh != null ? `<b>${CHAPTERS[nextCh].name}</b> is now open!` : 'You have conquered every land. You are a legend!'}</p>` : ''}
       <p class="muted" style="font-size:13px">Stars: win · keep all your limbs · parry 3 times</p>

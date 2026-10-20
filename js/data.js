@@ -30,6 +30,50 @@ const SWORDS = [
   { id: 'tengu', name: 'Tengu Wing', r: 'legendary', dmg: 38, blade: '#2a2a33', edge: '#ffd27a', tsuba: '#c0392b', wrap: '#120a0a', glow: '#ffb03a', myth: 2, lore: 'Light as a feather from the Tengu King\'s wing.' },
   { id: 'ryujin', name: "Ryujin's Fang", r: 'mythic', dmg: 50, blade: '#ffe7a0', edge: '#ffffff', tsuba: '#c2301a', wrap: '#3a0a06', glow: '#ff7a1a', myth: 3, lore: 'A fang of Ryujin, the Sky Dragon. The greatest blade ever forged.' },
 ];
+/* Blades forged from recipes at the smithy */
+SWORDS.push(
+  { id: 'kanemitsu', name: 'Kanemitsu Tachi', r: 'rare', dmg: 22, blade: '#d8dde6', edge: '#ffffff', tsuba: '#7a5a2a', wrap: '#3a1a10', glow: '#ffe08c', forged: true, crit: .08, lore: 'A smith\'s first masterpiece. Its edge finds every gap.' },
+  { id: 'kagaribi', name: 'Kagaribi', r: 'epic', dmg: 30, blade: '#ff9a4a', edge: '#fff2c0', tsuba: '#3a1408', wrap: '#1a0806', glow: '#ff6a1a', forged: true, el: 'fire', lore: 'The Bonfire Blade. Snow melts where it passes.' },
+  { id: 'tsukikage', name: 'Tsukikage', r: 'legendary', dmg: 37, blade: '#e8ecff', edge: '#ffffff', tsuba: '#2a2a5a', wrap: '#0a0a24', glow: '#ffe8a0', forged: true, el: 'spirit', lore: 'Moon Shadow. Shadow lords cannot hide from its light.' },
+  { id: 'hyoryu', name: 'Hyōryū', r: 'legendary', dmg: 42, blade: '#aef0ff', edge: '#ffffff', tsuba: '#1a4a7a', wrap: '#06142a', glow: '#5fe0ff', forged: true, el: 'frost', lore: 'The Ice Dragon. Forged to tame fire and dragon alike.' },
+  { id: 'kusanagi', name: 'Kusanagi', r: 'mythic', dmg: 58, blade: '#fff4d0', edge: '#ffffff', tsuba: '#c9a030', wrap: '#2a1a00', glow: '#ffffff', forged: true, el: 'all', lore: 'The Grass Cutter. The sword of legends, strong against every foe.' },
+);
+const ELEMENTS = {
+  fire: { n: 'Fire', i: '🔥', c: '#ff7a3a' }, frost: { n: 'Frost', i: '❄', c: '#9fe8ff' },
+  shadow: { n: 'Shadow', i: '☾', c: '#b48aff' }, spirit: { n: 'Spirit', i: '✦', c: '#ffe08c' }, all: { n: 'Divine', i: '✺', c: '#ffffff' },
+};
+Object.assign(SWORDS.find(s => s.id === 'ember'), { el: 'fire' });
+Object.assign(SWORDS.find(s => s.id === 'moon'), { el: 'frost' });
+Object.assign(SWORDS.find(s => s.id === 'jade'), { el: 'shadow' });
+Object.assign(SWORDS.find(s => s.id === 'sakura'), { el: 'spirit' });
+Object.assign(SWORDS.find(s => s.id === 'dragon'), { el: 'fire' });
+Object.assign(SWORDS.find(s => s.id === 'void'), { el: 'shadow' });
+Object.assign(SWORDS.find(s => s.id === 'ogre'), { el: 'fire' });
+Object.assign(SWORDS.find(s => s.id === 'frost'), { el: 'frost' });
+Object.assign(SWORDS.find(s => s.id === 'tengu'), { el: 'shadow' });
+Object.assign(SWORDS.find(s => s.id === 'ryujin'), { el: 'fire' });
+const MATERIALS = {
+  ironsand:     { n: 'Iron Sand', land: 0, r: 'common', c: '#6a6a78', fx: { dmg: .04 }, d: '+4% damage' },
+  charcoal:     { n: 'Bamboo Charcoal', land: 0, r: 'common', c: '#ff8a3a', fx: { el: 'fire' }, d: 'Fire element' },
+  sakura:       { n: 'Sakura Spirit', land: 0, r: 'rare', c: '#ff9ec4', fx: { el: 'spirit', dmg: .02 }, d: 'Spirit element, +2% damage' },
+  pineresin:    { n: 'Snow Pine Resin', land: 1, r: 'common', c: '#e0b25a', fx: { guard: .04 }, d: 'Stronger blocks' },
+  frostcrystal: { n: 'Frost Crystal', land: 1, r: 'uncommon', c: '#9fe8ff', fx: { el: 'frost' }, d: 'Frost element' },
+  stariron:     { n: 'Star Iron', land: 1, r: 'rare', c: '#c3d2ff', fx: { dmg: .08 }, d: '+8% damage' },
+  lacquer:      { n: 'Red Lacquer', land: 2, r: 'common', c: '#e04a3a', fx: { crit: .03 }, d: '+3% critical hits' },
+  obsidian:     { n: 'Shadow Obsidian', land: 2, r: 'uncommon', c: '#8a6ad0', fx: { el: 'shadow' }, d: 'Shadow element' },
+  moonsilver:   { n: 'Moonsilver', land: 2, r: 'rare', c: '#eef0ff', fx: { el: 'spirit', dmg: .05 }, d: 'Spirit element, +5% damage' },
+  dragonscale:  { n: 'Dragon Scale', land: 3, r: 'uncommon', c: '#ff5a2a', fx: { el: 'fire', dmg: .04 }, d: 'Fire element, +4% damage' },
+  embercore:    { n: 'Ember Core', land: 3, r: 'rare', c: '#ffc23a', fx: { dmg: .1 }, d: '+10% damage' },
+  phoenixash:   { n: 'Phoenix Ash', land: 3, r: 'epic', c: '#ff6fd0', fx: { crit: .06, spirit: .25 }, d: '+6% crits, faster Spirit Strike' },
+};
+const MAT_IDS = Object.keys(MATERIALS);
+const RECIPES = [
+  { id: 'kanemitsu', base: 'iron', mats: { ironsand: 3, charcoal: 2 }, tip: 'A strong early blade with sharp critical hits.' },
+  { id: 'kagaribi', base: 'crane', mats: { charcoal: 4, ironsand: 3, pineresin: 2 }, tip: 'Fire beats the frost warriors and the Frost Giant.' },
+  { id: 'tsukikage', base: 'moon', mats: { sakura: 2, moonsilver: 2, stariron: 2, lacquer: 2 }, tip: 'Spirit beats the shadow warriors, Lord Kuro and the Tengu King.' },
+  { id: 'hyoryu', base: 'storm', mats: { frostcrystal: 4, stariron: 2, obsidian: 2, dragonscale: 2 }, tip: 'Frost beats the fire oni, the Dragon Shogun and the Sky Dragon.' },
+  { id: 'kusanagi', base: 'void', mats: { sakura: 3, frostcrystal: 3, moonsilver: 3, embercore: 3, phoenixash: 2 }, sharpen: true, tip: 'The legendary blade. Strong against every foe. Must be sharpened by hand.' },
+];
 const CLUB_DEF = { id: 'kanabo', name: 'Iron Kanabo', r: 'rare', dmg: 0, blade: '#3a3a40', edge: '#8a8a94', tsuba: '#2a1a12', wrap: '#4a2a1a', club: true };
 
 const OUTFITS = [
@@ -93,6 +137,11 @@ const MYTHS = [
     look: { aura: '#ffb03a' } },
 ];
 for (const s of STAGES.concat(MYTHS)) s.rec = Math.round(Math.sqrt(s.hp * s.dmg) / 3.2);
+/* weaknesses: the right element hits much harder */
+[[2, 'frost', 'fire'], [3, 'fire'], [4, 'fire', 'frost'], [5, 'fire', 'frost'], [6, 'spirit', 'shadow'], [7, 'spirit', 'shadow'], [8, 'spirit', 'shadow'], [9, 'frost'], [10, 'frost', 'fire'], [11, 'frost', 'fire']]
+  .forEach(([i, w, r]) => { STAGES[i].weak = w; if (r) STAGES[i].resist = r; });
+Object.assign(MYTHS[0], { weak: 'spirit', resist: 'fire' }); Object.assign(MYTHS[1], { weak: 'fire', resist: 'frost' });
+Object.assign(MYTHS[2], { weak: 'spirit', resist: 'shadow' }); Object.assign(MYTHS[3], { weak: 'frost', resist: 'fire' });
 
 const ORB_COLS = ['#ff9ec4', '#7fe8ff', '#c9a0ff', '#ffb03a'];
 const PUZZLES = ['lanterns', 'seals', 'moonpath', 'scales'];
@@ -127,7 +176,7 @@ function freshSave() {
     swords: [{ u: 1, id: 'bokken', lvl: 0 }], eq: 1, nu: 2,
     outfits: ['ronin'], outfit: 'ronin',
     sk: { power: { l: 1, x: 0 }, speed: { l: 1, x: 0 }, guard: { l: 1, x: 0 }, vital: { l: 1, x: 0 }, iai: { l: 1, x: 0 } },
-    roam: null, captured: [], ghosts: 0,
+    roam: null, captured: [], ghosts: 0, mats: {}, nodeT: {}, forged: [], tutDone: false,
     seen: ['bokken'], sound: true, music: true, quality: 'auto', view: 'fp', wins: 0, parries: 0, name: 'Shep',
   };
 }
@@ -141,6 +190,9 @@ function loadSave() {
       if (!Array.isArray(merged.journey) || merged.journey.length !== 4) merged.journey = f.journey;
       if (!merged.swords || !merged.swords.length) merged.swords = f.swords;
       if (!Array.isArray(merged.captured)) merged.captured = [];
+      if (!merged.mats || typeof merged.mats !== 'object') merged.mats = {};
+      if (!merged.nodeT || typeof merged.nodeT !== 'object') merged.nodeT = {};
+      if (o.tutDone == null) merged.tutDone = Object.keys(merged.beaten || {}).length > 0;
       return merged;
     }
   } catch (e) { /* storage unavailable */ }
@@ -174,7 +226,36 @@ function ensureArmedFallback() {
   const w = addSword('bokken'); S.eq = w.u; save();
   return 'loan';
 }
-function swordDmg(w) { return swordDef(w.id).dmg * (1 + 0.12 * (w.lvl || 0)); }
+function swordFx(w) {
+  const d = swordDef(w.id), o = { dmg: 0, crit: d.crit || 0, guard: 0, spirit: 0, el: d.el || null };
+  (w.inf || []).forEach(id => { const f = MATERIALS[id] && MATERIALS[id].fx; if (!f) return; o.dmg += f.dmg || 0; o.crit += f.crit || 0; o.guard += f.guard || 0; o.spirit += f.spirit || 0; if (f.el && d.el !== 'all') o.el = f.el; });
+  return o;
+}
+function swordDmg(w) { return swordDef(w.id).dmg * (1 + 0.12 * (w.lvl || 0)) * (1 + swordFx(w).dmg) * (w.q || 1); }
+function infuseSlots(w) { return 2 + RAR[swordDef(w.id).r].i; }
+function matCount(id) { return S.mats[id] || 0; }
+function addMat(id, n) { S.mats[id] = (S.mats[id] || 0) + (n || 1); }
+function infuse(w, id) {
+  if (!matCount(id) || (w.inf || []).length >= infuseSlots(w)) return false;
+  S.mats[id]--; (w.inf = w.inf || []).push(id); save(); return true;
+}
+/* random materials after a win: rarer drops from bosses and beasts */
+function rollDrops(ch, kind) {
+  const pool = MAT_IDS.filter(id => MATERIALS[id].land === ch), wt = { common: 60, uncommon: 30, rare: 12, epic: 4 };
+  const rolls = kind === 'myth' ? 3 : kind === 'boss' ? 2 + (Math.random() < .5) : kind === 'ghost' ? 1 : 1 + (Math.random() < .45);
+  const got = {};
+  const one = bias => { let tot = 0; pool.forEach(id => tot += wt[MATERIALS[id].r] * (MATERIALS[id].r === 'common' ? 1 : bias)); let r = Math.random() * tot; for (const id of pool) { r -= wt[MATERIALS[id].r] * (MATERIALS[id].r === 'common' ? 1 : bias); if (r <= 0) return id; } return pool[0]; };
+  for (let i = 0; i < rolls; i++) { const id = one(kind === 'myth' ? 3 : kind === 'boss' ? 1.8 : 1); got[id] = (got[id] || 0) + 1; }
+  if (kind === 'myth') { const rare = pool.filter(id => MATERIALS[id].r !== 'common'); const id = pick(rare); got[id] = (got[id] || 0) + 1; }
+  for (const id in got) addMat(id, got[id]);
+  return got;
+}
+function recipeReady(r) {
+  const base = S.swords.find(w => w.id === r.base && !w.captured);
+  const mats = Object.entries(r.mats).every(([id, n]) => matCount(id) >= n);
+  return { base: !!base, mats, ok: !!base && mats && !ownsSword(r.id) };
+}
+function elTag(el) { return el ? `<span class="el" style="color:${ELEMENTS[el].c}">${ELEMENTS[el].i} ${ELEMENTS[el].n}</span>` : ''; }
 function skillNeed(l) { return 40 + l * 30; }
 function stats() {
   const o = outfitDef(S.outfit), k = S.sk;
@@ -185,9 +266,10 @@ function stats() {
     staRegen: 30 + (k.speed.l - 1) * 2.2,
     staCost: Math.max(13, 22 - (k.speed.l - 1) * .35),
     parry: Math.min(0.78, 0.42 + (k.guard.l - 1) * 0.022),
-    block: Math.min(0.88, 0.55 + (k.guard.l - 1) * 0.018),
+    block: Math.min(0.9, 0.55 + (k.guard.l - 1) * 0.018 + swordFx(eqSword()).guard),
     drawBonus: (k.iai.l - 1) * .035,
     drawSlow: (k.iai.l - 1) * .012,
+    crit: .05 + swordFx(eqSword()).crit, el: swordFx(eqSword()).el, spiritGain: 1 + swordFx(eqSword()).spirit,
   };
 }
 function lookFromOutfit(o) {

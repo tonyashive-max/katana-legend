@@ -302,6 +302,18 @@ button.card{width:100%;}
 #hiltBtn.on{transform:scale(.94);animation:none;}
 .panel.thief{border-color:rgba(255,120,110,.6);background:linear-gradient(135deg,rgba(80,14,20,.92),rgba(24,16,30,.92));}
 
+
+.chip.mat i{border-radius:4px;transform:rotate(45deg);width:12px;height:12px;box-shadow:0 0 8px currentColor;}
+.chip.mat{font-size:13px;padding:5px 10px 5px 8px;}
+.el{font-weight:900;font-size:13px;}
+.slots{display:flex;gap:8px;flex-wrap:wrap;}
+.slot{width:26px;height:26px;border-radius:7px;transform:rotate(45deg);border:2px dashed rgba(255,255,255,.25);}
+.slot.full{border:2px solid #fff;background:var(--c);box-shadow:0 0 12px var(--c);}
+.card.recipe .checks li{font-size:13px;}
+#hud.forge .fighter,#hud.forge #blockBtn,#hud.forge #specialBtn,#hud.forge #viewBtn{display:none;}
+#hud.forge .hud-mid{grid-column:1;justify-self:start;justify-items:start;}
+#hud.forge #tInfo{max-width:min(560px,60vw);white-space:normal;font-size:14px;line-height:1.35;}
+
 #fade{position:fixed;inset:0;z-index:30;background:#05060c;opacity:0;pointer-events:none;transition:opacity .35s ease;}
 #fade.on{opacity:1;pointer-events:auto;}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%) translateY(-20px);z-index:40;
@@ -400,6 +412,7 @@ button.card{width:100%;}
 <script src="js/dragon.js"></script>
 <script src="js/explore.js"></script>
 <script src="js/puzzles.js"></script>
+<script src="js/forge.js"></script>
 <script src="js/versus.js"></script>
 <script src="js/ui.js"></script>
 
