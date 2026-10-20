@@ -389,6 +389,9 @@ function worldCastle() {
 
 /* ================= Chapter 3: Dragon Peak (volcanic) ================= */
 function lavaMat() {
+  const m = lavaMat0(); m.userData.glow = true; return m;
+}
+function lavaMat0() {
   return new THREE.ShaderMaterial({
     uniforms: { time: { value: 0 } }, fog: false,
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',

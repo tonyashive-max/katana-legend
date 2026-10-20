@@ -656,23 +656,41 @@ const POST = {
     this.mats.comp.uniforms.asp.value = w / h;
   },
   pass(mat, target) { this.quad.material = mat; R.setRenderTarget(target); R.render(this.scene, this.cam); },
+  /* glow sources: anything additive (halos, sparks, trails, barriers, beams), unlit eyes, lava and fire */
+  tagT: 0,
+  tag(scene) {
+    scene.traverse(o => {
+      if (o.userData._gl != null) return;
+      const m = o.material; let g = false;
+      if (m && !Array.isArray(m)) {
+        if (m.blending === THREE.AdditiveBlending || (m.userData && m.userData.glow)) g = true;
+        else if (m.type === 'MeshBasicMaterial' && !m.map && m.color && Math.max(m.color.r, m.color.g, m.color.b) > .85 && !o.isInstancedMesh && o.geometry && o.geometry.attributes.position && o.geometry.attributes.position.count < 400) g = true;
+      }
+      o.userData._gl = g; if (g) o.layers.enable(1);
+    });
+  },
   render(scene, cam) {
     if (!this.on || !this.ok) { R.setRenderTarget(null); R.render(scene, cam); return; }
     try {
       if (!this.mats.comp) this.init();
       this.size();
+      if (--this.tagT <= 0) { this.tag(scene); this.tagT = 20; }
       const g = (CURWORLD && CURWORLD.grade) ? Object.assign({}, this.grade, CURWORLD.grade) : this.grade;
       R.setRenderTarget(this.rt); R.clear(); R.render(scene, cam);
-      this.mats.bright.uniforms.t.value = this.rt.texture; this.mats.bright.uniforms.th.value = g.th; this.pass(this.mats.bright, this.a);
+      // glow layer at quarter resolution on black
+      const bg = scene.background, cc = R.getClearColor(new THREE.Color()), ca = R.getClearAlpha();
+      scene.background = null; R.setClearColor(0x000000, 1); cam.layers.set(1);
+      R.setRenderTarget(this.a); R.clear(); R.render(scene, cam);
+      cam.layers.set(0); scene.background = bg; R.setClearColor(cc, ca);
       const px = 1 / this.a.width, py = 1 / this.a.height;
-      for (let i = 0; i < 2; i++) {
-        const s = 1 + i * 1.5;
+      for (let i = 0; i < 3; i++) {
+        const s = 1 + i * 1.6;
         this.mats.blur.uniforms.t.value = this.a.texture; this.mats.blur.uniforms.dir.value.set(px * s, 0); this.pass(this.mats.blur, this.b);
         this.mats.blur.uniforms.t.value = this.b.texture; this.mats.blur.uniforms.dir.value.set(0, py * s); this.pass(this.mats.blur, this.a);
       }
       const u = this.mats.comp.uniforms;
       u.t.value = this.rt.texture; u.bl.value = this.a.texture; u.bloom.value = g.bloom; u.sat.value = g.sat; u.con.value = g.con; u.vig.value = g.vig; u.tint.value.set(g.tint[0], g.tint[1], g.tint[2]);
       this.pass(this.mats.comp, null);
-    } catch (e) { console.error('post off', e); this.ok = false; R.setRenderTarget(null); R.render(scene, cam); }
+    } catch (e) { console.error('post off', e); this.ok = false; cam.layers.set(0); R.setRenderTarget(null); R.render(scene, cam); }
   },
 };
