@@ -24,6 +24,21 @@ const BIOMES = [
     fog: '#6a2010', fogNear: 20, fogFar: 115,
     hemi: ['#d88a7a', '#4a1208', .52], key: ['#ffd8b0', .7, [.6, 1, -.3]], rim: ['#7a8cff', .5, [-.2, .3, 1]],
     g: { a: '#3a2a26', b: '#2a1e1c', path: '#4a3a36', bead: '#2a2026', rock: '#1e1416', rockAmt: .7, wall: 4.6, slope: .4, cracks: 1 } },
+  { name: 'Kakunodate',
+    sky: { top: '#3a6aa8', mid: '#a8c8e8', bot: '#ffe0e8', sunDir: [.3, .35, 1], sunCol: '#fff2e0', sunDeg: 4, haze: .55, stars: 0 },
+    fog: '#c8d8d0', fogNear: 24, fogFar: 120,
+    hemi: ['#e8f4ff', '#3a4a2a', .58], key: ['#fff4e0', .72, [-.4, 1, .5]], rim: ['#ffc8e0', .5, [.2, .5, 1]],
+    g: { a: '#4a6a32', b: '#5a7a3a', path: '#9a8a6a', bead: '#b0a890', rock: '#4a4a3a', rockAmt: .5, wall: 3.8, slope: .34, moss: 1 } },
+  { name: 'Azuchi Castle',
+    sky: { top: '#1a1a3a', mid: '#6a5a8a', bot: '#ffb86a', sunDir: [-.3, .12, 1], sunCol: '#ffd27a', sunDeg: 6, haze: .75, stars: 0 },
+    fog: '#7a6a7a', fogNear: 22, fogFar: 115,
+    hemi: ['#ffd8a8', '#2a2a3a', .55], key: ['#ffe8c0', .74, [.5, 1, -.4]], rim: ['#8ab8ff', .6, [-.3, .4, 1]],
+    g: { a: '#5a6a3a', b: '#4a5a32', path: '#a89a80', bead: '#a8a090', rock: '#6a6458', rockAmt: .6, wall: 3.2, slope: .3, tiles: 0 } },
+  { name: 'Imperial Palace',
+    sky: { top: '#030616', mid: '#1a2a5a', bot: '#4a3a7a', sunDir: [.35, .38, 1], sunCol: '#fff8e0', sunDeg: 4, haze: .45, stars: 1 },
+    fog: '#1e2448', fogNear: 22, fogFar: 125,
+    hemi: ['#a8b8ff', '#1a1a2a', .55], key: ['#e8eeff', .62, [-.4, 1, .6]], rim: ['#ffd27a', .6, [.3, .4, -1]],
+    g: { a: '#2a3a2a', b: '#22321e', path: '#b8b4a8', bead: '#c8c4b8', rock: '#3a3a44', rockAmt: .55, wall: 2.4, slope: .3, tiles: 1 } },
 ];
 
 /* ---------- layout (deterministic) ---------- */
@@ -31,7 +46,7 @@ const dirv = h => new V3(Math.sin(h), 0, Math.cos(h));
 const perpv = h => new V3(Math.cos(h), 0, -Math.sin(h));
 function buildRopeLayout() {
   const rr = mulberry(20261019);
-  const PLAN = ['entry', 'warrior', 'shrine', 'warrior', 'warrior', 'gate'];
+  const PLAN = ['entry', 'warrior', 'shrine', 'warrior', 'warrior', 'warrior', 'gate'];
   const RAD = { entry: 8.5, warrior: 9.5, shrine: 9.5, gate: 10.5, summit: 10, dojo: 9, training: 9.5 };
   const ctrl = [new V3(0, 0, -18), new V3(0, 0, -9)], beads = [];
   let pos = new V3(0, 0, 0), heading = 0, side = 1;
@@ -46,14 +61,14 @@ function buildRopeLayout() {
   };
   beads.push({ ch: 0, kind: 'dojo', k: -2, wi: -1, x: pos.x, z: pos.z, r: RAD.dojo });
   step(28); beads.push({ ch: 0, kind: 'training', k: -1, wi: -1, x: pos.x, z: pos.z, r: RAD.training });
-  for (let ch = 0; ch < 4; ch++) {
+  for (let ch = 0; ch < NL; ch++) {
     let wi = 0;
     PLAN.forEach((kind, k) => {
       step(kind === 'entry' ? (ch === 0 ? 34 : 40) : 31 + rr() * 9);
       beads.push({ ch, kind, k, wi: kind === 'warrior' ? wi++ : -1, x: pos.x, z: pos.z, r: RAD[kind] });
     });
   }
-  step(30); beads.push({ ch: 3, kind: 'summit', k: 6, wi: -1, x: pos.x, z: pos.z, r: RAD.summit });
+  step(30); beads.push({ ch: NL - 1, kind: 'summit', k: 7, wi: -1, x: pos.x, z: pos.z, r: RAD.summit });
   ctrl.push(pos.clone().addScaledVector(dirv(heading), 9));
   const curve = new THREE.CatmullRomCurve3(ctrl, false, 'centripetal', .5);
   const total = curve.getLength(), N = Math.ceil(total);
@@ -68,10 +83,11 @@ function buildRopeLayout() {
   beads.forEach(b => { b.i = nearestI(b.x, b.z); b.s = pts[b.i].s; });
   const landBeads = ch => beads.filter(b => b.ch === ch && b.kind !== 'summit' && b.kind !== 'dojo' && b.kind !== 'training');
   const dojoBead = beads.find(b => b.kind === 'dojo'), trainBead = beads.find(b => b.kind === 'training');
-  const bound = [0, 1, 2].map(ch => { const g = landBeads(ch)[5], e = landBeads(ch + 1)[0]; return (g.s + e.s) / 2; });
-  const landStart = [0, bound[0], bound[1], bound[2]], landEnd = [bound[0], bound[1], bound[2], total];
-  const gates = [0, 1, 2, 3].map(ch => {
-    const g = landBeads(ch)[5], i = Math.min(N, Math.round((g.s + g.r - 1.6) / ds)), p = pts[i];
+  const gateBead = ch => landBeads(ch).find(b => b.kind === 'gate');
+  const bound = []; for (let ch = 0; ch < NL - 1; ch++) { const g = gateBead(ch), e = landBeads(ch + 1)[0]; bound.push((g.s + e.s) / 2); }
+  const landStart = [0].concat(bound), landEnd = bound.concat([total]);
+  const gates = CHAPTERS.map((_, ch) => {
+    const g = gateBead(ch), i = Math.min(N, Math.round((g.s + g.r - 1.6) / ds)), p = pts[i];
     return { ch, i, s: p.s, x: p.x, z: p.z, tx: p.tx, tz: p.tz, nx: p.nx, nz: p.nz };
   });
   const tutGate = (() => { const i = Math.min(N, Math.round((trainBead.s + trainBead.r - 1.4) / ds)), p = pts[i]; return { s: p.s, x: p.x, z: p.z, tx: p.tx, tz: p.tz, nx: p.nx, nz: p.nz }; })();
@@ -81,8 +97,8 @@ function buildRopeLayout() {
   const branches = [], usedS = [];
   const farFromTrail = (x, z, baseS, len) => pts.every(p => Math.abs(p.s - baseS) < len + 10 || (p.x - x) ** 2 + (p.z - z) ** 2 > 13 * 13);
   const farFromBeads = (x, z) => beads.every(b => Math.hypot(b.x - x, b.z - z) > b.r + 9);
-  for (let ch = 0; ch < 4; ch++) {
-    const B = landBeads(ch), segs = [0, 1, 2, 3], skip = (rr() * 4) | 0;
+  for (let ch = 0; ch < NL; ch++) {
+    const B = landBeads(ch), segs = [0, 1, 2, 3, 4], skip = (rr() * 5) | 0;
     let made = 0, sd = rr() < .5 ? 1 : -1;
     for (const k of segs.filter(q => q !== skip).concat([skip])) {
       if (made >= 3) break;
@@ -113,9 +129,12 @@ function buildRopeLayout() {
   { const B = landBeads(0); addCross(0, B[2], B[3], .5, 'water'); }
   { const B = landBeads(2); addCross(2, B[0], B[1], .5, 'moat'); }
   { const B = landBeads(3); addCross(3, B[0], B[1], .55, 'lava'); addCross(3, B[3], B[4], .45, 'lava'); }
+  { const B = landBeads(4); addCross(4, B[1], B[2], .5, 'water'); }
+  { const B = landBeads(5); addCross(5, B[4], B[5], .5, 'water'); }
+  { const B = landBeads(6); addCross(6, B[0], B[1], .5, 'moat'); addCross(6, B[5], B[6], .45, 'moat'); }
   // ghost spots
   const ghosts = [];
-  for (let ch = 0; ch < 4; ch++) {
+  for (let ch = 0; ch < NL; ch++) {
     const B = landBeads(ch);
     // two ghosts per land: a samurai who steals blades and a geisha who whisks you back down the road
     [[1, 2, .62], [3, 4, .5]].forEach(([a, b, f], k) => {
@@ -127,7 +146,7 @@ function buildRopeLayout() {
   }
   // torii gates spanning the trail
   const toriis = [];
-  [[0, 0, 1, .7], [0, 3, 4, .3], [0, 4, 5, .72], [1, 0, 1, .35], [1, 3, 4, .7], [3, 5, 5, 0]].forEach(([ch, a, b, f]) => {
+  [[0, 0, 1, .7], [0, 3, 4, .3], [0, 4, 5, .72], [1, 0, 1, .35], [1, 3, 4, .7], [4, 0, 1, .4], [4, 4, 5, .6], [5, 2, 3, .5], [6, 2, 3, .4], [6, 4, 5, .6]].forEach(([ch, a, b, f]) => {
     const B = landBeads(ch); if (a === b) return;
     let s = sAt(B[a], B[b], f);
     for (let tries = 0; tries < 6 && !awayFrom(s, usedS, 8); tries++) s += 3;
@@ -135,12 +154,12 @@ function buildRopeLayout() {
   });
   // material nodes: common ones along the trail edges, rare ones in the orb nooks
   const nodes = [];
-  const POOLS = [['ironsand', 'charcoal'], ['pineresin', 'frostcrystal'], ['lacquer', 'obsidian'], ['dragonscale', 'dragonscale']];
-  const RARE = [['sakura', 'sakura', 'sakura'], ['stariron', 'frostcrystal', 'stariron'], ['moonsilver', 'obsidian', 'moonsilver'], ['embercore', 'phoenixash', 'embercore']];
-  for (let ch = 0; ch < 4; ch++) {
+  const POOLS = [['ironsand', 'charcoal'], ['pineresin', 'frostcrystal'], ['lacquer', 'obsidian'], ['dragonscale', 'dragonscale'], ['cedar', 'foxfire'], ['goldleaf', 'stormglass'], ['imperialjade', 'moatpearl']];
+  const RARE = [['sakura', 'sakura', 'sakura'], ['stariron', 'frostcrystal', 'stariron'], ['moonsilver', 'obsidian', 'moonsilver'], ['embercore', 'phoenixash', 'embercore'], ['weepingpetal', 'foxfire', 'weepingpetal'], ['drumskin', 'stormglass', 'drumskin'], ['chrysanthemum', 'moatpearl', 'imperialjade']];
+  for (let ch = 0; ch < NL; ch++) {
     const B = landBeads(ch); let made = 0, guard = 0;
     while (made < 9 && guard++ < 200) {
-      const s = B[0].s + rr() * (B[5].s - B[0].s), p = pAt(s), sd = rr() < .5 ? 1 : -1;
+      const s = B[0].s + rr() * (B[6].s - B[0].s), p = pAt(s), sd = rr() < .5 ? 1 : -1;
       if (!awayFrom(s, usedS, 5) || nodes.some(n => Math.abs(n.s - s) < 9)) continue;
       const x = p.x + p.nx * sd * (ROPE_W - .9), z = p.z + p.nz * sd * (ROPE_W - .9);
       nodes.push({ ch, k: made, s, x, z, mat: POOLS[ch][made % 2] }); made++;
@@ -208,8 +227,8 @@ function ropeQuery(x, z, limitS) {
 }
 function landWeights(s) {
   const B = ROPE.bound;
-  for (let k = 0; k < 3; k++) if (Math.abs(s - B[k]) < 18) return { a: k, b: k + 1, t: smooth(B[k] - 18, B[k] + 18, s) };
-  let L = 0; for (let k = 0; k < 3; k++) if (s > B[k]) L = k + 1;
+  for (let k = 0; k < B.length; k++) if (Math.abs(s - B[k]) < 18) return { a: k, b: k + 1, t: smooth(B[k] - 18, B[k] + 18, s) };
+  let L = 0; for (let k = 0; k < B.length; k++) if (s > B[k]) L = k + 1;
   return { a: L, b: L, t: 0 };
 }
 function landOf(s) { const w = landWeights(s); return w.t < .5 ? w.a : w.b; }
@@ -277,6 +296,39 @@ function ropeGeos() {
   RG.dead = merge([P(GEO.cyl(.08, .18, 2.6, 6), '#2a1a14', [0, 1.3, 0]), P(GEO.cyl(.04, .08, 1.3, 5), '#2a1a14', [.35, 2.2, 0], [0, 0, -.9]), P(GEO.cyl(.04, .07, 1.1, 5), '#2a1a14', [-.3, 1.8, .1], [.2, 0, .8])]);
   RG.spike = GEO.cone(1, 1, 5);
   RG.mountain = merge([P(GEO.cone(1, 1, 7, 4), '#ffffff', [0, .5, 0])]);
+  /* Kakunodate: tall cedars, weeping cherries, black board fences, samurai houses */
+  RG.cedar = merge([P(GEO.cyl(.16, .3, 4, 7), '#5a3a26', [0, 2, 0])].concat([0, 1, 2, 3, 4].map(i => P(GEO.cone(1.5 - i * .24, 2.2, 8), i % 2 ? '#1e4a2a' : '#245632', [0, 3 + i * 1.5, 0]))));
+  RG.weepTrunk = merge([P(GEO.cyl(.2, .36, 3.4, 8), '#3a2620', [0, 1.7, 0]), P(GEO.cyl(.1, .16, 2, 6), '#3a2620', [.6, 3.3, 0], [0, 0, -.9]), P(GEO.cyl(.1, .16, 2, 6), '#3a2620', [-.6, 3.3, .2], [.2, 0, .9])]);
+  RG.drape = merge([0, 1, 2, 3, 4, 5, 6].map(i => P(GEO.ico(.17 - i * .012, 0), ['#ffe4ee', '#ffd0e4', '#ffc0da', '#ffb0d2', '#ffa0ca', '#ff90c2', '#ff80ba'][i], [Math.sin(i * 1.7) * .05, -i * .38, Math.cos(i * 1.3) * .05], [i, i * .7, 0])).concat([P(GEO.cyl(.012, .012, 2.6, 3), '#7a3a4a', [0, -1.2, 0])]));
+  RG.blackFence = merge([
+    P(GEO.box(4.2, .5, .7, 6, 1, 1), '#6a6a5a', [0, .25, 0], null, null, x => ((Math.floor(x * 1.5) & 1) ? new COL('#7a7a6a') : new COL('#5a5a4c'))),
+    P(GEO.box(4.1, 1.7, .22, 12, 1, 1), '#141214', [0, 1.35, 0], null, null, x => ((Math.floor(x * 3) & 1) ? new COL('#1a181c') : new COL('#0e0c10'))),
+    P(GEO.box(4.4, .14, .6), '#2a2a30', [0, 2.25, 0]), P(GEO.box(4.3, .1, .42), '#3a3a44', [0, 2.36, 0]),
+  ]);
+  RG.samuraiHouse = merge([
+    P(GEO.box(5, 2.3, 3.6), '#d8c8a8', [0, 1.15, 0]), ...[-2.4, -1.2, 0, 1.2, 2.4].map(x => P(GEO.box(.16, 2.3, 3.64), '#3a2418', [x, 1.15, 0])),
+    P(GEO.box(5.1, .16, 3.7), '#3a2418', [0, 1.3, 0]),
+    P(GEO.cone(4.2, 2.2, 4), '#3a3028', [0, 3.3, 0], [0, Math.PI / 4, 0], [1.4, 1, 1]), P(GEO.box(6.2, .2, .4), '#2a2018', [0, 4.35, 0]),
+  ]);
+  /* Azuchi: fitted stone walls and black pines */
+  { const st = [], greys = ['#9a9284', '#7e786c', '#8a8274', '#6e685c', '#a8a090'], rnd2 = mulberry(5);
+    for (let row = 0; row < 4; row++) for (let c = 0; c < 5 - (row > 2 ? 1 : 0); c++) {
+      const w = .75 + rnd2() * .35, x = -2 + c * .95 + (row % 2) * .45 + (rnd2() - .5) * .1;
+      st.push(P(GEO.dodec(.5), greys[(rnd2() * 5) | 0], [x, .32 + row * .58, -row * .22], [rnd2() * .4, rnd2() * 3, rnd2() * .3], [w * 1.05, .62, .8]));
+    }
+    st.push(P(GEO.box(4.6, .18, 1.2), '#4a5a32', [0, 2.45, -.7]));
+    RG.ishigaki = merge(st); }
+  RG.blackPine = merge([
+    P(GEO.cyl(.12, .22, 2.4, 6), '#3a2a22', [0, 1.2, 0], [0, 0, .18]), P(GEO.cyl(.07, .1, 1.6, 5), '#3a2a22', [.5, 2.3, 0], [0, 0, -1.1]), P(GEO.cyl(.07, .1, 1.4, 5), '#3a2a22', [-.4, 2.5, .2], [.3, 0, .9]),
+    P(GEO.ico(1, 1), '#2a4a2a', [.25, 2.7, 0], null, [1.4, .45, 1.2]), P(GEO.ico(1, 1), '#30562e', [1.2, 2.5, .1], null, [1, .35, .9]), P(GEO.ico(1, 1), '#2a4a2a', [-1, 3, .3], null, [.9, .35, .8]), P(GEO.ico(1, 1), '#356032', [-.2, 3.5, -.2], null, [.8, .3, .7]),
+  ]);
+  /* Imperial Palace: white corner turrets */
+  RG.yagura = merge([
+    P(GEO.box(4.2, 1.6, 4.2), '#6e6a64', [0, .8, 0]), P(GEO.box(3.6, 2.2, 3.6), '#f2f0ea', [0, 2.7, 0]),
+    P(GEO.cone(3.6, 1.3, 4), '#2a2e38', [0, 4.4, 0], [0, Math.PI / 4, 0], [1, 1, 1]), P(GEO.box(2.6, 1.6, 2.6), '#f2f0ea', [0, 5.6, 0]),
+    P(GEO.cone(2.8, 1.2, 4), '#2a2e38', [0, 7, 0], [0, Math.PI / 4, 0]), ...[-1, 1].map(x => P(GEO.box(.5, .4, .1), '#2a2a30', [x, 2.9, 1.81])),
+  ]);
+  RG.tower = merge([P(GEO.box(1, 1, 1), '#ffffff', [0, .5, 0])]);
   RG.reed = merge([0, 1, 2, 3].map(i => P(GEO.cyl(.015, .02, .9, 4), '#6a8a3a', [Math.cos(i * 1.6) * .08, .45, Math.sin(i * 1.6) * .08], [Math.cos(i) * .15, 0, Math.sin(i) * .15])));
   return RG;
 }
@@ -380,9 +432,56 @@ function getRopeWorld() {
   scat(3, 150, .8, 15, (x, z, k, s) => put('dead', s, { p: [x, hy(x, z), z], r: [0, k * 6, rnd(-.1, .1)], s: .8 + k * .7 }));
   scat(3, 220, .4, 17, (x, z, k, s) => put('spike', s, { p: [x, hy(x, z) + .5 * (1 + k * 2), z], r: [rnd(-.2, .2), k * 4, rnd(-.2, .2)], s: [.3 + k * .6, 1 + k * 2, .3 + k * .6], c: shadeHex('#1e1424', (rr() - .5) * .3) }));
   scat(3, 150, .2, 12, (x, z, k, s) => put('rock', s, { p: [x, hy(x, z), z], r: [k * 3, k * 4, 0], s: [.5 + k * 1.6, .4 + k * 1.1, .5 + k * 1.4], c: shadeHex('#2a1e1c', (rr() - .5) * .3) }));
-  /* --- distant mountains along the whole road --- */
-  for (let ch = 0; ch < 4; ch++) {
-    const cols = [['#6a4a7a', '#b06a7a'], ['#4d6188', '#f4f8ff'], ['#1c1430', '#3a2650'], ['#2a1210', '#5a1e14']][ch];
+  /* --- Land 4: Kakunodate, a woodland samurai village --- */
+  const roadside = (ch, step, off, cb, chance) => {
+    for (let i = 0; i < R.N; i += step) {
+      const p = R.pts[i]; if (wOf(ch, p.s) < .5) continue;
+      if (R.beads.some(b => Math.hypot(b.x - p.x, b.z - p.z) < b.r + 3.5)) continue;
+      if (R.branches.some(b => Math.abs(b.baseS - p.s) < 5) || R.crossings.some(c => Math.abs(c.s - p.s) < 6) || R.toriis.some(t => Math.abs(t.s - p.s) < 4)) continue;
+      for (const sd of [-1, 1]) { if (chance && rr() > chance) continue; const x = p.x + p.nx * sd * off, z = p.z + p.nz * sd * off; if (ropeQuery(x, z).d < .6) continue; cb(x, z, p, sd); }
+    }
+  };
+  roadside(4, 4, ROPE_W + 1.3, (x, z, p) => put('blackFence', p.s, { p: [x, hy(x, z) - .05, z], r: [0, Math.atan2(p.tx, p.tz) + Math.PI / 2, 0] }), .7);
+  scat(4, 520, 1.5, 19, (x, z, k, s) => put('cedar', s, { p: [x, hy(x, z), z], r: [0, k * 6, 0], s: [.9 + k * .5, 1 + k * .9, .9 + k * .5] }));
+  scat(4, 30, 1.6, 9, (x, z, k, s) => {
+    const sc = .9 + k * .5, y = hy(x, z); put('weepTrunk', s, { p: [x, y, z], r: [0, k * 6, 0], s: sc });
+    for (let i = 0; i < 26; i++) { const a = rr() * 6.28, rr2 = (.5 + rr() * 1.9) * sc; put('drape', s, { p: [x + Math.cos(a) * rr2, y + (4.4 + rr() * .8) * sc, z + Math.sin(a) * rr2], r: [rnd(-.15, .15), rr() * 6, rnd(-.15, .15)], s: [sc, (.7 + rr() * .6) * sc, sc] }); }
+    put('blob', s, { p: [x, y + 4.6 * sc, z], s: 1.6 * sc, c: '#ffc8e0' });
+  });
+  scat(4, 20, 7, 15, (x, z, k, s) => put('samuraiHouse', s, { p: [x, hy(x, z), z], r: [0, k * 6, 0] }));
+  scat(4, 2600, -2.6, 5, (x, z, k, s) => put('grass', s, { p: [x, hy(x, z), z], r: [0, k * 6, 0], s: .6 + k * .8 }), { noPath: true });
+  scat(4, 300, -2.4, 4, (x, z, k, s) => put('flower', s, { p: [x, hy(x, z) + .3, z], s: .05 + k * .03, c: pick(['#ffd0e4', '#ffffff', '#ffb8d8']) }), { noPath: true });
+  scat(4, 80, .3, 10, (x, z, k, s) => put('rock', s, { p: [x, hy(x, z), z], r: [k * 3, k * 5, 0], s: [.4 + k, .3 + k * .6, .4 + k], c: shadeHex('#5a6a4a', (rr() - .5) * .3) }));
+  /* --- Land 5: Azuchi Castle, stone walls and black pines by a stormy lake --- */
+  roadside(5, 5, ROPE_W + 2.2, (x, z, p) => put('ishigaki', p.s, { p: [x, hy(x, z) - .2, z], r: [0, Math.atan2(p.tx, p.tz) + Math.PI / 2, 0] }), .75);
+  scat(5, 240, 1.2, 17, (x, z, k, s) => put('blackPine', s, { p: [x, hy(x, z), z], r: [0, k * 6, 0], s: .9 + k * .8 }));
+  scat(5, 1800, -2.6, 5, (x, z, k, s) => put('grass', s, { p: [x, hy(x, z), z], r: [0, k * 6, 0], s: .6 + k * .7 }), { noPath: true });
+  scat(5, 110, .3, 12, (x, z, k, s) => put('rock', s, { p: [x, hy(x, z), z], r: [k * 3, k * 5, 0], s: [.5 + k * 1.2, .4 + k * .8, .5 + k], c: shadeHex('#7a7468', (rr() - .5) * .3) }));
+  /* --- Land 6: the Imperial Palace, white walls, pines and turrets --- */
+  roadside(6, 4, ROPE_W + 1.4, (x, z, p) => put('wall', p.s, { p: [x, hy(x, z) - .1, z], r: [0, Math.atan2(p.tx, p.tz) + Math.PI / 2, 0] }), .8);
+  scat(6, 220, 1.5, 15, (x, z, k, s) => put('blackPine', s, { p: [x, hy(x, z), z], r: [0, k * 6, 0], s: .8 + k * .7 }));
+  scat(6, 16, 8, 16, (x, z, k, s) => put('yagura', s, { p: [x, hy(x, z), z], r: [0, k * 6, 0], s: 1.1 }));
+  scat(6, 1400, -2.6, 5, (x, z, k, s) => put('grass', s, { p: [x, hy(x, z), z], r: [0, k * 6, 0], s: .5 + k * .5 }), { noPath: true });
+  /* --- distant mountains along the whole road (and Tokyo's towers behind the palace) --- */
+  for (let ch = 0; ch < NL; ch++) {
+    const cols = [['#6a4a7a', '#b06a7a'], ['#4d6188', '#f4f8ff'], ['#1c1430', '#3a2650'], ['#2a1210', '#5a1e14'], ['#3a5a4a', '#7a9a8a'], ['#3a3450', '#6a5a7a'], ['#141a30', '#2a3050']][ch];
+    if (ch === 6) {
+      let made = 0, guard = 0; const cityT = [], cityW = [];
+      while (made < 70 && guard++ < 1500) {
+        const s = R.landStart[ch] + rr() * (R.landEnd[ch] - R.landStart[ch]), p = R.pts[clamp(Math.round(s / R.ds), 0, R.N)], sd = rr() < .5 ? 1 : -1, off = 70 + rr() * 80;
+        const x = p.x + p.nx * sd * off + rnd(-10, 10), z = p.z + p.nz * sd * off + rnd(-10, 10);
+        if (R.pts.some(q => (q.x - x) ** 2 + (q.z - z) ** 2 < 55 * 55)) continue;
+        const k = rr(), h = 20 + k * k * 70, wd = 6 + rr() * 9;
+        const dp = wd * (.7 + rr() * .6), ry = rr() * 3;
+        cityT.push({ p: [x, -1, z], r: [0, ry, 0], s: [wd, h, dp], c: pick(['#1a2034', '#222a44', '#161c2e', '#2a2a40']) });
+        for (let w = 0; w < 3 + k * 7; w++) cityW.push({ p: [x, rnd(3, h - 2), z], r: [0, ry, 0], s: [wd * 1.02, .45, dp * 1.02], c: pick(['#ffe8b0', '#bfe0ff', '#ffd27a', '#ffffff']) });
+        made++;
+      }
+      W.city = new THREE.Group(); scene.add(W.city);
+      W.city.add(inst(G.tower, toon({ vertexColors: true }), cityT, false));
+      W.city.add(inst(GEO.box(1, 1, 1), glowify(new THREE.MeshBasicMaterial({ color: '#ffffff' })), cityW, false));
+      continue;
+    }
     let made = 0, guard = 0;
     while (made < 30 && guard++ < 600) {
       const s = R.landStart[ch] + rr() * (R.landEnd[ch] - R.landStart[ch]), p = R.pts[clamp(Math.round(s / R.ds), 0, R.N)], sd = rr() < .5 ? 1 : -1, off = 55 + rr() * 60;
@@ -401,7 +500,7 @@ function getRopeWorld() {
     lside = -lside;
     const x = p.x + p.nx * lside * (ROPE_W - .45), z = p.z + p.nz * lside * (ROPE_W - .45), y = hy(x, z);
     put('lantern', s, { p: [x, y, z], r: [0, rr() * 3, 0] });
-    put('lanternLight', s, { p: [x, y + 1.36, z], s: 1.02, c: ch === 1 ? '#ffb860' : ch === 3 ? '#ff8a3a' : '#ffcf7a' });
+    put('lanternLight', s, { p: [x, y + 1.36, z], s: 1.02, c: ch === 1 ? '#ffb860' : ch === 3 ? '#ff8a3a' : ch === 4 ? '#ffd8e8' : '#ffcf7a' });
     const h = halo(ch === 1 ? '#ffb860' : '#ffcf7a', 2, .6); h.position.set(x, y + 1.36, z); chunkOf(s).g.add(h);
     W.obs.push({ x, z, r: .45 });
   }
@@ -420,7 +519,7 @@ function getRopeWorld() {
   }
   /* torii gates spanning the trail */
   R.toriis.forEach(t => {
-    const m = new THREE.Mesh(toriiGeo(t.ch === 3 ? '#b8221a' : '#d7372b', '#1c1416'), toon({ vertexColors: true }));
+    const m = new THREE.Mesh(toriiGeo(t.ch === 3 ? '#b8221a' : t.ch === 6 ? '#3a3a44' : '#d7372b', '#1c1416'), toon({ vertexColors: true }));
     const sc = (ROPE_W + .7) / 2;
     m.position.set(t.x, ropeHeight(t.x, t.z) - .05, t.z); m.rotation.y = Math.atan2(t.nx, t.nz) + Math.PI / 2; m.scale.setScalar(sc); m.castShadow = true;
     chunkOf(t.s).g.add(m);
@@ -438,7 +537,7 @@ function getRopeWorld() {
     const deck = new THREE.BoxGeometry(4.2, .16, 6.8, 1, 1, 14), pa = deck.attributes.position;
     for (let i = 0; i < pa.count; i++) { const zz = pa.getZ(i); pa.setY(i, pa.getY(i) + .1 + .42 * (1 - (zz / 3.4) ** 2) - .08); }
     deck.computeVertexNormals();
-    const wood = lava ? '#4a3a36' : c.kind === 'moat' ? '#3a2a22' : '#8a5a34';
+    const wood = lava ? '#4a3a36' : c.ch === 6 ? '#b8b4a8' : c.kind === 'moat' ? '#3a2a22' : '#8a5a34';
     const bridge = new THREE.Group(); bridge.position.set(c.x, 0, c.z); bridge.rotation.y = Math.atan2(c.tx, c.tz); g.add(bridge);
     const dm = new THREE.Mesh(deck, toon({ color: wood })); dm.castShadow = true; dm.receiveShadow = true; bridge.add(dm);
     dm.add(new THREE.Mesh(deck, outlineMat(.02)));
@@ -477,7 +576,7 @@ function getRopeWorld() {
     R.pts.forEach(p => { const d = Math.hypot(p.x - b.x, p.z - b.z); if (Math.abs(d - b.r) < .8) gaps.push(Math.atan2(p.z - b.z, p.x - b.x)); });
     R.branches.forEach(br => br.path.forEach(p => { const d = Math.hypot(p.x - b.x, p.z - b.z); if (Math.abs(d - b.r) < 1.2) gaps.push(Math.atan2(p.z - b.z, p.x - b.x)); }));
     const gw = (ROPE_W + .4) / b.r;
-    const stoneC = b.ch === 1 ? '#5d6b80' : b.ch === 2 ? '#4a4356' : b.ch === 3 ? '#2a2026' : '#8a8478';
+    const stoneC = ['#8a8478', '#5d6b80', '#4a4356', '#2a2026', '#6a6a58', '#8a8274', '#9a9690'][b.ch];
     const n = Math.round(b.r * 5.2);
     for (let i = 0; i < n; i++) {
       const a = i / n * Math.PI * 2;
@@ -485,10 +584,10 @@ function getRopeWorld() {
       const x = b.x + Math.cos(a) * (b.r + .3), z = b.z + Math.sin(a) * (b.r + .3);
       put('rock', b.s, { p: [x, hy(x, z) + .05, z], r: [rr() * 3, rr() * 3, 0], s: [.32 + rr() * .1, .2 + rr() * .1, .32 + rr() * .1], c: shadeHex(stoneC, (rr() - .5) * .25) });
     }
-    if ((b.ch === 2 || b.ch === 3) && (b.kind === 'warrior' || b.kind === 'gate')) {
+    if ((b.ch === 2 || b.ch === 3 || b.ch === 5 || b.ch === 6) && (b.kind === 'warrior' || b.kind === 'gate')) {
       [[.7, .45], [-.7, .45], [.7, -.45], [-.7, -.45]].forEach(([u, v]) => {
         const p = R.pts[b.i]; const x = b.x + (p.nx * u + p.tx * v) * b.r, z = b.z + (p.nz * u + p.tz * v) * b.r;
-        brazier(W, x, z, b.ch === 3 ? '#ff6a1a' : '#ff8a2a');
+        brazier(W, x, z, b.ch === 3 ? '#ff6a1a' : b.ch === 6 ? '#ffd27a' : '#ff8a2a');
       });
     }
     if (b.kind === 'shrine' && b.ch === 1) {
@@ -531,13 +630,63 @@ function getRopeWorld() {
     const wins = []; for (let k = 0; k < 18; k++) wins.push({ p: [best.x + rnd(-3, 3), km.position.y + rnd(7, 19), best.z + rnd(-3, 3)], s: [.6, .7, .6] });
     chunkOf(gb.s).g.add(inst(GEO.box(1, 1, 1), glowify(new THREE.MeshBasicMaterial({ color: '#ffb35a' })), wins));
   }
+  /* Azuchi: the golden seven-story tower above the lake, with thunderstorms */
+  const farSpot = (b, off) => { const p = R.pts[b.i]; let best = null; for (const sd of [-1, 1]) { const x = b.x + p.nx * sd * off + p.tx * 6, z = b.z + p.nz * sd * off + p.tz * 6, q = ropeQuery(x, z); if (!best || q.d > best.d) best = { x, z, d: q.d }; } return best; };
+  {
+    const gb = R.landBeads(5)[5], sp = farSpot(gb, 34);
+    const red = '#a8221a', gold = '#ffc23a', blk = '#1e1a1a', wall = '#f0ebe0', roof = '#2a2622', it = [P(GEO.cyl(9, 12, 6, 4, 2), '#8a8274', [0, 3, 0], [0, Math.PI / 4, 0])];
+    let y = 6;
+    [[11, 3.2, wall], [9.6, 3, wall], [8.4, 2.8, wall], [7.2, 2.6, blk]].forEach(([w, h, c]) => { it.push(P(GEO.box(w * .8, h, w * .7), c, [0, y + h / 2, 0])); it.push(P(GEO.cyl(w * .3, w * .82, 1.3, 4), roof, [0, y + h + .5, 0], [0, Math.PI / 4, 0], [1, 1, .9])); y += h + 1.1; });
+    it.push(P(GEO.cyl(2.8, 2.8, 2.6, 8), red, [0, y + 1.3, 0])); it.push(P(GEO.cyl(1.2, 3.8, 1.1, 8), roof, [0, y + 3, 0])); y += 3.6;
+    it.push(P(GEO.box(4, 2.6, 4), gold, [0, y + 1.3, 0])); it.push(P(GEO.cyl(.9, 3.6, 1.3, 4), gold, [0, y + 3.1, 0], [0, Math.PI / 4, 0])); y += 3.8;
+    for (const sx of [-1, 1]) it.push(P(GEO.cone(.25, 1, 5), gold, [sx * 1.1, y + .4, 0], [0, 0, -sx * .5]));
+    const tm = new THREE.Mesh(merge(it), toon({ vertexColors: true })); tm.position.set(sp.x, ropeHeight(sp.x, sp.z) - 1, sp.z); tm.rotation.y = Math.atan2(gb.x - sp.x, gb.z - sp.z); tm.scale.setScalar(1.25); tm.castShadow = true; chunkOf(gb.s).g.add(tm);
+    const wins = []; for (let k = 0; k < 22; k++) wins.push({ p: [sp.x + rnd(-4, 4), tm.position.y + rnd(9, 30), sp.z + rnd(-4, 4)], s: [.6, .8, .6] });
+    chunkOf(gb.s).g.add(inst(GEO.box(1, 1, 1), glowify(new THREE.MeshBasicMaterial({ color: '#ffd27a' })), wins));
+    const gh = halo('#ffc23a', 18, .35); gh.position.set(sp.x, tm.position.y + 36, sp.z); chunkOf(gb.s).g.add(gh);
+    // lightning over the lake
+    const boltMat = glowify(new THREE.MeshBasicMaterial({ color: '#e8f0ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    let bolt = null, flashT = 0;
+    W.updaters.push((dt, t) => {
+      if (!X || X.land !== 5) { if (bolt) bolt.visible = false; return; }
+      if (flashT > 0) { flashT -= dt; W.hemi.intensity += flashT * 5; boltMat.opacity = Math.max(0, flashT * 6); if (flashT <= 0 && bolt) bolt.visible = false; }
+      else if (Math.random() < dt * .09) {
+        flashT = .22; if (bolt) { scene.remove(bolt); bolt.geometry.dispose(); }
+        const a = rr() * 6.28, bx = X.pos.x + Math.cos(a) * rnd(60, 110), bz = X.pos.z + Math.sin(a) * rnd(60, 110), segs = []; let px = bx, py = 70, pz = bz;
+        while (py > 2) { const nx = px + rnd(-5, 5), ny = py - rnd(5, 10), nz = pz + rnd(-5, 5), len = Math.hypot(nx - px, ny - py, nz - pz); segs.push(P(GEO.box(.5, len, .5), '#ffffff', [(px + nx) / 2, (py + ny) / 2, (pz + nz) / 2], [Math.atan2(nz - pz, ny - py) * 0, 0, Math.atan2(px - nx, py - ny)])); px = nx; py = ny; pz = nz; }
+        bolt = new THREE.Mesh(merge(segs), boltMat); bolt.frustumCulled = false; scene.add(bolt); bolt.visible = true;
+        setTimeout(() => { if (X && X.land === 5) sfx.taiko(.4); }, 400 + rr() * 900);
+      }
+    });
+  }
+  /* the Imperial Palace keep, a lattice tower in the city behind, and fireworks */
+  {
+    const gb = R.landBeads(6)[5], sp = farSpot(gb, 32);
+    const it = [P(GEO.cyl(10, 12.5, 6, 4, 2), '#7a766c', [0, 3, 0], [0, Math.PI / 4, 0])];
+    let y = 6;
+    [[11, 3.4], [8.6, 3], [6.4, 2.8]].forEach(([w, h]) => { it.push(P(GEO.box(w * .8, h, w * .7), '#f4f2ec', [0, y + h / 2, 0])); it.push(P(GEO.cyl(w * .3, w * .85, 1.4, 4), '#3a4048', [0, y + h + .55, 0], [0, Math.PI / 4, 0], [1, 1, .9])); for (const sx of [-1, 1]) it.push(P(GEO.box(.8, .6, .12), '#2a2a30', [sx * w * .2, y + h * .55, w * .35 + .02])); y += h + 1.2; });
+    it.push(P(GEO.box(1.4, .8, .5), '#ffd84a', [0, y + .2, 0]));
+    const km = new THREE.Mesh(merge(it), toon({ vertexColors: true })); km.position.set(sp.x, ropeHeight(sp.x, sp.z) - 1, sp.z); km.rotation.y = Math.atan2(gb.x - sp.x, gb.z - sp.z); km.scale.setScalar(1.2); km.castShadow = true; chunkOf(gb.s).g.add(km);
+    // a red-and-white lattice tower among the city lights
+    const ent = R.landBeads(6)[3], q = R.pts[ent.i], tx = ent.x + q.nx * 120, tz = ent.z + q.nz * 120, lat = [];
+    for (let k = 0; k < 14; k++) { const w = 9 * (1 - k / 15) + .6, yy = k * 6; lat.push(P(GEO.cyl(w * .55, (w + .7) * .55, 6, 4, 1, true), k % 2 ? '#ffffff' : '#e8401a', [0, yy + 3, 0], [0, Math.PI / 4, 0])); if (k === 6 || k === 10) lat.push(P(GEO.box(w * 1.1, 1.4, w * 1.1), '#e8401a', [0, yy + 3, 0])); }
+    lat.push(P(GEO.cyl(.2, .4, 10, 6), '#ffffff', [0, 89, 0]));
+    const tw = new THREE.Mesh(merge(lat), toon({ vertexColors: true })); tw.position.set(tx, -1, tz); scene.add(tw);
+    const tl = []; for (let k = 0; k < 10; k++) { const h = halo(k % 3 ? '#ffd27a' : '#ff5a3a', 3, .8); h.position.set(tx + rnd(-3, 3), 8 + k * 8, tz + rnd(-3, 3)); scene.add(h); tl.push(h); }
+    W.updaters.push((dt, t) => {
+      const on = X && X.land >= 5; tw.visible = on; tl.forEach((h, i) => { h.visible = on; h.material.opacity = .5 + Math.sin(t * 2 + i) * .3; });
+      if (!X || X.land !== 6 || Math.random() > dt * .55) return;
+      const a = rr() * 6.28, d = rnd(60, 95), fp = new V3(X.pos.x + Math.cos(a) * d, rnd(38, 60), X.pos.z + Math.sin(a) * d), col = pick(['#ff6a9a', '#ffd84a', '#7ad8ff', '#b88aff', '#7affb0']);
+      FX.glowBurst(fp, col, 22, .5); FX.sparks(fp, col, 90, 16, .5); setTimeout(() => FX.sparks(fp, '#ffffff', 30, 9, .35), 120);
+    });
+  }
   const summit = R.beads.find(b => b.kind === 'summit');
   {
-    const p = R.pts[summit.i], vx = summit.x + p.tx * 120 + p.nx * 40, vz = summit.z + p.tz * 120 + p.nz * 40;
+    const dpk = R.landBeads(3).find(b => b.kind === 'gate'), p = R.pts[summit.i], q3 = R.pts[dpk.i], vx = dpk.x + q3.nx * 110 + q3.tx * 40, vz = dpk.z + q3.nz * 110 + q3.tz * 40;
     const volc = new THREE.Mesh(merge([P(GEO.cyl(8, 60, 70, 12, 4, false), '#2a1410', [0, 35, 0], null, null, (x, y) => y > 30 ? new COL('#ff5a1a') : new COL('#2a1410').lerp(new COL('#4a1a12'), (y + 35) / 70))]), toon({ vertexColors: true, flatShading: true }));
     volc.position.set(vx, -4, vz); scene.add(volc); W.volcano = volc;
     const vg = halo('#ff7a2a', 70, .8); vg.position.set(vx, 70, vz); scene.add(vg);
-    W.updaters.push((dt, t) => { if (X && X.land < 2) return; vg.material.opacity = .7 + Math.sin(t * 1.7) * .1; if (Math.random() < dt * 6) FX.norm.emit(vx + rnd(-4, 4), 68, vz + rnd(-4, 4), rnd(-.5, 1.5), rnd(4, 7), rnd(-.5, .5), rnd(6, 9), 8, 26, '#3a2222', .55, -.2, .2); });
+    W.updaters.push((dt, t) => { if (X && (X.land < 2 || X.land > 4)) return; vg.material.opacity = .7 + Math.sin(t * 1.7) * .1; if (Math.random() < dt * 6) FX.norm.emit(vx + rnd(-4, 4), 68, vz + rnd(-4, 4), rnd(-.5, 1.5), rnd(4, 7), rnd(-.5, .5), rnd(6, 9), 8, 26, '#3a2222', .55, -.2, .2); });
     const pag = [];
     [[6, 1.6], [4.6, 1.4], [3.4, 1.3], [2.2, 1.2]].forEach(([w, h], i) => { const y = i * 2.4; pag.push(P(GEO.box(w * .55, 2, w * .55), '#c0392b', [0, y + 1, 0])); pag.push(P(GEO.cone(w * .75, h, 4), '#1a1218', [0, y + 2.3, 0], [0, Math.PI / 4, 0])); });
     pag.push(P(GEO.cyl(.08, .08, 2.4, 6), '#e0b440', [0, 11, 0]));
@@ -547,19 +696,19 @@ function getRopeWorld() {
     // the sky dragon circles the summit
     const N = 34, segGeo = merge([P(GEO.ico(1, 1), '#d2301a', [0, 0, 0], null, [1, .9, 1.25], (x, y) => y < -.35 ? new COL('#ffc24a') : new COL('#d2301a')), P(GEO.cone(.35, 1, 4), '#ffb21a', [0, 1.05, 0])]);
     const dragon = new THREE.InstancedMesh(segGeo, toon({ vertexColors: true, flatShading: true }), N); dragon.frustumCulled = false; scene.add(dragon);
-    const cx = summit.x + p.tx * 60, cz = summit.z + p.tz * 60;
+    const cx = dpk.x + q3.nx * 60, cz = dpk.z + q3.nz * 60;
     const dpos = (t, i) => new V3(cx + Math.sin(t * .2 - i * .09) * 55, 38 + Math.sin(t * .5 - i * .25) * 7, cz + Math.cos(t * .2 - i * .09) * 40);
     const dp = [];
     W.updaters.push((dt, t) => {
-      dragon.visible = !X || X.land >= 2; if (!dragon.visible) return;
+      dragon.visible = !X || (X.land >= 2 && X.land <= 4); if (!dragon.visible) return;
       for (let i = 0; i < N; i++) dp[i] = dpos(t, i);
       for (let i = 0; i < N; i++) { _io.position.copy(dp[i]); _io.quaternion.setFromUnitVectors(_t2.set(0, 1, 0), _t3.subVectors(i ? dp[i - 1] : dpos(t + .1, 0), dp[i]).normalize()); const s = 2.4 * (1 - i / N * .75); _io.scale.set(s, s, s); _io.updateMatrix(); dragon.setMatrixAt(i, _io.matrix); }
       dragon.instanceMatrix.needsUpdate = true;
     });
   }
   /* clouds over each land */
-  for (let ch = 0; ch < 4; ch++) {
-    const col = ['#ffb59a', '#8fa6d6', '#4a2a6a', '#5a1a12'][ch], list = [];
+  for (let ch = 0; ch < NL; ch++) {
+    const col = ['#ffb59a', '#8fa6d6', '#4a2a6a', '#5a1a12', '#e8eef4', '#4a4460', '#2a3460'][ch], list = [];
     for (let i = 0; i < 9; i++) {
       const s = R.landStart[ch] + rr() * (R.landEnd[ch] - R.landStart[ch]), p = R.pts[clamp(Math.round(s / R.ds), 0, R.N)], sd = rr() < .5 ? 1 : -1, off = 70 + rr() * 90;
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.cloud, color: col, transparent: true, opacity: .75, depthWrite: false, fog: false }));
@@ -590,9 +739,14 @@ function getRopeWorld() {
     new Ambient({ n: 160, tex: TEX.petal, color: '#ff4a2a', color2: '#ffa02a', size: .1, cx: 0, cy: 4, cz: 0, ax: 12, ay: 4, az: 12, sway: .8, vel: r => [.3 + r() * .4, -.6 - r() * .4, (r() - .5) * .2], seed: 19 }),
     new Ambient({ n: 320, tex: TEX.glow, color: '#ffb03a', color2: '#ff4a1a', size: .07, alpha: 1, blending: THREE.AdditiveBlending, cx: 0, cy: 4, cz: 0, ax: 12, ay: 5, az: 12, sway: .6, twinkle: 3, vel: r => [(r() - .5) * .4, .6 + r() * 1.1, (r() - .5) * .4], seed: 23 }),
   ];
+  W.amb.push(
+    new Ambient({ n: 300, tex: TEX.petal, color: '#ffd0e4', color2: '#ffb8d8', size: .08, cx: 0, cy: 4, cz: 0, ax: 13, ay: 4.5, az: 13, sway: .9, vel: r => [.2 + r() * .3, -.35 - r() * .3, -.1 + r() * .2], seed: 23 }),
+    new Ambient({ n: 900, tex: TEX.flake, color: '#cfe0ff', color2: '#a8c0ff', size: .035, alpha: .7, cx: 0, cy: 6, cz: 0, ax: 14, ay: 7, az: 14, sway: .1, vel: r => [-.6 - r() * .2, -9 - r() * 3, .2], seed: 29 }),
+    new Ambient({ n: 220, tex: TEX.glow, color: '#ffe08c', color2: '#fff4d0', size: .06, alpha: 1, blending: THREE.AdditiveBlending, cx: 0, cy: 3, cz: 0, ax: 12, ay: 3, az: 12, sway: .5, twinkle: 2, vel: r => [(r() - .5) * .2, .1 + r() * .2, (r() - .5) * .2], seed: 31 }),
+  );
   W.fireflies = new Ambient({ n: 120, tex: TEX.glow, color: '#d8ff7a', color2: '#ffe27a', size: .09, alpha: 1, blending: THREE.AdditiveBlending, cx: 0, cy: 2, cz: 0, ax: 12, ay: 2, az: 12, sway: .5, twinkle: 2.2, vel: r => [(r() - .5) * .3, (r() - .5) * .15, (r() - .5) * .3], seed: 17 });
   /* worn stepping stones along the road (skipping arenas, bridges and the dojo grounds) */
-  { const stoneCols = [['#b8ab92', '#a39680', '#c9bda2'], ['#c9d8e8', '#aebfd2', '#dce8f4'], ['#4a4458', '#3e3a4c', '#5a5468'], ['#3a2a26', '#4a3630', '#2e2220']];
+  { const stoneCols = [['#b8ab92', '#a39680', '#c9bda2'], ['#c9d8e8', '#aebfd2', '#dce8f4'], ['#4a4458', '#3e3a4c', '#5a5468'], ['#3a2a26', '#4a3630', '#2e2220'], ['#8a8a74', '#7a7a66', '#9a9a84'], ['#a8a090', '#948c7e', '#b8b0a0'], ['#d8d4c8', '#c8c4b8', '#e8e4d8']];
     for (let s0 = 6; s0 < R.total; s0 += 1.25) {
       const p = R.pts[clamp(Math.round(s0 / R.ds), 0, R.N)];
       for (const lat of [-.75, .75]) {
@@ -622,6 +776,11 @@ function getRopeWorld() {
     spike: [G.spike, () => toon({ flatShading: true }), true], mountain: [G.mountain, () => toon({ flatShading: true }), false],
     lantern: [G.lantern, () => toon({ vertexColors: true, flatShading: true }), true], lanternLight: [G.lanternLight, () => glowify(new THREE.MeshBasicMaterial({ color: '#ffffff' })), false],
     reed: [G.reed, () => toon({ vertexColors: true }), false],
+    cedar: [G.cedar, () => toon({ vertexColors: true, flatShading: true }), true], weepTrunk: [G.weepTrunk, () => toon({ vertexColors: true }), true],
+    drape: [G.drape, () => toon({ vertexColors: true }), false], blackFence: [G.blackFence, () => toon({ vertexColors: true }), true],
+    samuraiHouse: [G.samuraiHouse, () => toon({ vertexColors: true }), true], ishigaki: [G.ishigaki, () => toon({ vertexColors: true }), true],
+    blackPine: [G.blackPine, () => toon({ vertexColors: true }), true], yagura: [G.yagura, () => toon({ vertexColors: true }), true],
+    tower: [G.tower, () => toon({ vertexColors: true }), false],
     pathStone: [G.pathStone || (G.pathStone = (() => { const g = GEO.dodec(.32); g.scale(1, .2, .78); return g; })()), () => toon({ flatShading: true }), false],
   };
   buckets.forEach(b => {
@@ -705,6 +864,9 @@ const LAND_GRADE = [
   { bloom: .55, th: .78, sat: 1.08, con: 1.06, vig: .28, tint: [.97, 1, 1.04] },
   { bloom: 1.1, th: .5, sat: 1.18, con: 1.08, vig: .42, tint: [1, .97, 1.05] },
   { bloom: 1.05, th: .55, sat: 1.06, con: 1.1, vig: .38, tint: [1, .98, 1.02] },
+  { bloom: .8, th: .6, sat: 1.1, con: 1.04, vig: .26, tint: [1.01, 1, 1.01] },
+  { bloom: 1, th: .55, sat: 1.08, con: 1.08, vig: .36, tint: [1.02, .99, .98] },
+  { bloom: 1.15, th: .5, sat: 1.12, con: 1.06, vig: .38, tint: [.98, .99, 1.04] },
 ];
 function updateRopeWorld(W, px, pz, s) {
   const w = landWeights(s), A = BIOMES[w.a], B = BIOMES[w.b], t = w.t, U = W.sky.material.uniforms;
@@ -729,8 +891,9 @@ function updateRopeWorld(W, px, pz, s) {
   _sv.fromArray(A.rim[2]).lerp(_sv2.fromArray(B.rim[2]), t).normalize(); W.rim.position.set(px + _sv.x * 20, _sv.y * 20, pz + _sv.z * 20); W.rim.target.position.set(px, 0, pz);
   const wl = ch => (w.a === ch ? 1 - t : 0) + (w.b === ch ? t : 0);
   W.amb.forEach((a, i) => { a.o.cx = px; a.o.cz = pz; a.mat.uniforms.fade.value = wl(i); a.pts.visible = wl(i) > .02; });
-  W.fireflies.o.cx = px; W.fireflies.o.cz = pz; W.fireflies.mat.uniforms.fade.value = wl(2); W.fireflies.pts.visible = wl(2) > .02;
+  W.fireflies.o.cx = px; W.fireflies.o.cz = pz; { const ff = Math.max(wl(2), wl(4)); W.fireflies.mat.uniforms.fade.value = ff; W.fireflies.pts.visible = ff > .02; }
   if (W.aurora) W.aurora.uniforms.fade.value = wl(1);
+  if (W.city) W.city.visible = wl(6) > .01;
   const R2 = 155 * 155;
   W.chunks.forEach(c => { c.g.visible = (c.x - px) ** 2 + (c.z - pz) ** 2 < R2; });
   W.tiles.forEach(c => { c.m.visible = (c.x - px) ** 2 + (c.z - pz) ** 2 < 175 * 175; });

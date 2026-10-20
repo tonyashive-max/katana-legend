@@ -156,7 +156,7 @@ function setupVsScene(ch, a, b) {
 }
 function startVersusLocal(p2) {
   transition(() => {
-    const ch = (Math.random() * Math.min(4, Math.floor(S.cleared / 3) + 1)) | 0;
+    const ch = (Math.random() * Math.min(NL, currentChapter() + 1)) | 0;
     const { W, A, B } = setupVsScene(ch, myVsProfile(), p2);
     VS = { online: false, W, A, B, clock: 0, intro: 2.2, over: false, endT: 0, ptrs: {}, camPos: new V3(), camLook: new V3() };
     A.rig.setHold('guard', 10); B.rig.setHold('guard', 10);
@@ -170,7 +170,7 @@ function startVersusOnline(code, host, me, other) {
   if (LOBBY && LOBBY.hiTimer) clearInterval(LOBBY.hiTimer);
   closeOverlay();
   transition(() => {
-    const ch = code.charCodeAt(0) % 4;
+    const ch = code.charCodeAt(0) % NL;
     const { W, A, B } = setupVsScene(ch, me, other);
     B.remote = true;
     VS = { online: true, code, host, W, A, B, clock: 0, intro: 2.4, over: false, endT: 0, view: S.view, camPos: new V3(), camLook: new V3(), nextId: 1, again: { me: false, them: false } };

@@ -68,7 +68,10 @@ function setBar(id, ratio) { const r = clamp(ratio, 0, 1) * 100 + '%'; $('#' + i
 function hexRGB(h) { const c = new COL(h); return `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`; }
 
 /* ---------- start / end ---------- */
-function startFight(idx, from) { startBattle(STAGES[idx], { kind: 'stage', idx, ch: STAGES[idx].ch, from: from || 'hub' }); }
+function startFight(idx, from) {
+  const st = STAGES[idx];
+  if (!trainMet(st)) { toast(`${st.name} only duels trained samurai. Train ${trainNeed(st)} first (you are level ${S.sk[st.train.sk].l}).`); return; }
+  startBattle(STAGES[idx], { kind: 'stage', idx, ch: STAGES[idx].ch, from: from || 'hub' }); }
 function startMyth(ch, from) { startBattle(SPIRITS[ch], { kind: 'myth', idx: ch, ch, from: from || 'hub' }); }
 function startBeast(ch, from) { startBattle(MYTHS[ch], { kind: 'beast', idx: ch, ch, from: from || 'hub' }); }
 function fightSpec(ctx) { return ctx.kind === 'myth' ? SPIRITS[ctx.idx] : ctx.kind === 'beast' ? MYTHS[ctx.idx] : STAGES[ctx.idx]; }
@@ -80,7 +83,7 @@ function startBattle(st, ctx) {
     const ps = stats();
     const P = new Samurai(lookFromOutfit(outfitDef(S.outfit)), swordDef(eqSword().id), { player: true });
     let E;
-    if (st.dragon) E = new DragonBoss(st);
+    if (st.dragon) E = st.orochi ? new OrochiBoss(st) : new DragonBoss(st);
     else {
       const wdef = st.weapon === 'club' ? CLUB_DEF : swordDef(st.weapon || st.sword);
       E = new Samurai(st.look, wdef, { boss: !!st.boss || !!st.spirit });
@@ -107,6 +110,7 @@ function startBattle(st, ctx) {
       tutorial: S.wins < 3, hintMsg: '', hintT: 0, fragile: bladeAtRisk(st), strain: 0, broken: null,
       drawn: false, drawnAt: -1, signaled: false, sigT: 0, signalAt: 0, enemyDrawAt: Infinity, enemyDrawn: false, firstStrike: false, iaiUntil: 0, iaiDone: false, leaf: null,
     };
+    if (st.duo) setupDuo(st);
     P.setFP(F.view === 'fp');
     P.setHold(guardPose(), 10);
     E.setHold('guard', 10);
@@ -133,6 +137,55 @@ function endFight(dest) {
   F = null; OV.draw = null; hideHUD();
   if (dest === 'journey' && ctx) startExplore(ctx.ch, true);
   else enterHub();
+}
+
+/* ---------- 2-on-1: two foes share the fight and take turns stepping in ---------- */
+const FOE_KEYS = ['E', 'ehp', 'emax', 'elimb', 'elimbMax', 'state', 't', 'dur', 'tele', 'dir', 'chained', 'resolved', 'feinted', 'fury', 'counter', 'guardDir', 'guardHits', 'ex', 'lunge', 'kb', 'hitTimes'];
+function setupDuo(st) {
+  const wdef = swordDef(st.weapon || st.sword), lm = st.hp;
+  const E2 = new Samurai(st.look2 || st.look, wdef, {}); E2.root.rotation.order = 'YXZ';
+  E2.setSheathed(false); E2.setHold('guard', 10);
+  F.W.scene.add(E2.root, E2.trail.mesh);
+  F.duo = { fi: 0, swapT: 0, foes: [{ side: -1, dead: false }, {
+    side: 1, dead: false, E: E2, ehp: st.hp, emax: st.hp, elimb: { head: lm * .3, armR: lm * .38, armL: lm * .3, legs: lm * .4 }, elimbMax: { head: lm * .3, armR: lm * .38, armL: lm * .3, legs: lm * .4 },
+    state: 'idle', t: 0, dur: 1, tele: 1, dir: 'R', chained: false, resolved: false, feinted: false, fury: false, counter: false, guardDir: 'R', guardHits: 0, ex: 2.3, lunge: 0, kb: 0, hitTimes: [] }] };
+  E2.root.position.set(2.3, 0, F.dist + 1.1);
+}
+function duoOther() { return F.duo.foes[1 - F.duo.fi]; }
+function swapFoe(reason) {
+  const D = F.duo, cur = D.foes[D.fi], nxt = D.foes[1 - D.fi];
+  if (!nxt || nxt.dead) return false;
+  for (const k of FOE_KEYS) cur[k] = F[k];
+  for (const k of FOE_KEYS) F[k] = nxt[k];
+  D.fi = 1 - D.fi; D.swapT = F.clock;
+  if (F.state !== 'stagger' && F.state !== 'vanish') { F.E.setHold('guard', 8); toState('idle', reason === 'hit' ? .15 : rnd(.35, .6)); }
+  const s = toScreen(F.E.chest.getWorldPosition(new V3())); ovPop(s.x, s.y - 60, reason === 'down' ? 'NOW ME!' : 'MY TURN!', { size: 24, color: '#ffb38a' });
+  updateFightHUD();
+  return true;
+}
+function duoUpdate(dt) {
+  const o = duoOther(); if (!o || !o.E) return;
+  const E2 = o.E;
+  if (!o.dead) {
+    // the waiting twin circles at the side, sword ready
+    o.ex = lerp(o.ex, o.side * 2.3 + Math.sin(F.clock * .9 + o.side) * .25, damp(2.5, dt));
+    E2.root.position.set(o.ex, 0, F.dist + 1.0 + Math.cos(F.clock * .7) * .15);
+    E2.root.rotation.y = Math.atan2(F.P.root.position.x - E2.root.position.x, F.P.root.position.z - E2.root.position.z);
+    if (E2.sheathed && F.drawn) E2.drawSword({ to: 'guard' });
+  }
+  E2.update(dt); auraFX(E2, dt);
+}
+function duoFoeDown() {
+  // first twin falls: knock it down, the other steps in
+  const D = F.duo, cur = D.foes[D.fi];
+  F.E.ko(); cur.dead = true; F.E.setHold('stagger', 4);
+  const p = F.E.chest.getWorldPosition(new V3()); FX.sparks(p, '#ffe08c', 40, 5); sfx.taiko(1.2); slowmo(.4, .6);
+  banner('ONE DOWN!', 'One more to go');
+  const fallen = F.E;
+  swapFoe('down');
+  // the fallen twin slides to the side
+  cur.side = cur.side || -1; cur.ex = F.E === fallen ? cur.ex : cur.ex;
+  fallen.root.position.x = cur.side * 2.6;
 }
 
 /* ---------- enemy AI ---------- */
@@ -214,7 +267,10 @@ function aiUpdate(dt) {
   }
   F.P.root.rotation.y = Math.atan2(E.root.position.x - F.P.root.position.x, E.root.position.z - F.P.root.position.z);
 }
-function toIdle() { F.E.setHold('guard', 8); toState('idle', rnd(.5, 1.2) * clamp(F.st.tele / 1300, .45, 1.1)); }
+function toIdle() {
+  if (F.duo && !F.over && F.clock - F.duo.swapT > 2.2 && Math.random() < .55 && swapFoe('turn')) return;
+  F.E.setHold('guard', 8); toState('idle', rnd(.5, 1.2) * clamp(F.st.tele / 1300, .45, 1.1));
+}
 
 /* ---------- enemy hits player ---------- */
 function enemyHitsPlayer() {
@@ -238,7 +294,7 @@ function enemyHitsPlayer() {
     FX.sparks(P.partCenter(limb === 'head' ? 'head' : limb), '#ffffff', 16, 3.5);
     F.combo = 0;
     ovPop(sc.x + rnd(-60, 60), sc.y, '-' + Math.round(d), { size: F.fury ? 44 : 34, color: '#ff8a7a' });
-    if (st.freeze) { F.frozenT = 2.6; ovPop(sc.x, sc.y - 70, 'FROZEN!', { size: 30, color: '#bff4ff', stroke: '#0a2a4a' }); }
+    if (st.freeze || st.shock) { F.frozenT = 2.6; ovPop(sc.x, sc.y - 70, st.shock ? 'SHOCKED!' : 'FROZEN!', { size: 30, color: st.shock ? '#fff27a' : '#bff4ff', stroke: st.shock ? '#3a2a00' : '#0a2a4a' }); if (st.shock) { FX.sparks(F.P.partCenter('armR'), '#fff27a', 30, 5); sfx.clang(1.6); } }
   }
   // a blade that is too weak can snap under a boss's blows
   if (F.fragile && !F.broken) {
@@ -361,7 +417,8 @@ function fightSlash(x0, y0, x1, y1) {
     }
   }
   if (F.state === 'vanish') return;
-  const hit = hitTest(F.E, x0, y0, x1, y1);
+  let hit = hitTest(F.E, x0, y0, x1, y1);
+  if (!hit && F.duo) { const o = duoOther(); if (o && !o.dead && o.E && hitTest(o.E, x0, y0, x1, y1) && F.state !== 'windup' && F.state !== 'strike') { swapFoe('hit'); hit = hitTest(F.E, x0, y0, x1, y1); } }
   if (!hit) return;
   if (F.state === 'guard' && guardBlocks(hit)) {
     sfx.clang(); const bp = F.E.bladePoint(.5); FX.sparks(bp, '#cfe6ff', 18, 4);
@@ -432,7 +489,8 @@ function damageEnemy(part, dmg, crit, world, sx, sy, weak) {
     if (F.elimb[part] <= 0 && !E.det[key]) enemyLoseLimb(part, sx, sy);
   }
   if (swordDef(eqSword().id).id === 'sakura') FX.petals(world, 14, '#ffb7d0', 2.5);
-  if (F.ehp <= 0) win(F.st.myth ? 'LEGENDARY VICTORY!' : 'VICTORY!');
+  if (F.duo && (F.ehp <= 0 || (E.det.armL && E.det.armR)) && !duoOther().dead) duoFoeDown();
+  else if (F.ehp <= 0) win(F.st.myth ? 'LEGENDARY VICTORY!' : 'VICTORY!');
   else if (E.det.armL && E.det.armR && !F.st.dragon) win('DISARMED!');
   updateFightHUD();
 }
@@ -447,7 +505,8 @@ function enemyLoseLimb(part, sx, sy) {
   F.ehp -= F.emax * .05;
   ovPop(sx, sy - 40, pick(['CHOP!', 'POW!', 'SLICE!', 'WHAM!']), { size: 44, color: '#2a1200', stroke: '#fff6d8', burst: pick(['#ffd23a', '#ff8a3a', '#7fe8ff', '#ff7ab8']), rot: rnd(-.25, .25), life: 1.1, vy: -30 });
   const msg = dr
-    ? { armR: ['Claw chopped!', 'The dragon roars in fury'], armL: ['Claw chopped!', 'One claw left'], legs: ['Tail chopped!', 'The dragon is slower'], head: ['Horns broken!', 'The dragon is dazed'] }[part]
+    ? (F.st.orochi ? { armR: ['Head chopped!', 'Seven heads left… for now'], armL: ['Head chopped!', 'Another one down'], legs: ['Tail chopped!', 'Orochi is slower'], head: ['Horns broken!', 'The great head is dazed'] }[part]
+      : { armR: ['Claw chopped!', 'The dragon roars in fury'], armL: ['Claw chopped!', 'One claw left'], legs: ['Tail chopped!', 'The dragon is slower'], head: ['Horns broken!', 'The dragon is dazed'] }[part])
     : { armR: ['Sword arm chopped!', 'Their attacks are weaker'], armL: ['Arm chopped!', 'They can barely guard'], legs: ['Legs chopped!', 'They are slower now'], head: ['Helmet knocked off!', 'They are dazed'] }[part];
   banner(msg[0], msg[1]);
   if (part === 'head') { E.setHold('stagger', 10); toState('stagger', 1.1); }
@@ -538,7 +597,7 @@ function trophyUpdate(dt) {
 function startStandoff() {
   F.state = 'standoff'; F.t = 0; F.signalAt = F.clock + rnd(1.5, 2.8); F.camK = 4;
   F.P.setFP(false);
-  const col = ['#ff8a3a', '#ffffff', '#ff4a2a', '#ffb03a'][F.st.ch];
+  const col = ['#ff8a3a', '#ffffff', '#ff4a2a', '#ffb03a', '#ffb8d8', '#ffd84a', '#ffe08c'][F.st.ch];
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.petal, color: col, transparent: true, depthWrite: false })); sp.scale.setScalar(.22);
   const h = halo(col, .9, .7); sp.add(h);
   F.W.scene.add(sp);
@@ -615,7 +674,7 @@ const FightMode = {
     // stamina & frost
     if (F.staWait > 0) F.staWait -= dt;
     else F.sta = Math.min(100, F.sta + F.ps.staRegen * (F.frozenT > 0 ? .5 : 1) * (F.blocking ? .4 : 1) * dt);
-    if (F.frozenT > 0) { F.frozenT -= dt; OV.vig = Math.max(OV.vig, .45); OV.vigCol = '120,220,255'; }
+    if (F.frozenT > 0) { F.frozenT -= dt; OV.vig = Math.max(OV.vig, .45); OV.vigCol = F.st.shock ? '255,240,120' : '120,220,255'; }
     // player pose control
     if (F.special) specialUpdate(dt);
     if (!F.over && !F.special) {
@@ -628,6 +687,7 @@ const FightMode = {
     if (F.comboT > 0) { F.comboT -= dt; if (F.comboT <= 0) F.combo = 0; }
     P.update(dt); E.update(dt);
     auraFX(P, dt); auraFX(E, dt);
+    if (F.duo) duoUpdate(dt);
     fightCamera(dt);
     $('#staMe').style.width = F.sta + '%';
     $('#staWrap').classList.toggle('low', F.sta < F.ps.staCost);
@@ -657,7 +717,7 @@ function auraFX(rig, dt) {
   }
   const d = rig.swordDef;
   if (d && (d.r === 'legendary' || d.r === 'mythic') && !rig.swordDropped && Math.random() < dt * 14) {
-    const bp = rig.bladePoint(rnd(.15, 1)); FX.add.emit(bp.x, bp.y, bp.z, rnd(-.1, .1), rnd(.1, .4), rnd(-.1, .1), .6, .05, 0, d.glow, 1, 0, .5);
+    const bp = rig.bladePoint(rnd(.15, 1)); FX.add.emit(bp.x, bp.y, bp.z, rnd(-.1, .1), rnd(.1, .4), rnd(-.1, .1), .6, .05, 0, d.glow || '#ffe08c', 1, 0, .5);
   }
 }
 function fightCamera(dt) {
@@ -732,7 +792,9 @@ function updateFightHUD() {
   const el = {}; for (const k in F.elimb) el[k] = F.elimb[k] / F.elimbMax[k];
   pl.torso = F.php / F.pmax; el.torso = F.ehp / F.emax;
   dollUpdate($('#dollMe'), pl, F.P.det); dollUpdate($('#dollFoe'), el, F.E.det);
-  $('#spFoeWrap').style.visibility = 'hidden';
+  const sw = $('#spFoeWrap');
+  if (F.duo) { const o = duoOther(); sw.style.visibility = 'visible'; sw.classList.add('twin'); $('#spFoe').style.width = (o.dead ? 0 : clamp(o.ehp / o.emax, 0, 1) * 100) + '%'; }
+  else { sw.style.visibility = 'hidden'; sw.classList.remove('twin'); }
 }
 
 /* ---------- results ---------- */
@@ -777,7 +839,7 @@ function showFightResult() {
       <p><b>${F.st.name}</b> falls, and its spirit flees to the gate.</p>
       <div class="reveal" style="--rc:#ffe08c33;--glow:#ffe08c"><div class="rays"></div><div class="keyicon">${keySVG(ORB_COLS[ch])}</div></div>
       <h3>The Spirit Key</h3>
-      <p class="muted">${ready ? 'The spirit gate is ready. Its Spirit Warrior waits behind it, faster than anything you have faced.' : `The key opens the spirit gate once you ${[warriorsBeaten(ch) < 3 ? `defeat the warriors (${warriorsBeaten(ch)}/3)` : '', !S.journey[ch].puzzle ? 'awaken the shrine' : ''].filter(Boolean).join(' and ')}.`}</p>
+      <p class="muted">${ready ? 'The spirit gate is ready. Its Spirit Warrior waits behind it, faster than anything you have faced.' : `The key opens the spirit gate once you ${[warriorsBeaten(ch) < warriorCount(ch) ? `defeat the warriors (${warriorsBeaten(ch)}/${warriorCount(ch)})` : '', !S.journey[ch].puzzle ? 'awaken the shrine' : ''].filter(Boolean).join(' and ')}.`}</p>
       <div class="rewards"><span class="chip gold"><i></i>+${r.gold}</span><span class="chip steel"><i></i>+${r.steel}</span></div>
       <div class="rewards">${Object.entries(r.mats || {}).map(([id, n]) => `<span class="chip mat"><i style="background:${MATERIALS[id].c}"></i>+${n} ${MATERIALS[id].n}</span>`).join('')}</div>
       <div class="actions">

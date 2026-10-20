@@ -345,7 +345,8 @@ class Trail {
   }
   sample(base, tip, dt) {
     let speed = 0;
-    if (this.lastTip && dt > 0) speed = this.lastTip.distanceTo(tip) / dt;
+    if (this.lastTip && this.lastTip.distanceTo(tip) > 3) this.samples.length = 0; // teleported: no streak across the world
+    else if (this.lastTip && dt > 0) speed = this.lastTip.distanceTo(tip) / dt;
     this.lastTip = (this.lastTip || new V3()).copy(tip);
     const a = clamp((speed - 2.2) / 6, 0, 1) + this.boost;
     this.samples.unshift({ b: base.clone(), t: tip.clone(), a: clamp(a, 0, 1.4) });

@@ -29,7 +29,7 @@ function barrierMat(c1, c2) {
   });
 }
 
-function firstLockedLand() { for (let ch = 0; ch < 4; ch++) if (!S.journey[ch].myth) return ch; return -1; }
+function firstLockedLand() { for (let ch = 0; ch < NL; ch++) if (!S.journey[ch].myth) return ch; return -1; }
 function limitS() { if (!S.tutDone) return rope().tutGate.s + .1; const L = firstLockedLand(); return L < 0 ? Infinity : rope().gates[L].s + .1; }
 function blockGate() { if (!S.tutDone) return rope().tutGate; const L = firstLockedLand(); return L < 0 ? null : rope().gates[L]; }
 function dojoSpawn() { const R = rope(), b = R.dojoBead, p = R.pts[b.i]; return { x: b.x - p.tx * 2, z: b.z - p.tz * 2, yaw: Math.atan2(p.tx, p.tz) }; }
@@ -92,7 +92,7 @@ function updateObjective() {
 /* ---------- points of interest ---------- */
 function buildPOIs() {
   const R = rope(), g = X.poi;
-  for (let ch = 0; ch < 4; ch++) {
+  for (let ch = 0; ch < NL; ch++) {
     if (!chapterUnlocked(ch)) continue;
     const B = R.landBeads(ch);
     // land sign at the entry
@@ -109,9 +109,23 @@ function buildPOIs() {
       if (!S.beaten[idx]) {
         const rig = new Samurai(st.look, swordDef(st.sword), {});
         rig.root.rotation.order = 'YXZ'; rig.root.position.set(b.x, y, b.z); rig.root.rotation.y = Math.atan2(prev.x - b.x, prev.z - b.z);
-        rig.setSheathed(true); g.add(rig.root, rig.trail.mesh);
+        rig.setSheathed(true); g.add(rig.root);
         poi.rig = rig;
-        const lab = labelSprite(st.name, st.boss ? '#ffb38a' : '#fff6d8', (st.boss ? 'BOSS · ' : '') + 'Power ' + st.rec); lab.position.set(b.x, y + 2.6, b.z); g.add(lab);
+        if (st.duo) { // the twin waits beside, already drawn
+          const tw = new Samurai(st.look2 || st.look, swordDef(st.sword), {}); tw.root.rotation.order = 'YXZ';
+          const px = R.pts[b.i]; tw.root.position.set(b.x + px.nx * 1.6, y, b.z + px.nz * 1.6); tw.root.rotation.y = rig.root.rotation.y; tw.setHold('guard', 8);
+          g.add(tw.root); poi.twin = tw;
+        }
+        if (st.train) { // a training banner: this warrior only duels samurai who have trained
+          const px = R.pts[b.i], fx = b.x - px.nx * 1.8, fz = b.z - px.nz * 1.8;
+          const tex = ctex(128, (x, s, h) => { x.fillStyle = trainMet(st) ? '#1f6a45' : '#8a1d12'; x.fillRect(0, 0, s, h); x.strokeStyle = '#ffd27a'; x.lineWidth = 6; x.strokeRect(6, 6, s - 12, h - 12); x.fillStyle = '#fff4d0'; x.font = "900 72px 'Zen Maru Gothic', serif"; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('修', s / 2, h * .36); x.font = "900 22px 'Zen Maru Gothic', sans-serif"; x.fillText(SKILLS[st.train.sk].n.toUpperCase(), s / 2, h * .66); x.fillText('LV ' + st.train.l, s / 2, h * .8); }, 256);
+          const flag = new THREE.Group(); flag.position.set(fx, y, fz); flag.rotation.y = rig.root.rotation.y; g.add(flag);
+          flag.add(new THREE.Mesh(GEO.cyl(.04, .05, 3.4, 6), toon({ color: '#2a1a12' }))).position.y = 1.7;
+          for (const back of [0, 1]) { const cloth = new THREE.Mesh(new THREE.PlaneGeometry(.75, 1.5), toon({ map: tex })); cloth.position.set(.4, 2.45, back ? -.01 : .01); cloth.rotation.y = back ? Math.PI : 0; flag.add(cloth); }
+          X.W.obs.push({ x: fx, z: fz, r: .25, poi: true });
+        }
+        const sub = (st.boss ? 'BOSS · ' : st.duo ? '2 VS 1 · ' : '') + (st.train && !trainMet(st) ? `🔒 ${SKILLS[st.train.sk].n} Lv ${st.train.l} · ` : '') + 'Power ' + st.rec;
+        const lab = labelSprite(st.name, st.boss ? '#ffb38a' : st.train ? '#ffd27a' : '#fff6d8', sub); lab.position.set(b.x, y + 2.6, b.z); g.add(lab);
         const ring = new THREE.Mesh(new THREE.RingGeometry(1.1, 1.3, 40), new THREE.MeshBasicMaterial({ color: st.boss ? '#ff6a4a' : '#ffd27a', transparent: true, opacity: .7, side: THREE.DoubleSide, fog: false }));
         ring.rotation.x = -Math.PI / 2; ring.position.set(b.x, y + .06, b.z); g.add(ring); poi.ring = ring;
       } else {
@@ -214,7 +228,7 @@ function buildPOIs() {
     const key = n.ch + '-' + n.k; if (Date.now() - (S.nodeT[key] || 0) < 5 * 60e3) return;
     const M = MATERIALS[n.mat], y = ropeWalkHeight(n.x, n.z);
     const ng = new THREE.Group(); ng.position.set(n.x, y, n.z);
-    const rock = new THREE.Mesh(GEO.dodec(.42), toon({ color: n.ch === 1 ? '#7a8496' : n.ch === 3 ? '#2a1e1c' : '#6a6458', flatShading: true })); rock.scale.set(1, .6, 1); rock.position.y = .15; rock.castShadow = true; ng.add(rock);
+    const rock = new THREE.Mesh(GEO.dodec(.42), toon({ color: ['#6a6458', '#7a8496', '#6a6458', '#2a1e1c', '#5a5a48', '#7a7468', '#8a8690'][n.ch], flatShading: true })); rock.scale.set(1, .6, 1); rock.position.y = .15; rock.castShadow = true; ng.add(rock);
     const cm = glowify(new THREE.MeshBasicMaterial({ color: M.c }));
     for (let i = 0; i < (n.rare ? 5 : 3); i++) { const cr = new THREE.Mesh(GEO.oct(1), cm); cr.scale.set(.07, .22 + Math.random() * .16, .07); cr.position.set(Math.cos(i * 2.1) * .18, .4, Math.sin(i * 2.1) * .18); cr.rotation.set(rnd(-.4, .4), 0, rnd(-.4, .4)); ng.add(cr); }
     const h = halo(M.c, n.rare ? 1.8 : 1.2, .75); h.position.y = .5; ng.add(h);
@@ -222,7 +236,7 @@ function buildPOIs() {
     X.pois.push({ kind: 'node', n, key, x: n.x, z: n.z, r: 1.6, g: ng, halo: h });
   });
   // summit
-  if (S.journey[3].myth) {
+  if (S.journey[NL - 1].myth) {
     const sb = R.beads.find(b => b.kind === 'summit'), y = ropeWalkHeight(sb.x, sb.z);
     const lab = labelSprite('Summit of Legends', '#ffe08c', 'You made it!'); lab.position.set(sb.x, y + 4, sb.z); lab.scale.multiplyScalar(1.3); X.poi.add(lab);
     X.pois.push({ kind: 'summit', x: sb.x, z: sb.z, r: 6 });
@@ -277,22 +291,22 @@ const BEAST_NAP = 75e3, BEAST_WALK = 1.7, BEAST_RUN = 5.5, BEAST_SEE = 20, BEAST
 function buildBeasts() {
   X.beasts = []; X.hunt = null;
   const R = rope(), ps = ropeQuery(X.pos.x, X.pos.z).s;
-  for (let ch = 0; ch < 4; ch++) {
+  for (let ch = 0; ch < NL; ch++) {
     if (!chapterUnlocked(ch) || S.journey[ch].key) continue;
     const B = R.landBeads(ch), m = MYTHS[ch], s0 = B[1].s, s1 = B[4].s;
-    const rig = m.dragon ? new RoamDragon() : new Samurai(m.look, m.weapon === 'club' ? CLUB_DEF : swordDef(m.weapon || m.sword), { boss: true, noSaya: true });
+    const rig = m.orochi ? new RoamOrochi() : m.dragon ? new RoamDragon() : new Samurai(m.look, m.weapon === 'club' ? CLUB_DEF : swordDef(m.weapon || m.sword), { boss: true, noSaya: true });
     if (!m.dragon) { rig.root.scale.setScalar(m.scale || 1); rig.root.rotation.order = 'YXZ'; rig.setHold('shoulder', 6); rig.carry = true; }
-    X.poi.add(rig.root); if (rig.trail) X.poi.add(rig.trail.mesh);
+    X.poi.add(rig.root);
     const lab = labelSprite(m.name, '#ff8a6a', m.title); X.poi.add(lab);
     const s = Math.abs(ps - s0) > Math.abs(ps - s1) ? s0 : s1;
     const p = R.pts[clamp(Math.round(s / R.ds), 0, R.N)];
-    const b = { ch, m, rig, lab, s0, s1, s, dir: s === s0 ? 1 : -1, state: 'roam', t: 0, pos: new V3(p.x, ropeWalkHeight(p.x, p.z), p.z), face: 0, phase: 0, speed: 0, fly: m.dragon ? 3.2 : 0, size: m.dragon ? 3.6 : 1.4 + (m.scale || 1) * .9 };
-    if (m.dragon) rig.place(b.pos.clone().add(new V3(0, 5, 0)), new V3(p.tx, 0, p.tz).multiplyScalar(b.dir));
+    const b = { ch, m, rig, lab, s0, s1, s, dir: s === s0 ? 1 : -1, state: 'roam', t: 0, pos: new V3(p.x, ropeWalkHeight(p.x, p.z), p.z), face: 0, phase: 0, speed: 0, fly: m.dragon && !m.orochi ? 3.2 : 0, size: m.orochi ? 4.6 : m.dragon ? 3.6 : 1.4 + (m.scale || 1) * .9 };
+    if (m.dragon && !m.orochi) rig.place(b.pos.clone().add(new V3(0, 5, 0)), new V3(p.tx, 0, p.tz).multiplyScalar(b.dir));
     X.beasts.push(b);
   }
   X.rings = [];
 }
-const BEAST_DUST = ['#e8d2a8', '#ffffff', '#6a5a7a', '#5a3a2a'];
+const BEAST_DUST = ['#e8d2a8', '#ffffff', '#6a5a7a', '#5a3a2a', '#c8d8b0', '#c8c0a8', '#d8d4c8'];
 function beastRing(p, col, size) {
   const m = new THREE.Mesh(new THREE.RingGeometry(.7, 1, 40), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
   m.rotation.x = -Math.PI / 2; m.position.copy(p); m.position.y += .15; X.poi.add(m);
@@ -301,7 +315,7 @@ function beastRing(p, col, size) {
 function beastRoar(b) {
   b.state = 'notice'; b.t = 0; X.hunt = b;
   const top = b.m.dragon ? b.rig.headPos().clone() : b.pos.clone().add(new V3(0, 2.3 * (b.m.scale || 1), 0));
-  if (b.m.dragon) b.rig.roar = 1.3;
+  if (b.m.dragon) { b.rig.roar = 1.3; if (b.rig.isOrochi) b.roarT = 1.1; }
   else { b.rig.carry = false; b.rig.setHold('windH', 5); b.rig.leanAdd = -.35; b.roarT = 1.1; }
   beastRing(b.pos, b.m.look.aura || '#ff8a3a', 14); setTimeout(() => X && X.beasts && beastRing(b.pos, '#ffffff', 9), 200);
   FX.glowBurst(top, b.m.look.aura || '#ff8a3a', 3, .6); FX.puff(b.pos.clone().add(new V3(0, .3, 0)), 22, BEAST_DUST[b.ch], 1.6);
@@ -363,7 +377,7 @@ function beastsUpdate(dt) {
     b.t += dt;
     const napping = Date.now() - (S.beastNap[b.ch] || 0) < BEAST_NAP;
     let tgt = null, spd = 0;
-    if (b.m.dragon) { dragonRoam(b, dt, dP, napping); continue; }
+    if (b.m.dragon && !b.m.orochi) { dragonRoam(b, dt, dP, napping); continue; }
     if (X.enc) { /* everything holds still while a ghost appears */ }
     else if (b.state === 'roam') {
       if (b.s >= b.s1 - .5) b.dir = -1; else if (b.s <= b.s0 + .5) b.dir = 1;
@@ -371,13 +385,13 @@ function beastsUpdate(dt) {
       tgt = { x: p.x + p.nx * lat, z: p.z + p.nz * lat }; spd = BEAST_WALK;
       if (!napping && isArmed() && X.land === b.ch && dP < BEAST_SEE && !X.hunt) beastRoar(b);
     } else if (b.state === 'notice') {
-      tgt = null; if (b.t > 1.2) { b.state = 'chase'; b.t = 0; b.rig.setHold('windR', 6); }
+      tgt = null; if (b.t > 1.2) { b.state = 'chase'; b.t = 0; if (b.rig.setHold) b.rig.setHold('windR', 6); }
     } else if (b.state === 'chase') {
       const ps = X.s;
       if (Math.abs(ps - b.s) > 6) { const p = ptAt(b.s + Math.sign(ps - b.s) * 8); tgt = { x: p.x, z: p.z }; } else tgt = { x: X.pos.x, z: X.pos.z };
       spd = BEAST_RUN;
       if (dP < b.size) { beastCatch(b); return; }
-      if (dP > BEAST_LOSE || X.land !== b.ch || !isArmed()) { b.state = 'roam'; X.hunt = null; b.rig.carry = true; b.rig.setHold('shoulder', 5); banner('You escaped!', `${b.m.name} lost your trail`); }
+      if (dP > BEAST_LOSE || X.land !== b.ch || !isArmed()) { b.state = 'roam'; X.hunt = null; if (b.rig.setHold) { b.rig.carry = true; b.rig.setHold('shoulder', 5); } banner('You escaped!', `${b.m.name} lost your trail`); }
     }
     // move and stay on the road
     const want = b.state === 'notice' || b.state === 'chase' ? Math.atan2(X.pos.x - b.pos.x, X.pos.z - b.pos.z) : null;
@@ -393,7 +407,10 @@ function beastsUpdate(dt) {
     const flyTo = b.m.dragon ? (b.state === 'chase' ? .6 : 3.2) : 0; b.fly = lerp(b.fly, flyTo, damp(1.5, dt));
     b.rig.root.position.set(b.pos.x, ropeWalkHeight(b.pos.x, b.pos.z) + b.fly, b.pos.z);
     b.rig.root.rotation.y = b.face;
-    {
+    if (b.rig.isOrochi) {
+      b.rig.step(dt, b.speed * 2);
+      if (b.speed > .1 && Math.random() < dt * 3) { FX.puff(b.pos.clone().add(new V3(rnd(-2, 2), .2, rnd(-2, 2))), 5, BEAST_DUST[b.ch] || '#c8c4b8', 1.2); if (dP < 30) shake(Math.max(0, .05 - dP * .0016)); }
+    } else {
       // a heavy, swaying stride: big steps, a dip on every footfall, dust and tremors
       const P = b.rig, sc = b.m.scale || 1, mv = Math.min(1, b.speed * 3), run = b.state === 'chase';
       const prevPh = b.phase;
@@ -423,8 +440,8 @@ function beastsUpdate(dt) {
         else if (b.m.teleport) FX.petals(hp, 2, '#15151c', 1.2);
       }
     }
-    b.rig.update(dt);
-    const top = b.m.dragon ? 5.5 : 2.4 * (b.m.scale || 1);
+    if (b.rig.update) b.rig.update(dt);
+    const top = b.m.orochi ? 8.5 : b.m.dragon ? 5.5 : 2.4 * (b.m.scale || 1);
     b.lab.position.set(b.pos.x, b.rig.root.position.y + top, b.pos.z);
     if (b.m.look.aura && Math.random() < dt * 12) FX.add.emit(b.pos.x + rnd(-.6, .6), b.rig.root.position.y + rnd(.2, top - .4), b.pos.z + rnd(-.6, .6), 0, rnd(.3, .9), 0, rnd(.7, 1.2), .08, 0, b.m.look.aura, .8, -.2, .3);
   }
@@ -478,7 +495,7 @@ function exploreAct() {
   EXPLORE_RETURN = { x: p.x + back.x * (p.r + .6), z: p.z + back.z * (p.r + .6), yaw: Math.atan2(-back.x, -back.z) };
   if (ropeQuery(EXPLORE_RETURN.x, EXPLORE_RETURN.z, X.limit).d > -.2) EXPLORE_RETURN = { x: X.pos.x, z: X.pos.z, yaw: X.face };
   S.roam = { x: X.pos.x, z: X.pos.z, yaw: X.face }; save();
-  if (p.kind === 'warrior') { sfx.taiko(.8); startFight(p.idx, 'explore'); }
+  if (p.kind === 'warrior') { if (!trainMet(p.st)) { toast(`${p.st.name} bows: "Come back when your ${SKILLS[p.st.train.sk].n} reaches level ${p.st.train.l}." Train in the Dojo (you are level ${S.sk[p.st.train.sk].l}).`); return; } sfx.taiko(.8); startFight(p.idx, 'explore'); }
   else if (p.kind === 'shrine') {
     if (orbsFound(p.ch) < 3) { toast(`The shrine needs 3 spirit orbs. You have ${orbsFound(p.ch)}. Look for glowing beams down the side trails.`); return; }
     if (S.journey[p.ch].puzzle) { toast('The shrine is already awake.'); return; }
@@ -491,7 +508,7 @@ function exploreAct() {
     if (gateOpen(p.ch) || S.journey[p.ch].myth) { startMyth(p.ch, 'explore'); return; }
     const need = [];
     if (!S.journey[p.ch].key) need.push(`win the Spirit Key from ${MYTHS[p.ch].name}`);
-    if (warriorsBeaten(p.ch) < 3) need.push(`defeat the warriors (${warriorsBeaten(p.ch)}/3)`);
+    if (warriorsBeaten(p.ch) < warriorCount(p.ch)) need.push(`defeat the warriors (${warriorsBeaten(p.ch)}/${warriorCount(p.ch)})`);
     if (!S.journey[p.ch].puzzle) need.push('awaken the shrine');
     toast('The gate is sealed. First ' + need.join(' and ') + '.');
   } else if (p.kind === 'dojo') {
@@ -504,6 +521,7 @@ function exploreAct() {
   }
 }
 function actLabel(p) {
+  if (p.kind === 'warrior' && !p.done && !trainMet(p.st)) return `🔒 Train ${trainNeed(p.st)} first`;
   if (p.kind === 'warrior') return !isArmed() ? 'No blade! Go to the Dojo' : (p.done ? `Rematch ${p.st.name}` : `⚔ Duel ${p.st.name}`) + (bladeAtRisk(p.st) ? ' ⚠ blade may snap' : '');
   if (p.kind === 'shrine') return S.journey[p.ch].puzzle ? 'Shrine is awake ✓' : orbsFound(p.ch) < 3 ? `Shrine needs orbs (${orbsFound(p.ch)}/3)` : 'Solve the shrine puzzle';
   if (p.kind === 'gate') return !isArmed() ? 'No blade! Go to the Dojo' : S.journey[p.ch].myth ? `Rematch ${MYTHS[p.ch].name}` : gateOpen(p.ch) ? `Face the Spirit Warrior!${bladeAtRisk(SPIRITS[p.ch]) ? ' ⚠ blade may snap' : ''}` : S.journey[p.ch].key ? 'Spirit gate (sealed)' : 'Spirit gate (needs the Spirit Key)';
@@ -524,7 +542,7 @@ function objectiveTarget() {
   if (thieves.length) return near(thieves);
   if (orbsFound(ch) < 3) return near(X.pois.filter(p => p.kind === 'orb' && p.ch === ch));
   if (!j.puzzle) return X.pois.find(p => p.kind === 'shrine' && p.ch === ch);
-  if (warriorsBeaten(ch) < 3) return near(X.pois.filter(p => p.kind === 'warrior' && p.ch === ch && !p.done));
+  if (warriorsBeaten(ch) < warriorCount(ch)) return near(X.pois.filter(p => p.kind === 'warrior' && p.ch === ch && !p.done));
   if (!j.key) { const b = (X.beasts || []).find(v => v.ch === ch); return b ? { x: b.pos.x, z: b.pos.z } : null; }
   if (!j.myth) return X.pois.find(p => p.kind === 'gate' && p.ch === ch);
   if (ch < 3) { const b = R.landBeads(ch + 1)[0]; return { x: b.x, z: b.z }; }
@@ -753,6 +771,7 @@ const ExploreMode = {
     P.leanAdd = x.speed * .1; P.armSwing = -Math.sin(x.phase) * x.speed;
     P.root.position.copy(x.pos); P.root.rotation.y = x.face;
     P.update(dt);
+    for (const p of x.pois) if (p.twin && Math.hypot(x.pos.x - p.x, x.pos.z - p.z) < 60) p.twin.update(dt);
     for (const p of x.pois) if (p.rig) {
       const d = Math.hypot(x.pos.x - p.x, x.pos.z - p.z);
       if (d < 8) { const a = Math.atan2(x.pos.x - p.x, x.pos.z - p.z); let dd = a - p.rig.root.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); p.rig.root.rotation.y += dd * damp(3, dt); }
@@ -786,7 +805,7 @@ const ExploreMode = {
       if (near !== x.near) {
         x.near = near;
         const b = $('#actBtn');
-        if (near) { b.hidden = false; b.textContent = actLabel(near); b.classList.toggle('locked', !isArmed() && near.kind !== 'shrine' || (near.kind === 'gate' && !gateOpen(near.ch) && !S.journey[near.ch].myth) || (near.kind === 'shrine' && (orbsFound(near.ch) < 3 || S.journey[near.ch].puzzle))); }
+        if (near) { b.hidden = false; b.textContent = actLabel(near); b.classList.toggle('locked', (near.kind === 'warrior' && !near.done && !trainMet(near.st)) || !isArmed() && near.kind !== 'shrine' || (near.kind === 'gate' && !gateOpen(near.ch) && !S.journey[near.ch].myth) || (near.kind === 'shrine' && (orbsFound(near.ch) < 3 || S.journey[near.ch].puzzle))); }
         else b.hidden = true;
       }
     }
@@ -905,5 +924,5 @@ function drawExploreOverlay(c) {
     c.save(); c.font = "900 11px 'Zen Maru Gothic', sans-serif"; c.textAlign = 'center'; c.fillStyle = '#ffe08c'; c.fillText(`Next: ${dist} m`, cx, cy + Rm + 30); c.restore();
   }
   c.save(); c.translate(cx, cy); c.rotate(-(X.face - X.camYaw)); c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(0, -8); c.lineTo(6, 6); c.lineTo(0, 3); c.lineTo(-6, 6); c.closePath(); c.fill(); c.restore();
-  if (X.land >= 0) { c.save(); c.font = "900 11px 'Zen Maru Gothic', sans-serif"; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.8)'; c.fillText(`Orbs ${orbsFound(X.land)}/3 · Warriors ${warriorsBeaten(X.land)}/3`, cx, cy + Rm + 16); c.restore(); }
+  if (X.land >= 0) { c.save(); c.font = "900 11px 'Zen Maru Gothic', sans-serif"; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.8)'; c.fillText(`Orbs ${orbsFound(X.land)}/3 · Warriors ${warriorsBeaten(X.land)}/${warriorCount(X.land)}`, cx, cy + Rm + 16); c.restore(); }
 }

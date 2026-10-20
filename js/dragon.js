@@ -375,3 +375,113 @@ class RoamDragon {
   }
   dispose() { this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.mats.forEach(m => m.dispose()); }
 }
+
+/* ===== Yamata no Orochi: eight heads, eight tails ===== */
+const OROCHI_COL = { '#d2301a': '#2a6a3a', '#ffc24a': '#d8e88a', '#7a120a': '#163a20', '#5a0a06': '#3a0a0a', '#fff6e0': '#fff6e0' };
+function recolorGeo(geo, map) {
+  const c = geo.attributes.color; if (!c || geo.userData.recolored) return; geo.userData.recolored = true;
+  const pairs = Object.entries(map).map(([a, b]) => [new COL(a), new COL(b)]), t = new COL();
+  for (let i = 0; i < c.count; i++) {
+    t.setRGB(c.getX(i), c.getY(i), c.getZ(i));
+    let best = null, bd = .02;
+    for (const [a, b] of pairs) { const d = (a.r - t.r) ** 2 + (a.g - t.g) ** 2 + (a.b - t.b) ** 2; if (d < bd) { bd = d; best = b; } }
+    if (best) c.setXYZ(i, best.r, best.g, best.b);
+  }
+  c.needsUpdate = true;
+}
+function serpentHeadGeo(s) {
+  const g = '#2a6a3a', y = '#d8e88a', d = '#163a20';
+  return merge([
+    P(GEO.box(.62 * s, .42 * s, .8 * s), g, [0, 0, .1 * s]),
+    P(GEO.box(.48 * s, .3 * s, .7 * s), g, [0, -.04 * s, .62 * s]),
+    P(GEO.box(.5 * s, .1 * s, .7 * s), y, [0, -.17 * s, .62 * s]),
+    P(GEO.box(.66 * s, .1 * s, .3 * s), d, [0, .22 * s, .35 * s]),
+    P(GEO.cone(.07 * s, .4 * s, 4), y, [.2 * s, .32 * s, -.15 * s], [-1.1, 0, -.3]), P(GEO.cone(.07 * s, .4 * s, 4), y, [-.2 * s, .32 * s, -.15 * s], [-1.1, 0, .3]),
+    ...[-.14, 0, .14].map(x => P(GEO.cone(.03 * s, .12 * s, 4), '#fff6e0', [x * s, -.2 * s, .9 * s], [Math.PI, 0, 0])),
+    P(GEO.box(.04 * s, .02 * s, .35 * s), '#e8301a', [0, -.12 * s, 1.1 * s]),
+  ]);
+}
+class OrochiBoss extends DragonBoss {
+  constructor(spec) {
+    super(spec);
+    this.look = spec.look || { aura: '#6aff8a' };
+    this.swordDef = swordDef('orochi');
+    this.trail.mesh.material.color && this.trail.mesh.material.color.set('#6aff8a');
+    this.root.traverse(o => { if (o.geometry) recolorGeo(o.geometry, OROCHI_COL); });
+    // the two claws become two more heads
+    for (const s of ['L', 'R']) {
+      const A = this.arm[s]; A.claw.clear();
+      const m = new THREE.Mesh(serpentHeadGeo(.8), this.body); m.castShadow = true; m.add(new THREE.Mesh(m.geometry, outlineMat(.02))); A.claw.add(m);
+      A.up.children.concat(A.lo.children).forEach(o => { if (o.geometry) recolorGeo(o.geometry, OROCHI_COL); });
+    }
+    // five more heads sway above the coils
+    const eyeM = glowify(new THREE.MeshBasicMaterial({ color: '#d8ff6a', fog: false })); this.mats.push(eyeM);
+    const segGeo = merge([P(GEO.ico(1, 1), '#2a6a3a', [0, 0, 0], null, [1, .92, 1.15], (x, y) => y < -.3 ? new COL('#d8e88a') : new COL('#2a6a3a'))]);
+    this.extra = [];
+    for (let i = 0; i < 5; i++) {
+      const neck = new THREE.InstancedMesh(segGeo, this.body, 7); neck.castShadow = true; neck.frustumCulled = false; this.root.add(neck);
+      const head = new THREE.Group(); this.root.add(head);
+      const hm = new THREE.Mesh(serpentHeadGeo(.75), this.body); hm.castShadow = true; hm.add(new THREE.Mesh(hm.geometry, outlineMat(.02))); head.add(hm);
+      for (const sx of [-1, 1]) { const e = new THREE.Mesh(GEO.box(.1, .06, .04), eyeM); e.position.set(sx * .2, .1, .42); head.add(e); }
+      this.extra.push({ neck, head, a: -1.6 + i * .8, ph: i * 1.3 });
+    }
+  }
+  update(dt) {
+    super.update(dt);
+    if (!this.extra) return;
+    const ko = this.koT >= 0 ? clamp(this.koT / 1.2, 0, 1) : 0;
+    for (const X2 of this.extra) {
+      const b = this.spine[Math.min(this.N - 1, 4 + Math.round((X2.a + 1.6) * 2))] || this.spine[0];
+      const hp = new V3(Math.sin(X2.a) * 2.2 + Math.sin(this.t * 1.3 + X2.ph) * .35, 2.6 + Math.sin(this.t * 1.7 + X2.ph) * .3 - ko * 2, -.4 + Math.cos(X2.a) * .6 + Math.cos(this.t * 1.1 + X2.ph) * .3);
+      const n1 = b.clone().lerp(hp, .5).add(new V3(0, .6, -.3));
+      for (let i = 0; i < 7; i++) { const u = i / 6, p = bezier3(b, n1, hp, u, new V3()), q = bezier3(b, n1, hp, Math.min(1, u + .1), new V3()); _io.position.copy(p); _io.quaternion.setFromUnitVectors(_t2.set(0, 1, 0), _t3.subVectors(q, p).normalize()); const s = .4 - u * .12; _io.scale.set(s, s, s); _io.updateMatrix(); X2.neck.setMatrixAt(i, _io.matrix); }
+      X2.neck.instanceMatrix.needsUpdate = true;
+      X2.head.position.copy(hp); X2.head.lookAt(hp.clone().add(new V3(Math.sin(X2.a) * .4, -.25, 1)));
+    }
+  }
+}
+
+/* Orochi on the road: a great mound of coils with eight swaying heads and eight tails */
+class RoamOrochi {
+  constructor() {
+    this.isOrochi = true; this.root = new THREE.Group(); this.mats = []; this.t = 0;
+    const mat = toon({ vertexColors: true, flatShading: true }); this.mats.push(mat);
+    const ol = outlineMat(.035);
+    const mk = (geo, parent) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.add(new THREE.Mesh(geo, ol)); parent.add(m); return m; };
+    const body = [];
+    for (let i = 0; i < 9; i++) { const a = i / 9 * 6.28; body.push(P(GEO.ico(1.3, 1), i % 2 ? '#2a6a3a' : '#245a32', [Math.cos(a) * 1.6, 1.2 + Math.sin(i * 2) * .3, Math.sin(a) * 1.4 - .4], null, [1.2, .9, 1.3], (x, y) => y < -.5 ? new COL('#d8e88a') : new COL(i % 2 ? '#2a6a3a' : '#245a32'))); }
+    body.push(P(GEO.ico(1.8, 1), '#2a6a3a', [0, 2, -.3], null, [1.3, .9, 1.2]));
+    mk(merge(body), this.root);
+    const segGeo = merge([P(GEO.ico(1, 1), '#2a6a3a', [0, 0, 0], null, [1, .92, 1.15], (x, y) => y < -.3 ? new COL('#d8e88a') : new COL('#2a6a3a'))]);
+    const eyeM = glowify(new THREE.MeshBasicMaterial({ color: '#d8ff6a', fog: false })); this.mats.push(eyeM);
+    this.necks = [];
+    for (let i = 0; i < 8; i++) {
+      const neck = new THREE.InstancedMesh(segGeo, mat, 9); neck.castShadow = true; neck.frustumCulled = false; this.root.add(neck);
+      const head = new THREE.Group(); this.root.add(head); mk(serpentHeadGeo(1.5), head);
+      for (const sx of [-1, 1]) { const e = new THREE.Mesh(GEO.box(.2, .12, .06), eyeM); e.position.set(sx * .38, .2, .82); head.add(e); }
+      this.necks.push({ neck, head, a: -1.5 + i * (3 / 7), ph: i * .9 });
+    }
+    this.tails = [];
+    for (let i = 0; i < 8; i++) { const tl = new THREE.InstancedMesh(segGeo, mat, 8); tl.castShadow = true; tl.frustumCulled = false; this.root.add(tl); this.tails.push({ tl, a: Math.PI - .9 + i * (1.8 / 7), ph: i * .7 }); }
+    this.roar = 0; this.speed = 0;
+  }
+  headPos() { this.root.updateMatrixWorld(true); return this.necks[3].head.getWorldPosition(new V3()); }
+  step(dt, speed) {
+    this.t += dt; this.speed = speed || 0; this.roar = Math.max(0, this.roar - dt);
+    const bob = Math.sin(this.t * 3) * .15 * Math.min(1, this.speed);
+    for (const N of this.necks) {
+      const b = new V3(Math.sin(N.a) * 1.6, 2.2 + bob, Math.cos(N.a) * 1.2);
+      const up = this.roar > 0 ? 2.2 : 0;
+      const hp = new V3(Math.sin(N.a) * 5.2 + Math.sin(this.t * 1.2 + N.ph) * .6, 4.4 + (N.ph * 1.7 % 2.4) + up + Math.sin(this.t * 1.6 + N.ph) * .6, Math.cos(N.a) * 3.4 + .6 + (N.ph * 1.3 % 1.6) + Math.cos(this.t + N.ph) * .4);
+      const n1 = b.clone().lerp(hp, .45).add(new V3(0, 1.4, -.6));
+      for (let i = 0; i < 9; i++) { const u = i / 8, p = bezier3(b, n1, hp, u, new V3()), q = bezier3(b, n1, hp, Math.min(1, u + .08), new V3()); _io.position.copy(p); _io.quaternion.setFromUnitVectors(_t2.set(0, 1, 0), _t3.subVectors(q, p).normalize()); const s = .9 - u * .3; _io.scale.set(s, s, s); _io.updateMatrix(); N.neck.setMatrixAt(i, _io.matrix); }
+      N.neck.instanceMatrix.needsUpdate = true;
+      N.head.position.copy(hp); N.head.lookAt(hp.clone().add(new V3(Math.sin(N.a) * 1.1 + Math.sin(this.t * .8 + N.ph) * .4, this.roar > 0 ? .6 : -.3, 1)));
+    }
+    for (const T of this.tails) {
+      for (let i = 0; i < 8; i++) { const u = i / 7, r = 2 + u * 4.5, a = T.a + Math.sin(this.t * 2 + T.ph + u * 3) * .25 * (.3 + u); _io.position.set(Math.sin(a) * r, .5 + Math.sin(u * 3) * .3, Math.cos(a) * r - .6); _io.quaternion.identity(); const s = .7 - u * .5; _io.scale.set(s, s * .8, s * 1.2); _io.updateMatrix(); T.tl.setMatrixAt(i, _io.matrix); }
+      T.tl.instanceMatrix.needsUpdate = true;
+    }
+  }
+  dispose() { this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.mats.forEach(m => m.dispose()); }
+}

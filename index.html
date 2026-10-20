@@ -317,6 +317,11 @@ button.card{width:100%;}
 .reveal.broken svg{filter:grayscale(.55) drop-shadow(0 0 10px rgba(255,80,60,.5));clip-path:polygon(0 0,57% 0,53% 40%,59% 52%,54% 100%,0 100%);}
 .keyicon{position:relative;font-size:72px;text-align:center;filter:drop-shadow(0 0 16px #ffe08c);animation:bob 2.4s ease-in-out infinite;}
 @keyframes bob{50%{transform:translateY(-6px) rotate(-6deg)}}
+.trainreq{font-size:12.5px;font-weight:900;color:#ffb38a;background:rgba(255,120,80,.1);border:1px solid rgba(255,140,90,.35);border-radius:10px;padding:5px 9px;}
+.trainreq.ok{color:#9ff0b8;background:rgba(80,220,140,.1);border-color:rgba(120,230,160,.35);}
+.trainreq small{opacity:.75;font-weight:700}
+.trials{display:grid;gap:6px;margin-top:10px}
+.tag.train{background:rgba(255,200,90,.16);color:#ffd27a}
 #fade{position:fixed;inset:0;z-index:30;background:#05060c;opacity:0;pointer-events:none;transition:opacity .35s ease;}
 #fade.on{opacity:1;pointer-events:auto;}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%) translateY(-20px);z-index:40;

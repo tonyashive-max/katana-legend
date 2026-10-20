@@ -35,8 +35,8 @@ function pzLanterns() {
     const a = i / 6 * Math.PI * 2 - Math.PI / 2;
     return `<button class="lantern" data-pz="lamp" data-i="${i}" style="--c:${c};left:calc(50% + ${Math.cos(a) * 38}% - 32px);top:calc(50% + ${Math.sin(a) * 38}% - 40px)" aria-label="Lantern ${i + 1}"></button>`;
   }).join('')}<div class="ring-center" id="pzRound">Round 1 / 4</div></div>`;
-  pzShell('The Lantern Song', 'Watch the lanterns light up, then tap them in the same order.', body, '<button class="btn primary" data-pz="start">Play the song</button>');
-  const st = { seq: [], round: 0, input: 0, busy: false, lens: [3, 4, 5, 6] };
+  pzShell(PUZZLE_NAMES[PZ.ch], 'Watch the lanterns light up, then tap them in the same order.', body, '<button class="btn primary" data-pz="start">Play the song</button>');
+  const st = { seq: [], round: 0, input: 0, busy: false, lens: PZ.ch >= 4 ? [4, 5, 6, 7] : [3, 4, 5, 6] };
   const flash = (i, t) => {
     const b = document.querySelector(`.lantern[data-i="${i}"]`); if (!b) return;
     b.classList.add('lit'); AUD.tone(notes[i], .5, .14, 'triangle'); setTimeout(() => b.classList.remove('lit'), t || 380);
@@ -67,11 +67,11 @@ function pzLanterns() {
 function pzSeals() {
   const N = 4; let grid = Array(N * N).fill(1), moves = 0;
   const press = (g, i) => { const r = (i / N) | 0, c = i % N; [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => { const rr = r + dr, cc = c + dc; if (rr >= 0 && rr < N && cc >= 0 && cc < N) g[rr * N + cc] ^= 1; }); };
-  const used = new Set(); while (used.size < 7) used.add((Math.random() * N * N) | 0); used.forEach(i => press(grid, i));
+  const used = new Set(); while (used.size < (PZ.ch >= 4 ? 9 : 7)) used.add((Math.random() * N * N) | 0); used.forEach(i => press(grid, i));
   if (grid.every(v => v)) press(grid, 5);
   const start = grid.slice();
   const draw = () => { const el = $('#pzGrid'); if (!el) return; el.innerHTML = grid.map((v, i) => `<button class="seal ${v ? 'on' : ''}" data-pz="seal" data-i="${i}" aria-label="Seal ${i + 1}"></button>`).join(''); $('#pzMoves').textContent = moves + ' moves'; };
-  pzShell('The Frozen Seals', 'Tapping a seal flips it and its neighbors. Make every seal glow blue.', `<div class="seal-grid" id="pzGrid"></div><p class="muted" id="pzMoves">0 moves</p>`, '<button class="btn" data-pz="reset">Reset</button>');
+  pzShell(PUZZLE_NAMES[PZ.ch], 'Tapping a seal flips it and its neighbors. Make every seal glow blue.', `<div class="seal-grid" id="pzGrid"></div><p class="muted" id="pzMoves">0 moves</p>`, '<button class="btn" data-pz="reset">Reset</button>');
   draw();
   PZ.handle = (act, el) => {
     if (act === 'reset') { grid = start.slice(); moves = 0; draw(); return; }
@@ -89,7 +89,7 @@ function pzMoon() {
     const r0 = (Math.random() * N) | 0, seen = new Set([r0 * N]), p = [[r0, 0]];
     const walk = () => {
       const [r, c] = p[p.length - 1];
-      if (c === N - 1 && p.length >= 7) return true;
+      if (c === N - 1 && p.length >= (PZ.ch >= 4 ? 9 : 7)) return true;
       const opts = [0, 1, 2, 3].sort(() => Math.random() - .5).sort((a, b) => (b === 1) - (a === 1) + (Math.random() - .5) * .8);
       for (const d of opts) {
         const rr = r + D[d][0], cc = c + D[d][1]; if (rr < 0 || rr >= N || cc < 0 || cc >= N || seen.has(rr * N + cc) || d === 3) continue;
@@ -141,7 +141,7 @@ function pzMoon() {
     return L;
   };
   for (let g = 0; g < 8 && lit().done; g++) { const [pr, pc] = path[Math.min(1, path.length - 1)]; rot[pr * N + pc] = (rot[pr * N + pc] + 1) % 4; }
-  pzShell('The Moon Path', 'Tap tiles to turn them. Guide the moonlight from the moon on the left to the gate on the right.',
+  pzShell(PUZZLE_NAMES[PZ.ch], 'Tap tiles to turn them. Guide the moonlight from the moon on the left to the gate on the right.',
     `<div class="moon-wrap" id="pzEnds"><span class="moon-icon">●</span><div class="moon-grid" id="pzGrid"></div><span class="gate-icon">⛩</span></div>`);
   draw();
   PZ.handle = (act, el) => {
@@ -164,7 +164,7 @@ function pzScales() {
     el.innerHTML = t.map((v, i) => v ? `<button class="scale-tile" data-pz="slide" data-i="${i}" style="--h:${v * 40}"><b>${glyphs[v - 1]}</b><small>${v}</small></button>` : '<div class="scale-blank"></div>').join('');
     $('#pzMoves').textContent = moves + ' moves';
   };
-  pzShell('The Dragon Scales', 'Slide the scales into order, 1 to 8, with the empty space at the bottom right.', `<div class="scale-grid" id="pzGrid"></div><p class="muted" id="pzMoves">0 moves</p>`);
+  pzShell(PUZZLE_NAMES[PZ.ch], 'Slide the scales into order, 1 to 8, with the empty space at the bottom right.', `<div class="scale-grid" id="pzGrid"></div><p class="muted" id="pzMoves">0 moves</p>`);
   draw();
   PZ.handle = (act, el) => {
     if (act !== 'slide') return;

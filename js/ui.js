@@ -73,7 +73,7 @@ function skillRow(k) {
 }
 function screenDojo() {
   const st = stats(), w = eqSword(), d = swordDef(w.id), o = outfitDef(S.outfit);
-  const ch = currentChapter(), done = S.journey[3].myth, best = swordDef(bestSword().id);
+  const ch = currentChapter(), done = S.journey[NL - 1].myth, best = swordDef(bestSword().id);
   return `<div class="stack">
     <section class="panel hero">
       <div class="eyebrow">${done ? 'Every land conquered' : `Chapter ${ch + 1} · ${CHAPTERS[ch].name}`}</div>
@@ -111,7 +111,7 @@ function check(ok, text) { return `<li class="${ok ? 'ok' : ''}"><span>${ok ? '�
 function screenQuest() {
   const pw = playerPower();
   return `<div class="stack">
-    <section class="panel"><h2>Your journey</h2><p class="muted" style="margin-top:6px">In each land: find 3 spirit orbs, solve the shrine puzzle and defeat the 3 warriors. A mythical beast roams the road: beat it for the Spirit Key, then open the spirit gate and face its Spirit Warrior. Your power: <b>${pw}</b>.</p></section>
+    <section class="panel"><h2>Your journey</h2><p class="muted" style="margin-top:6px">In each land: find 3 spirit orbs, solve the shrine puzzle and defeat the 4 warriors (the 修 trial warrior only duels samurai who have trained). A mythical beast roams the road: beat it for the Spirit Key, then open the spirit gate and face its Spirit Warrior. Your power: <b>${pw}</b>.</p></section>
     ${CHAPTERS.map((c, ci) => {
       const open = chapterUnlocked(ci), j = S.journey[ci], m = MYTHS[ci], wb = warriorsBeaten(ci), of = orbsFound(ci);
       return `<section class="panel chapter ${open ? '' : 'locked-ch'}">
@@ -120,7 +120,7 @@ function screenQuest() {
         ${open ? `<ul class="checks">
           ${check(of === 3, `Spirit orbs found (${of}/3)`)}
           ${check(j.puzzle, `Shrine puzzle: ${PUZZLE_NAMES[ci]}`)}
-          ${check(wb === 3, `Warriors defeated (${wb}/3)`)}
+          ${check(wb === warriorCount(ci), `Warriors defeated (${wb}/${warriorCount(ci)})`)}
           ${check(j.key, `Spirit Key: defeat ${m.name}, ${m.title} · power ${m.rec}`)}
           ${check(j.myth, `Spirit Warrior of ${m.name} · power ${SPIRITS[ci].rec}`)}
         </ul>
@@ -134,18 +134,21 @@ function stageCard(s, i) {
   const beaten = !!S.beaten[i], d = swordDef(s.sword), known = S.seen.includes(d.id), pw = playerPower();
   const diff = pw >= s.rec ? 'ok' : pw >= s.rec * .75 ? 'close' : 'hard';
   return `<article class="stage ${s.boss ? 'boss' : ''} ${beaten ? '' : 'unbeaten'}">
-    <div class="row between"><span class="no">Power <b class="pw ${diff}">${s.rec}</b></span>${s.boss ? '<span class="tag boss">Boss</span>' : ''}</div>
+    <div class="row between"><span class="no">Power <b class="pw ${diff}">${s.rec}</b></span>${s.boss ? '<span class="tag boss">Boss</span>' : s.duo ? '<span class="tag boss">2 vs 1</span>' : s.train ? '<span class="tag train">修 Trial</span>' : ''}</div>
     <div><div class="nm">${s.name}</div><div class="ti">${s.title}</div></div>
     ${bladeSVG(d, { sil: !known })}
     <div style="font-size:13px;font-weight:900;color:${known ? RAR[d.r].c : 'var(--muted)'}">${known ? d.name : 'Mystery blade'}</div>
     ${s.outfit ? `<div style="font-size:12px" class="muted">Reward: ${S.outfits.includes(s.outfit) ? '✓ ' : ''}${outfitDef(s.outfit).name} outfit</div>` : ''}
+    ${s.train ? `<div class="trainreq ${trainMet(s) ? 'ok' : ''}">${trainMet(s) ? '✓' : '🔒'} Needs ${trainNeed(s)} <small>(you: ${S.sk[s.train.sk].l})</small></div>` : ''}
     ${starRow(S.stars[i] || 0)}
     ${beaten ? `<button class="btn small" data-fight="${i}">Rematch</button>` : '<button class="btn small" disabled>Find them in the land</button>'}
   </article>`;
 }
 function screenTrain() {
+  const trials = STAGES.map((s, i) => [s, i]).filter(([s, i]) => s.train && chapterUnlocked(s.ch) && !S.beaten[i]);
   return `<div class="stack">
-    <section class="panel"><h2>Training Dojo</h2><p class="muted" style="margin-top:6px">Each drill grows one skill. Higher skills make you stronger in every battle.</p></section>
+    <section class="panel"><h2>Training Dojo</h2><p class="muted" style="margin-top:6px">Each drill grows one skill. Higher skills make you stronger in every battle.</p>
+    ${trials.length ? `<div class="trials">${trials.map(([s]) => `<div class="trainreq ${trainMet(s) ? 'ok' : ''}">${trainMet(s) ? '✓ Ready for' : '🔒 To face'} <b>${s.name}</b>: ${trainNeed(s)} <small>(you: ${S.sk[s.train.sk].l})</small></div>`).join('')}</div>` : ''}</section>
     ${Object.entries(TRAININGS).map(([k, t]) => {
       const s = S.sk[t.skill], need = skillNeed(s.l);
       return `<section class="panel train-card"><div class="glyph">${t.g}</div><div class="stack" style="gap:8px">

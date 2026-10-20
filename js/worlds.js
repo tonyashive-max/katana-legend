@@ -567,10 +567,173 @@ function worldDojo() {
   return W;
 }
 
+/* ================= Chapter 5: Kakunodate, a woodland samurai village ================= */
+function weepingCherries(W, spots) {
+  const trunk = merge([P(GEO.cyl(.2, .36, 3.4, 8), '#3a2620', [0, 1.7, 0]), P(GEO.cyl(.1, .16, 2, 6), '#3a2620', [.6, 3.3, 0], [0, 0, -.9]), P(GEO.cyl(.1, .16, 2, 6), '#3a2620', [-.6, 3.3, .2], [.2, 0, .9])]);
+  const drape = merge([0, 1, 2, 3, 4, 5, 6].map(i => P(GEO.ico(.17 - i * .012, 0), ['#ffe4ee', '#ffd0e4', '#ffc0da', '#ffb0d2', '#ffa0ca', '#ff90c2', '#ff80ba'][i], [Math.sin(i * 1.7) * .05, -i * .38, Math.cos(i * 1.3) * .05], [i, i * .7, 0])).concat([P(GEO.cyl(.012, .012, 2.6, 3), '#7a3a4a', [0, -1.2, 0])]));
+  const tr = [], dr = [], tops = [];
+  spots.filter(([x, z]) => clearOK(x, z)).forEach(([x, z, k]) => {
+    const sc = .9 + (k || .5) * .5, y = W.hAt(x, z); obs(W, x, z, .5 * sc);
+    tr.push({ p: [x, y, z], r: [0, (k || .5) * 6, 0], s: sc });
+    for (let i = 0; i < 28; i++) { const a = Math.random() * 6.28, r = (.5 + Math.random() * 1.9) * sc; dr.push({ p: [x + Math.cos(a) * r, y + (4.4 + Math.random() * .8) * sc, z + Math.sin(a) * r], r: [rnd(-.15, .15), Math.random() * 6, rnd(-.15, .15)], s: [sc, (.7 + Math.random() * .7) * sc, sc] }); }
+    tops.push({ p: [x, y + 4.7 * sc, z], s: [1.8 * sc, 1.1 * sc, 1.8 * sc], c: '#ffc8e0' });
+  });
+  W.scene.add(inst(trunk, toon({ vertexColors: true }), tr, true));
+  W.scene.add(inst(drape, toon({ vertexColors: true }), dr, false));
+  W.scene.add(inst(GEO.ico(1, 1), toon({ flatShading: true }), tops, true));
+}
+function worldKakunodate() {
+  const W = newWorld(4);
+  addSky(W, { top: '#3a6aa8', mid: '#a8c8e8', bot: '#ffe0e8', sunDir: new V3(.3, .35, 1), sunCol: '#fff2e0', sunDeg: 4, fog: '#c8d8d0', fogNear: 22, fogFar: 140, haze: .55 });
+  addLights(W, { sky: '#e8f4ff', ground: '#3a4a2a', hemi: .8, key: '#fff4e0', keyI: .9, keyDir: new V3(-.4, 1, .5), rim: '#ffc8e0', rimI: .8, rimDir: new V3(.2, .5, 1) });
+  addGround(W, { a: '#4a6a32', b: '#5a7a3a', c: '#7a8a5a', clear: 8, hill: 2.2, flat: true });
+  addArena(W, { a: '#a8a498', b: '#88847a', rings: 10, stone: '#6a6a58', crest: '#e85a9a' });
+  addMountains(W, { base: '#3a5a4a', top: '#6a8a7a', snow: '#e8f0f0', snowLine: .9, r0: 90, r1: 170, h0: 22, h1: 50 });
+  // black board fences lining the samurai street behind your opponent
+  const fence = merge([
+    P(GEO.box(4.2, .5, .7, 6, 1, 1), '#6a6a5a', [0, .25, 0], null, null, x => ((Math.floor(x * 1.5) & 1) ? new COL('#7a7a6a') : new COL('#5a5a4c'))),
+    P(GEO.box(4.1, 1.7, .22, 12, 1, 1), '#141214', [0, 1.35, 0], null, null, x => ((Math.floor(x * 3) & 1) ? new COL('#1a181c') : new COL('#0e0c10'))),
+    P(GEO.box(4.4, .14, .6), '#2a2a30', [0, 2.25, 0]), P(GEO.box(4.3, .1, .42), '#3a3a44', [0, 2.36, 0]),
+  ]);
+  const fences = [];
+  for (let z = 9; z < 52; z += 4.2) for (const sx of [-1, 1]) { const x = sx * 7.2; if (!clearOK(x, z)) continue; fences.push({ p: [x, W.hAt(x, z), z], r: [0, Math.PI / 2, 0] }); obs(W, x, z, 2.1); }
+  for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) { const z = -2 - k * 4.2, x = sx * 9; fences.push({ p: [x, W.hAt(x, z), z], r: [0, Math.PI / 2, 0] }); obs(W, x, z, 2.1); }
+  W.scene.add(inst(fence, toon({ vertexColors: true }), fences, true));
+  // samurai house gates with dark roofs
+  const gate = merge([P(GEO.box(.3, 3, .3), '#2a1a12', [-1.6, 1.5, 0]), P(GEO.box(.3, 3, .3), '#2a1a12', [1.6, 1.5, 0]), P(GEO.box(3.8, .3, .5), '#2a1a12', [0, 2.9, 0]), P(GEO.cone(2.8, 1, 4), '#2a2a30', [0, 3.5, 0], [0, Math.PI / 4, 0], [1.2, 1, .45])]);
+  const gates = [[-7.2, 20, Math.PI / 2], [7.2, 30, -Math.PI / 2], [-7.2, 40, Math.PI / 2]].map(([x, z, r]) => ({ p: [x, 0, z], r: [0, r, 0] }));
+  W.scene.add(inst(gate, toon({ vertexColors: true }), gates, true));
+  const house = merge([
+    P(GEO.box(5, 2.3, 3.6), '#d8c8a8', [0, 1.15, 0]), ...[-2.4, -1.2, 0, 1.2, 2.4].map(x => P(GEO.box(.16, 2.3, 3.64), '#3a2418', [x, 1.15, 0])),
+    P(GEO.cone(4.2, 2.2, 4), '#3a3028', [0, 3.3, 0], [0, Math.PI / 4, 0], [1.4, 1, 1]), P(GEO.box(6.2, .2, .4), '#2a2018', [0, 4.35, 0]),
+  ]);
+  const houses = [[-13, 18, .1], [13.5, 26, -.1], [-14, 36, .2], [14, 44, 0], [-16, 4, .3]].filter(([x, z]) => clearOK(x, z)).map(([x, z, r]) => { obs(W, x, z, 3.2); return { p: [x, W.hAt(x, z), z], r: [0, Math.PI / 2 + r, 0] }; });
+  W.scene.add(inst(house, toon({ vertexColors: true }), houses, true));
+  houses.forEach(hh => { const h = halo('#ffd8a0', 1.6, .5); h.position.set(hh.p[0] + (hh.p[0] < 0 ? 2.6 : -2.6), 1.2, hh.p[2]); W.scene.add(h); });
+  weepingCherries(W, [[-5.6, 12, .6], [5.8, 16, .4], [-5.8, 27, .8], [5.6, 34, .5], [-10, -6, .6], [10, -8, .3], [0, 48, .9]]);
+  // tall cedar groves behind the houses
+  const cedar = merge([P(GEO.cyl(.16, .3, 4, 7), '#5a3a26', [0, 2, 0])].concat([0, 1, 2, 3, 4].map(i => P(GEO.cone(1.5 - i * .24, 2.2, 8), i % 2 ? '#1e4a2a' : '#245632', [0, 3 + i * 1.5, 0]))));
+  W.scene.add(inst(cedar, toon({ vertexColors: true, flatShading: true }), scatter(110, 18, 60, 401, (x, z) => Math.abs(x) < 16 && z > -6 && z < 50).map(([x, z, k]) => { obs(W, x, z, .4); return { p: [x, W.hAt(x, z), z], r: [0, k * 6, 0], s: [1 + k * .4, 1.1 + k, 1 + k * .4] }; }), true));
+  addLanterns(W, [[-3.6, 6.2], [3.6, 6.2], [-5.4, 0], [5.4, 0], [-3.8, -4.5], [3.8, -4.5]], '#8a8a7a', '#ffe0ec');
+  addGrass(W, { base: '#2f5a1e', tip: '#8ab84a', tints: ['#ffffff', '#e8ffd0', '#d8f0c0'], n: 1700, flowers: 220, flowerCols: ['#ffd0e4', '#ffffff', '#ffb8d8'] });
+  addRays(W, '#fff0e0', 5, 24);
+  addClouds(W, { color: '#ffffff', n: 14, opacity: .8 });
+  W.ambient.push(new Ambient({ n: 480, tex: TEX.petal, color: '#ffd0e4', color2: '#ffb8d8', size: .085, cx: 0, cy: 4, cz: 2, ax: 12, ay: 4.5, az: 12, sway: .9, vel: r => [.2 + r() * .3, -.35 - r() * .3, -.1 + r() * .2] }));
+  W.ambient.push(new Ambient({ n: 60, tex: TEX.glow, color: '#d8ff9a', size: .07, alpha: .9, blending: THREE.AdditiveBlending, cx: 0, cy: 1.8, cz: 2, ax: 8, ay: 1.8, az: 8, sway: .4, twinkle: 2, vel: r => [(r() - .5) * .2, (r() - .5) * .1, (r() - .5) * .2], seed: 41 }));
+  return W;
+}
+
+/* ================= Chapter 6: Azuchi Castle above a stormy lake ================= */
+function worldAzuchi() {
+  const W = newWorld(5);
+  addSky(W, { top: '#1a1a3a', mid: '#6a5a8a', bot: '#ffb86a', sunDir: new V3(-.3, .12, 1), sunCol: '#ffd27a', sunDeg: 6, fog: '#7a6a7a', fogNear: 20, fogFar: 130, haze: .75 });
+  addLights(W, { sky: '#ffd8a8', ground: '#2a2a3a', hemi: .75, key: '#ffe8c0', keyI: .9, keyDir: new V3(.5, 1, -.4), rim: '#8ab8ff', rimI: .9, rimDir: new V3(-.3, .4, 1) });
+  addGround(W, { a: '#5a6a3a', b: '#4a5a32', c: '#8a8274', clear: 8, hill: 2.6, flat: true });
+  addArena(W, { a: '#b0a898', b: '#8a8274', rings: 9, stone: '#7a7468', glowRing: '#ffc23a', crest: '#c0281e' });
+  addMountains(W, { base: '#3a3450', top: '#6a5a7a', snow: '#c8b8d8', snowLine: .9, r0: 100, r1: 180, h0: 20, h1: 45 });
+  // the lake to the left, with a far shore
+  const lake = new THREE.Mesh(new THREE.PlaneGeometry(260, 200, 1, 1), waterMat('#2a3a6a', '#8ab8ff')); lake.rotation.x = -Math.PI / 2; lake.position.set(-150, -.6, 40); W.scene.add(lake);
+  W.updaters.push((dt, t) => { lake.material.uniforms.time.value = t; });
+  // fitted stone terraces stepping up behind the arena
+  const blk = (w, h, d) => P(GEO.box(w, h, d, Math.round(w * 1.5), Math.round(h * 2), 1), '#8a8274', [0, h / 2, 0], null, null, (x, y) => ((Math.floor(x * 1.5 + Math.floor(y * 2) * .5) & 1) ? new COL('#9a9284') : new COL('#6e685c')));
+  const terr = [];
+  [[0, 22, 30, 2.4], [0, 28, 24, 4.8], [0, 34, 18, 7.2]].forEach(([x, z, w, h]) => { const m = new THREE.Mesh(merge([blk(w, h, 5), P(GEO.box(w + .4, .2, 5.4), '#4a5a32', [0, h + .1, 0])]), toon({ vertexColors: true })); m.position.set(x, 0, z); m.castShadow = true; m.receiveShadow = true; W.scene.add(m); terr.push(m); });
+  // the golden seven-story tower crowning the terraces
+  const red = '#a8221a', gold = '#ffc23a', blkc = '#1e1a1a', wall = '#f0ebe0', roof = '#2a2622', it = [];
+  let y = 0;
+  [[11, 3.2, wall], [9.6, 3, wall], [8.4, 2.8, wall], [7.2, 2.6, blkc]].forEach(([w, h, c]) => { it.push(P(GEO.box(w * .8, h, w * .7), c, [0, y + h / 2, 0])); it.push(P(GEO.cyl(w * .3, w * .82, 1.3, 4), roof, [0, y + h + .5, 0], [0, Math.PI / 4, 0], [1, 1, .9])); y += h + 1.1; });
+  it.push(P(GEO.cyl(2.8, 2.8, 2.6, 8), red, [0, y + 1.3, 0])); it.push(P(GEO.cyl(1.2, 3.8, 1.1, 8), roof, [0, y + 3, 0])); y += 3.6;
+  it.push(P(GEO.box(4, 2.6, 4), gold, [0, y + 1.3, 0])); it.push(P(GEO.cyl(.9, 3.6, 1.3, 4), gold, [0, y + 3.1, 0], [0, Math.PI / 4, 0])); y += 3.8;
+  for (const sx of [-1, 1]) it.push(P(GEO.cone(.25, 1, 5), gold, [sx * 1.1, y + .4, 0], [0, 0, -sx * .5]));
+  const tower = new THREE.Mesh(merge(it), toon({ vertexColors: true })); tower.position.set(0, 7.2, 40); tower.scale.setScalar(1.3); tower.castShadow = true; W.scene.add(tower);
+  const wins = []; for (let k = 0; k < 20; k++) wins.push({ p: [rnd(-4, 4), 7.2 + rnd(2, 22), 40 - 4.6], s: [.5, .7, .2] });
+  W.scene.add(inst(GEO.box(1, 1, 1), glowify(new THREE.MeshBasicMaterial({ color: '#ffd27a', fog: false })), wins));
+  const gh = halo('#ffc23a', 16, .3); gh.position.set(0, 40, 40); W.scene.add(gh);
+  // black pines and war banners
+  const pine = merge([
+    P(GEO.cyl(.12, .22, 2.4, 6), '#3a2a22', [0, 1.2, 0], [0, 0, .18]), P(GEO.cyl(.07, .1, 1.6, 5), '#3a2a22', [.5, 2.3, 0], [0, 0, -1.1]), P(GEO.cyl(.07, .1, 1.4, 5), '#3a2a22', [-.4, 2.5, .2], [.3, 0, .9]),
+    P(GEO.ico(1, 1), '#2a4a2a', [.25, 2.7, 0], null, [1.4, .45, 1.2]), P(GEO.ico(1, 1), '#30562e', [1.2, 2.5, .1], null, [1, .35, .9]), P(GEO.ico(1, 1), '#2a4a2a', [-1, 3, .3], null, [.9, .35, .8]), P(GEO.ico(1, 1), '#356032', [-.2, 3.5, -.2], null, [.8, .3, .7]),
+  ]);
+  W.scene.add(inst(pine, toon({ vertexColors: true }), [[-8, 10, .3], [8.5, 12, .7], [-11, 2, .1], [11, -3, .5], [-9, -9, .8], [10, -10, .2], [-14, 18, .6], [14, 20, .4]].concat(scatter(16, 16, 40, 503, (x, z) => x < -30)).filter(([x, z]) => clearOK(x, z)).map(([x, z, k]) => { obs(W, x, z, .5); return { p: [x, W.hAt(x, z), z], r: [0, k * 6, 0], s: 1 + k * .5 }; }), true));
+  const pole = merge([P(GEO.cyl(.05, .05, 4, 5), '#2a1a12', [0, 2, 0]), P(GEO.box(.9, 2.6, .04), '#c0281e', [.45, 2.4, 0]), P(GEO.cyl(.28, .28, .05, 14), '#ffc23a', [.45, 2.9, .03], [Math.PI / 2, 0, 0])]);
+  const poles = [[-4.8, 9], [4.8, 9], [-6.5, 4], [6.5, 4], [-5.2, -6], [5.2, -6]].map(([x, z]) => { obs(W, x, z, .2); return { p: [x, W.hAt(x, z), z], r: [0, x < 0 ? 0 : Math.PI, 0] }; });
+  W.scene.add(inst(pole, toon({ vertexColors: true, side: THREE.DoubleSide }), poles, true));
+  brazier(W, -4.2, 5.5, '#ffb03a'); brazier(W, 4.2, 5.5, '#ffb03a'); brazier(W, -4.2, -3.6, '#ffb03a'); brazier(W, 4.2, -3.6, '#ffb03a');
+  addGrass(W, { base: '#3a4a22', tip: '#9ab04a', tints: ['#ffffff', '#fff2d0', '#e8f0c0'], n: 1200, flowers: 60, flowerCols: ['#ffd84a', '#ffffff'] });
+  addClouds(W, { color: '#4a4460', n: 18, opacity: .85 });
+  // lightning over the lake, with rain
+  const boltMat = glowify(new THREE.MeshBasicMaterial({ color: '#e8f0ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  let bolt = null, flashT = 0;
+  W.updaters.push((dt, t) => {
+    if (flashT > 0) { flashT -= dt; W.hemi.intensity = .54 + flashT * 5; boltMat.opacity = Math.max(0, flashT * 6); if (flashT <= 0) { W.hemi.intensity = .54; if (bolt) bolt.visible = false; } return; }
+    if (Math.random() > dt * .12) return;
+    flashT = .22; if (bolt) { W.scene.remove(bolt); bolt.geometry.dispose(); }
+    let px = rnd(-150, -40), py = 75, pz = rnd(20, 120); const segs = [];
+    while (py > 0) { const nx = px + rnd(-5, 5), ny = py - rnd(5, 10); segs.push(P(GEO.box(.6, Math.hypot(nx - px, ny - py), .6), '#ffffff', [(px + nx) / 2, (py + ny) / 2, pz], [0, 0, Math.atan2(px - nx, py - ny)])); px = nx; py = ny; }
+    bolt = new THREE.Mesh(merge(segs), boltMat); bolt.frustumCulled = false; W.scene.add(bolt);
+    setTimeout(() => { if (CURWORLD === W) sfx.taiko(.4); }, 400 + Math.random() * 900);
+  });
+  W.ambient.push(new Ambient({ n: 900, tex: TEX.flake, color: '#cfe0ff', color2: '#a8c0ff', size: .035, alpha: .7, cx: 0, cy: 6, cz: 2, ax: 13, ay: 7, az: 13, sway: .1, vel: r => [-.6 - r() * .2, -9 - r() * 3, .2], seed: 51 }));
+  return W;
+}
+
+/* ================= Chapter 7: the Imperial Palace, Tokyo at night ================= */
+function worldPalace() {
+  const W = newWorld(6);
+  addSky(W, { top: '#030616', mid: '#1a2a5a', bot: '#4a3a7a', sunDir: new V3(.35, .38, 1), sunCol: '#fff8e0', sunDeg: 4, fog: '#1e2448', fogNear: 22, fogFar: 160, stars: true, haze: .45 });
+  addLights(W, { sky: '#a8b8ff', ground: '#1a1a2a', hemi: .78, key: '#e8eeff', keyI: .8, keyDir: new V3(-.4, 1, .6), rim: '#ffd27a', rimI: 1, rimDir: new V3(.3, .4, -1) });
+  addGround(W, { a: '#2a3a2a', b: '#22321e', c: '#c8c4b8', clear: 9, hill: 1.2, flat: true });
+  addArena(W, { a: '#d8d4c8', b: '#b0aca0', rings: 12, stone: '#9a9690', glowRing: '#ffd84a', crest: '#ffb03a' });
+  // the moat and its double stone bridge
+  const moat = new THREE.Mesh(ribbon([new V3(-90, .02, 24), new V3(0, .02, 24), new V3(90, .02, 24)], 9), waterMat('#0a1430', '#4a6aa8')); W.scene.add(moat);
+  W.updaters.push((dt, t) => { moat.material.uniforms.time.value = t; });
+  const br = [];
+  for (const ox of [-3.2, 3.2]) { br.push(P(GEO.tor(3.2, .9, 6, 20, Math.PI), '#b8b4a8', [ox, -.6, 24], [0, Math.PI / 2, 0], [1, 1, 1.4])); }
+  br.push(P(GEO.box(13, .5, 4.6), '#c8c4b8', [0, 2.4, 24])); for (const sx of [-1, 1]) br.push(P(GEO.box(13, .7, .3), '#a8a498', [0, 3, 24 + sx * 2.15]));
+  for (let k = -6; k <= 6; k += 3) for (const sx of [-1, 1]) br.push(P(GEO.cyl(.18, .18, 1.4, 8), '#e8e4d8', [k, 3.4, 24 + sx * 2.15]));
+  const bridge = new THREE.Mesh(merge(br), toon({ vertexColors: true })); bridge.rotation.y = Math.PI / 2; bridge.position.set(-14, 0, 24 + 14); bridge.castShadow = true; W.scene.add(bridge);
+  for (const sx of [-1, 1]) for (let k = -6; k <= 6; k += 6) { const h = halo('#ffe8b0', 1.6, .8); h.position.set(-14 + sx * 2.15, 4.3, 38 + k); W.scene.add(h); }
+  // white walls with grey roofs and a three-story keep
+  const wseg = merge([P(GEO.box(4.2, 1.4, 1, 6, 2, 1), '#7a766c', [0, .7, 0], null, null, (x, y) => ((Math.floor(x * 1.4 + (y > .7 ? .5 : 0)) & 1) ? new COL('#8a8678') : new COL('#6a665c'))), P(GEO.box(4, 2.2, .5), '#f4f2ec', [0, 2.5, 0]), P(GEO.box(4.6, .3, 1.3), '#3a4048', [0, 3.75, 0]), P(GEO.box(4.4, .25, .9), '#3a4048', [0, 4, 0])]);
+  const walls = [];
+  for (let i = -8; i <= 8; i++) { const x = i * 4.1; walls.push({ p: [x, 0, 30] }); }
+  for (let i = -5; i <= 5; i++) { if (Math.abs(i) < 1) continue; const a = Math.PI + i * .2; walls.push({ p: [Math.sin(a) * 17, 0, Math.cos(a) * 17], r: [0, a, 0] }); obs(W, Math.sin(a) * 17, Math.cos(a) * 17, 2.1); }
+  W.scene.add(inst(wseg, toon({ vertexColors: true }), walls, true));
+  const it = [P(GEO.cyl(9, 11, 5, 4, 2), '#7a766c', [0, 2.5, 0], [0, Math.PI / 4, 0])]; let y = 5;
+  [[11, 3.4], [8.6, 3], [6.4, 2.8]].forEach(([w, h]) => { it.push(P(GEO.box(w * .8, h, w * .7), '#f4f2ec', [0, y + h / 2, 0])); it.push(P(GEO.cyl(w * .3, w * .85, 1.4, 4), '#3a4048', [0, y + h + .55, 0], [0, Math.PI / 4, 0], [1, 1, .9])); y += h + 1.2; });
+  it.push(P(GEO.box(1.4, .8, .5), '#ffd84a', [0, y + .2, 0]));
+  const keep = new THREE.Mesh(merge(it), toon({ vertexColors: true })); keep.position.set(16, 0, 46); keep.castShadow = true; W.scene.add(keep);
+  const kw = []; for (let k = 0; k < 14; k++) kw.push({ p: [16 + rnd(-3.5, 3.5), rnd(6, 16), 46 - 3.9], s: [.5, .6, .2] });
+  W.scene.add(inst(GEO.box(1, 1, 1), glowify(new THREE.MeshBasicMaterial({ color: '#ffe0a0', fog: false })), kw));
+  // black pines on the lawns
+  const pine = merge([
+    P(GEO.cyl(.12, .22, 2.4, 6), '#3a2a22', [0, 1.2, 0], [0, 0, .18]), P(GEO.cyl(.07, .1, 1.6, 5), '#3a2a22', [.5, 2.3, 0], [0, 0, -1.1]),
+    P(GEO.ico(1, 1), '#1e3a22', [.25, 2.7, 0], null, [1.4, .45, 1.2]), P(GEO.ico(1, 1), '#244426', [1.2, 2.5, .1], null, [1, .35, .9]), P(GEO.ico(1, 1), '#1e3a22', [-.6, 3.2, .3], null, [.9, .35, .8]),
+  ]);
+  W.scene.add(inst(pine, toon({ vertexColors: true }), [[-8, 10, .3], [8.5, 12, .7], [-11, 2, .1], [11, -3, .5], [-9, -9, .8], [10, -10, .2], [-6, 18, .6], [7, 19, .4]].filter(([x, z]) => clearOK(x, z)).map(([x, z, k]) => { obs(W, x, z, .5); return { p: [x, W.hAt(x, z), z], r: [0, k * 6, 0], s: 1 + k * .5 }; }), true));
+  // Tokyo's towers glowing behind the palace, and a red-and-white lattice tower
+  const tw = [], tl = [];
+  for (let i = 0; i < 70; i++) { const a = rnd(-1.2, 1.2), r = rnd(95, 190), x = Math.sin(a) * r, z = Math.cos(a) * r, h = 20 + Math.random() ** 2 * 80, wd = 6 + Math.random() * 10, dp = wd * (.7 + Math.random() * .6), ry = Math.random() * 3; tw.push({ p: [x, -1, z], r: [0, ry, 0], s: [wd, h, dp], c: pick(['#1a2034', '#222a44', '#161c2e', '#2a2a40']) }); for (let k = 0; k < 3 + h / 14; k++) tl.push({ p: [x, rnd(3, h - 2), z], r: [0, ry, 0], s: [wd * 1.02, .45, dp * 1.02], c: pick(['#ffe8b0', '#bfe0ff', '#ffd27a', '#ffffff']) }); }
+  W.scene.add(inst(merge([P(GEO.box(1, 1, 1), '#1a2034', [0, .5, 0])]), toon({ vertexColors: true }), tw, false));
+  W.scene.add(inst(GEO.box(1, 1, 1), glowify(new THREE.MeshBasicMaterial({ color: '#ffffff', fog: false })), tl, false));
+  const lat = []; for (let k = 0; k < 14; k++) { const w = 9 * (1 - k / 15) + .6, yy = k * 6; lat.push(P(GEO.cyl(w * .55, (w + .7) * .55, 6, 4, 1, true), k % 2 ? '#ffffff' : '#e8401a', [0, yy + 3, 0], [0, Math.PI / 4, 0])); }
+  const ltw = new THREE.Mesh(merge(lat), toon({ vertexColors: true, side: THREE.DoubleSide })); ltw.position.set(-60, -1, 150); W.scene.add(ltw);
+  for (let k = 0; k < 8; k++) { const h = halo(k % 3 ? '#ffd27a' : '#ff5a3a', 4, .8); h.position.set(-60, 8 + k * 10, 150); W.scene.add(h); }
+  addLanterns(W, [[-3.6, 6.2], [3.6, 6.2], [-6, 1], [6, 1], [-3.8, -4.5], [3.8, -4.5]], '#9a9690', '#ffe8b0');
+  addGrass(W, { base: '#1e3a1e', tip: '#5a8a3a', tints: ['#ffffff', '#d8f0d0'], n: 900, flowers: 0, flowerCols: ['#ffffff'] });
+  // fireworks over the city
+  W.updaters.push((dt, t) => {
+    if (Math.random() > dt * .6) return;
+    const fp = new V3(rnd(-70, 70), rnd(40, 65), rnd(80, 140)), col = pick(['#ff6a9a', '#ffd84a', '#7ad8ff', '#b88aff', '#7affb0']);
+    FX.glowBurst(fp, col, 26, .5); FX.sparks(fp, col, 110, 18, .55); setTimeout(() => FX.sparks(fp, '#ffffff', 34, 10, .4), 120);
+  });
+  W.ambient.push(new Ambient({ n: 160, tex: TEX.glow, color: '#ffe08c', color2: '#fff4d0', size: .06, alpha: 1, blending: THREE.AdditiveBlending, cx: 0, cy: 3, cz: 2, ax: 10, ay: 3, az: 10, sway: .5, twinkle: 2, vel: r => [(r() - .5) * .2, .1 + r() * .2, (r() - .5) * .2], seed: 61 }));
+  return W;
+}
 function buildWorld(kind) {
   POI_CLEAR = makePoiClear(kind);
   if (kind === 'dojo') return worldDojo();
-  const W = [worldBamboo, worldSnow, worldCastle, worldVolcano][kind]();
+  const W = [worldBamboo, worldSnow, worldCastle, worldVolcano, worldKakunodate, worldAzuchi, worldPalace][kind]();
   if (typeof LAND_GRADE !== 'undefined') W.grade = LAND_GRADE[kind];
   return W;
 }

@@ -446,12 +446,52 @@ class Samurai {
         for (const sg of [-1, 1]) items.push(P(GEO.box(.05, .02, .02), '#141418', [sg * .045, .06, .11], [0, 0, sg * .25]));
         items.push(P(GEO.sph(.125, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), '#e8e2d6', [0, .01, -.02], null, [1.05, 1, 1.1]));
         break;
+      case 'kitsune': {
+        // a white fox face: long snout, tall ears with pink insides, red markings
+        const W = '#fbf6ee', red = '#d22a1c';
+        items.push(P(GEO.sph(.14, 14, 10), W, [0, .0, 0], null, [1.05, 1, 1.05]));
+        items.push(P(GEO.cone(.075, .24, 8), W, [0, -.03, .2], [Math.PI / 2, 0, 0], [1.15, 1, .8]));
+        items.push(P(GEO.sph(.028, 8, 6), '#1a1214', [0, -.035, .32]));
+        for (const sg of [-1, 1]) {
+          items.push(P(GEO.cone(.06, .2, 4), W, [sg * .085, .17, -.01], [0, 0, -sg * .25]));
+          items.push(P(GEO.cone(.035, .13, 4), '#ffb8c8', [sg * .085, .16, .02], [0, 0, -sg * .25]));
+          items.push(P(GEO.box(.012, .07, .01), red, [sg * .045, .06, .135], [0, 0, sg * .5]));
+          items.push(P(GEO.box(.05, .012, .01), red, [sg * .07, -.05, .12], [0, sg * .4, 0]));
+        }
+        items.push(P(GEO.box(.016, .05, .01), red, [0, .1, .13]));
+        break;
+      }
       default: break;
     }
     if (L.crest && L.helm !== 'kabuto') this.crest(items, L.crest, cc);
     if (L.crest === 'oni' && L.skin) for (const sg of [-1, 1]) items.push(P(GEO.cone(.014, .05, 5), '#f2ead8', [sg * .04, -.06, .1], [Math.PI, 0, 0]));
     if (items.length) this.helmMesh = this.mk(merge(items), H);
     if (L.wings) this.buildWings(L.wings);
+    if (L.tails) this.buildTails(L.tails, L.tailTip || L.tails);
+    if (L.drums) this.buildDrums(L.drums);
+  }
+  /* nine fox tails fanning out behind the hips, each a chain that sways */
+  buildTails(col, tip) {
+    this.tails = [];
+    const mat = toon({ vertexColors: true }), ol = outlineMat(.008);
+    const segGeo = k => merge([P(GEO.sph(.11 - k * .012, 10, 8), k === 3 ? tip : col, [0, 0, -.1], null, [1, 1, 1.8], (x, y, z) => (k === 3 && z < -.1) ? new COL(tip) : new COL(col))]);
+    const geos = [0, 1, 2, 3].map(segGeo);
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 8 - .5) * 2.2;
+      let parent = new THREE.Group(); parent.position.set(0, -.02, -.18); parent.rotation.set(-.6 - Math.abs(a) * .15, a, 0); this.hips.add(parent);
+      const chain = [parent];
+      for (let k = 0; k < 4; k++) { const m = new THREE.Mesh(geos[k], mat); m.castShadow = true; m.add(new THREE.Mesh(geos[k], ol)); parent.add(m); const nxt = new THREE.Group(); nxt.position.z = -.22 + k * .015; parent.add(nxt); chain.push(nxt); parent = nxt; }
+      this.tails.push({ chain, a, ph: i * .7 });
+    }
+  }
+  /* Raijin's ring of thunder drums */
+  buildDrums(col) {
+    const g = new THREE.Group(); g.position.set(0, .34, -.3); this.chest.add(g);
+    const ringM = new THREE.Mesh(GEO.tor(.52, .03, 6, 40), toon({ color: '#ffd84a' })); g.add(ringM);
+    const drum = merge([P(GEO.cyl(.11, .11, .1, 14), col, [0, 0, 0], [Math.PI / 2, 0, 0]), P(GEO.cyl(.095, .095, .105, 14), '#f4ead0', [0, 0, 0], [Math.PI / 2, 0, 0]), P(GEO.cyl(.03, .03, .107, 8), '#2a1a12', [.03, .02, 0], [Math.PI / 2, 0, 0]), P(GEO.cyl(.03, .03, .107, 8), '#2a1a12', [-.035, .01, 0], [Math.PI / 2, 0, 0]), P(GEO.cyl(.03, .03, .107, 8), '#2a1a12', [0, -.035, 0], [Math.PI / 2, 0, 0])]);
+    const dm = toon({ vertexColors: true });
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, m = new THREE.Mesh(drum, dm); m.position.set(Math.cos(a) * .52, Math.sin(a) * .52, 0); m.castShadow = true; m.add(new THREE.Mesh(drum, outlineMat(.006))); g.add(m); }
+    this.drums = g;
   }
   crest(items, type, cc) {
     const ex = (shape, d) => new THREE.ExtrudeGeometry(shape, { depth: d || .012, bevelEnabled: false, curveSegments: 10 });
@@ -552,6 +592,8 @@ class Samurai {
       }
       pa.needsUpdate = true;
     }
+    if (this.tails) this.tails.forEach(T => T.chain.forEach((g, k) => { if (k) { g.rotation.x = Math.sin(this.t * 2.2 + T.ph + k * .6) * .18 - .05; g.rotation.y = Math.cos(this.t * 1.7 + T.ph + k * .5) * .22; } }));
+    if (this.drums) this.drums.rotation.z += .4 * (this._dtLast || .016);
     if (this.wings) this.wings.forEach(w => { const sg = w.userData.sg; w.rotation.y = sg * (.5 + Math.sin(this.t * 3.2) * .35 + this.wingFlare); w.rotation.z = sg * .15; });
     if (this.scarf) this.scarf.forEach((s, i) => { s.rotation.x = .25 + Math.sin(this.t * 5 - i * .9) * .25; s.rotation.y = Math.sin(this.t * 3.4 - i * .7) * .3; });
     // KO fall
