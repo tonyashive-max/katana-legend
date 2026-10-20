@@ -8,7 +8,7 @@ const BIOMES = [
     sky: { top: '#2c2160', mid: '#ff9566', bot: '#ffcf8a', sunDir: [.18, .1, 1], sunCol: '#ffd9a0', sunDeg: 5.5, haze: .7, stars: 0 },
     fog: '#f0a07e', fogNear: 26, fogFar: 125,
     hemi: ['#ffd6b0', '#4a3a5a', .55], key: ['#ffe2c0', .76, [-.6, 1, -.4]], rim: ['#ff8a4a', .66, [.1, .5, 1]],
-    g: { a: '#6f8a3c', b: '#8a9a48', path: '#c9a874', bead: '#d9c39a', rock: '#7a6a5a', rockAmt: .55, wall: 3.4, slope: .32 } },
+    g: { a: '#6f8a3c', b: '#8a9a48', path: '#c9a874', bead: '#cdbb9c', rock: '#7a6a5a', rockAmt: .55, wall: 3.4, slope: .32 } },
   { name: 'Frozen Pass',
     sky: { top: '#0a1534', mid: '#5f84bf', bot: '#c2d6f0', sunDir: [-.35, .42, 1], sunCol: '#e8f2ff', sunDeg: 3, haze: .3, stars: 1 },
     fog: '#9fb8d8', fogNear: 22, fogFar: 115,
@@ -463,7 +463,7 @@ function getRopeWorld() {
       const pa = disc.attributes.position, col = new Float32Array(pa.count * 3), ca = shadeHex(B.bead, b.ch === 0 ? -.24 : -.1), cb = shadeHex(B.bead, b.ch === 0 ? -.4 : -.26), crest = new COL(ORB_COLS[b.ch]).lerp(shadeHex(B.bead, -.5), .4), tt = new COL();
       for (let i = 0; i < pa.count; i++) {
         const x = pa.getX(i), z = pa.getZ(i), rr2 = Math.hypot(x, z), a = Math.atan2(z, x);
-        tt.copy(ca).lerp(cb, Math.pow(Math.sin(rr2 * 5.2) * .5 + .5, 3) * .7);
+        tt.copy(ca).lerp(cb, Math.pow(Math.sin(rr2 * 9) * .5 + .5, 5) * .75);
         tt.lerp(cb, smooth(R0 - 1.4, R0, rr2) * .6);
         const ring = 1 - Math.min(1, Math.abs(rr2 - 1.55) / .16); if (ring > 0) tt.lerp(crest, ring * .85);
         const petals = Math.cos(a * 3) > .55 && rr2 > .55 && rr2 < 1.25; if (petals) tt.lerp(crest, .55);
