@@ -142,6 +142,31 @@ for (const s of STAGES.concat(MYTHS)) s.rec = Math.round(Math.sqrt(s.hp * s.dmg)
   .forEach(([i, w, r]) => { STAGES[i].weak = w; if (r) STAGES[i].resist = r; });
 Object.assign(MYTHS[0], { weak: 'spirit', resist: 'fire' }); Object.assign(MYTHS[1], { weak: 'fire', resist: 'frost' });
 Object.assign(MYTHS[2], { weak: 'spirit', resist: 'shadow' }); Object.assign(MYTHS[3], { weak: 'frost', resist: 'fire' });
+/* The final fight of each land: the beast reborn as a Spirit Warrior. It keeps the beast's trick and moves about 12% faster. */
+const SPIRIT_LOOKS = [
+  { cloth: '#3a1a10', armor: '#c8321e', trim: '#ffcf4a', helm: 'kabuto', helmCol: '#8a1d12', crest: 'oni', crestCol: '#f2e6c8', eye: '#ffe24a', mask: '#b8281a', aura: '#ff5a2a', scarf: '#ff7a3a' },
+  { cloth: '#5a7ea8', armor: '#d9f2ff', trim: '#7fe8ff', helm: 'kabuto', helmCol: '#bfe9ff', crest: 'crystal', crestCol: '#9ff2ff', eye: '#4ad8ff', mask: '#9fcfe8', aura: '#bff4ff', scarf: '#bff4ff' },
+  { cloth: '#1a1a22', armor: '#2a2230', trim: '#ffb03a', helm: 'tengu', helmCol: '#c0281e', crest: null, eye: '#ffd24a', mask: '#c0281e', wings: '#15151c', aura: '#ffb03a' },
+  { cloth: '#3b0d12', armor: '#d2301a', trim: '#ffc24a', helm: 'kabuto', helmCol: '#7a120a', crest: 'dragon', crestCol: '#ffc24a', eye: '#ffe27a', mask: '#7a120a', aura: '#ffb03a', scarf: '#ffb03a' },
+];
+const SPIRIT_TRICKS = [
+  'It still swings like the ogre: its red-ring smash cannot be parried. Hold BLOCK!',
+  'Its icy blade freezes your arms. Block the red ring and strike while it recovers.',
+  'It vanishes and reappears like the Tengu King. Watch for the puff of feathers!',
+  'Dragon fire burns in its blade. Block the red ring, then strike fast.',
+];
+const SPIRITS = MYTHS.map((m, ch) => {
+  const boss = STAGES.find(s => s.ch === ch && s.boss), fast = .88;
+  return Object.assign({}, m, {
+    spirit: true, myth: true, dragon: false, ch, title: 'Spirit Warrior', scale: 1.12, weapon: m.sword,
+    hp: Math.round(m.hp * 1.1), dmg: Math.round(m.dmg * 1.05),
+    tele: Math.round(Math.min(m.tele, boss.tele) * fast), spd: 1.12,
+    react: Math.min(.75, Math.max(m.react, boss.react) * 1.12), combo: Math.max(m.combo, boss.combo), feint: Math.max(m.feint, boss.feint),
+    guard: Math.max(m.guard, boss.guard * .9), fury: m.fury || .3, teleport: m.teleport, freeze: m.freeze,
+    breakAt: m.breakAt + 2, look: SPIRIT_LOOKS[ch], intro: SPIRIT_TRICKS[ch],
+  });
+});
+for (const s of SPIRITS) s.rec = Math.round(Math.sqrt(s.hp * s.dmg) / 3.2);
 
 const ORB_COLS = ['#ff9ec4', '#7fe8ff', '#c9a0ff', '#ffb03a'];
 const PUZZLES = ['lanterns', 'seals', 'moonpath', 'scales'];
@@ -174,7 +199,7 @@ const SENSEI_LOOK = { cloth: '#1f2a4a', armor: '#e9e1cc', trim: '#c0392b', helm:
 const SAVE_KEY = 'shep-katana-legend-3d-v2';
 function freshSave() {
   return {
-    gold: 80, steel: 6, cleared: 0, stars: {}, beaten: {}, journey: [0, 1, 2, 3].map(() => ({ orbs: [0, 0, 0], puzzle: false, myth: false })), mythStars: {},
+    gold: 80, steel: 6, cleared: 0, stars: {}, beaten: {}, journey: [0, 1, 2, 3].map(() => ({ orbs: [0, 0, 0], puzzle: false, key: false, myth: false })), beastNap: {}, mythStars: {},
     swords: [{ u: 1, id: 'bokken', lvl: 0 }], eq: 1, nu: 2,
     outfits: ['ronin'], outfit: 'ronin',
     sk: { power: { l: 1, x: 0 }, speed: { l: 1, x: 0 }, guard: { l: 1, x: 0 }, vital: { l: 1, x: 0 }, iai: { l: 1, x: 0 } },
@@ -192,6 +217,8 @@ function loadSave() {
       if (!Array.isArray(merged.journey) || merged.journey.length !== 4) merged.journey = f.journey;
       if (!merged.swords || !merged.swords.length) merged.swords = f.swords;
       if (!Array.isArray(merged.captured)) merged.captured = [];
+      merged.journey.forEach(j => { if (j.key == null) j.key = !!j.myth; });
+      if (!merged.beastNap) merged.beastNap = {};
       if (!merged.mats || typeof merged.mats !== 'object') merged.mats = {};
       if (!merged.nodeT || typeof merged.nodeT !== 'object') merged.nodeT = {};
       if (o.tutDone == null) merged.tutDone = Object.keys(merged.beaten || {}).length > 0;
@@ -321,7 +348,7 @@ function chapterStages(ch) { return STAGES.map((s, i) => [s, i]).filter(([s]) =>
 function warriorsBeaten(ch) { return chapterStages(ch).filter(([, i]) => S.beaten[i]).length; }
 function orbsFound(ch) { return S.journey[ch].orbs.filter(Boolean).length; }
 function currentChapter() { for (let c = 0; c < 4; c++) if (!S.journey[c].myth) return c; return 3; }
-function gateOpen(ch) { return warriorsBeaten(ch) === 3 && S.journey[ch].puzzle; }
+function gateOpen(ch) { return warriorsBeaten(ch) === 3 && S.journey[ch].puzzle && !!S.journey[ch].key; }
 function playerPower() {
   const st = stats();
   return Math.round(st.atk * Math.sqrt(st.maxHp / 100) * (1 + (S.sk.guard.l - 1) * .03));
@@ -332,5 +359,6 @@ function journeyObjective(ch) {
   if (of < 3) return `Find the spirit orbs (${of}/3) · Warriors defeated ${wb}/3`;
   if (!j.puzzle) return `Bring the orbs to the shrine and solve its puzzle · Warriors ${wb}/3`;
   if (wb < 3) return `Defeat the warriors of this land (${wb}/3) to open the spirit gate`;
-  return `The spirit gate is open. Face ${MYTHS[ch].name}, ${MYTHS[ch].title}!`;
+  if (!j.key) return `${MYTHS[ch].name} roams this land. Defeat it to win the Spirit Key!`;
+  return `The spirit gate is open. Face the Spirit Warrior of ${MYTHS[ch].name}!`;
 }

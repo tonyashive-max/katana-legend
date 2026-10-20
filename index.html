@@ -315,6 +315,8 @@ button.card{width:100%;}
 #hud.forge #tInfo{max-width:min(560px,60vw);white-space:normal;font-size:14px;line-height:1.35;}
 
 .reveal.broken svg{filter:grayscale(.55) drop-shadow(0 0 10px rgba(255,80,60,.5));clip-path:polygon(0 0,57% 0,53% 40%,59% 52%,54% 100%,0 100%);}
+.keyicon{position:relative;font-size:72px;text-align:center;filter:drop-shadow(0 0 16px #ffe08c);animation:bob 2.4s ease-in-out infinite;}
+@keyframes bob{50%{transform:translateY(-6px) rotate(-6deg)}}
 #fade{position:fixed;inset:0;z-index:30;background:#05060c;opacity:0;pointer-events:none;transition:opacity .35s ease;}
 #fade.on{opacity:1;pointer-events:auto;}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%) translateY(-20px);z-index:40;

@@ -216,6 +216,7 @@ function buildPOIs() {
   }
   // ghosts holding captured blades
   S.captured.forEach(c => addThief(c));
+  buildBeasts();
   X.W.updaters = X.W.updaters.filter(f => !f.poiUpdater);
   const up = (dt, t) => {
     if (!X) return;
@@ -230,6 +231,92 @@ function buildPOIs() {
     });
   };
   up.poiUpdater = true; X.W.updaters.push(up);
+}
+/* ---------- each land's mythical beast roams the road and hunts you ---------- */
+const BEAST_NAP = 75e3, BEAST_WALK = 1.7, BEAST_RUN = 5.5, BEAST_SEE = 20, BEAST_LOSE = 42;
+function buildBeasts() {
+  X.beasts = []; X.hunt = null;
+  const R = rope(), ps = ropeQuery(X.pos.x, X.pos.z).s;
+  for (let ch = 0; ch < 4; ch++) {
+    if (!chapterUnlocked(ch) || S.journey[ch].key) continue;
+    const B = R.landBeads(ch), m = MYTHS[ch], s0 = B[1].s, s1 = B[4].s;
+    const rig = m.dragon ? new DragonBoss(m) : new Samurai(m.look, m.weapon === 'club' ? CLUB_DEF : swordDef(m.weapon || m.sword), { boss: true, noSaya: true });
+    if (!m.dragon) rig.root.scale.setScalar(m.scale || 1);
+    rig.root.rotation.order = 'YXZ'; rig.setHold('guard', 6);
+    X.poi.add(rig.root); if (rig.trail) X.poi.add(rig.trail.mesh);
+    const lab = labelSprite(m.name, '#ff8a6a', m.title); X.poi.add(lab);
+    const s = Math.abs(ps - s0) > Math.abs(ps - s1) ? s0 : s1;
+    const p = R.pts[clamp(Math.round(s / R.ds), 0, R.N)];
+    const b = { ch, m, rig, lab, s0, s1, s, dir: s === s0 ? 1 : -1, state: 'roam', t: 0, pos: new V3(p.x, ropeWalkHeight(p.x, p.z), p.z), face: 0, phase: 0, speed: 0, fly: m.dragon ? 3.2 : 0, size: m.dragon ? 3.6 : 1.4 + (m.scale || 1) * .9 };
+    X.beasts.push(b);
+  }
+}
+function beastRoar(b) {
+  b.state = 'notice'; b.t = 0; X.hunt = b;
+  if (b.m.dragon) { b.rig.setHold('show', 6); b.rig.breathe(.5); } else b.rig.setHold('windH', 5);
+  sfx.taiko(1.4); setTimeout(() => sfx.taiko(1.1), 220); shake(.12); OV.vig = .7; OV.vigCol = '255,60,30';
+  banner(`${b.m.name} has seen you!`, 'Run, or stand and fight!');
+}
+function beastCatch(b) {
+  X.hunt = null; b.state = 'caught';
+  EXPLORE_RETURN = { x: X.pos.x, z: X.pos.z, yaw: X.face };
+  S.roam = { x: X.pos.x, z: X.pos.z, yaw: X.face }; save();
+  sfx.taiko(1.5); shake(.2);
+  startBeast(b.ch, 'explore');
+}
+function beastsUpdate(dt) {
+  if (!X.beasts || !X.beasts.length) return;
+  const R = rope(), ptAt = s => R.pts[clamp(Math.round(s / R.ds), 0, R.N)];
+  for (const b of X.beasts) {
+    const dP = Math.hypot(X.pos.x - b.pos.x, X.pos.z - b.pos.z);
+    const vis = dP < 130; b.rig.root.visible = vis; b.lab.visible = vis && b.state !== 'chase';
+    if (!vis || b.state === 'caught') continue;
+    b.t += dt;
+    const napping = Date.now() - (S.beastNap[b.ch] || 0) < BEAST_NAP;
+    let tgt = null, spd = 0;
+    if (X.enc) { /* everything holds still while a ghost appears */ }
+    else if (b.state === 'roam') {
+      if (b.s >= b.s1 - .5) b.dir = -1; else if (b.s <= b.s0 + .5) b.dir = 1;
+      const p = ptAt(b.s + b.dir * 6), lat = Math.sin(b.t * .35) * 1.4;
+      tgt = { x: p.x + p.nx * lat, z: p.z + p.nz * lat }; spd = BEAST_WALK;
+      if (!napping && isArmed() && X.land === b.ch && dP < BEAST_SEE && !X.hunt) beastRoar(b);
+    } else if (b.state === 'notice') {
+      tgt = null; if (b.t > 1.2) { b.state = 'chase'; b.t = 0; if (!b.m.dragon) b.rig.setHold('guard', 6); }
+    } else if (b.state === 'chase') {
+      const ps = X.s;
+      if (Math.abs(ps - b.s) > 6) { const p = ptAt(b.s + Math.sign(ps - b.s) * 8); tgt = { x: p.x, z: p.z }; } else tgt = { x: X.pos.x, z: X.pos.z };
+      spd = BEAST_RUN;
+      if (dP < b.size) { beastCatch(b); return; }
+      if (dP > BEAST_LOSE || X.land !== b.ch || !isArmed()) { b.state = 'roam'; X.hunt = null; banner('You escaped!', `${b.m.name} lost your trail`); }
+    }
+    // move and stay on the road
+    const want = b.state === 'notice' || b.state === 'chase' ? Math.atan2(X.pos.x - b.pos.x, X.pos.z - b.pos.z) : null;
+    if (tgt) {
+      const dx = tgt.x - b.pos.x, dz = tgt.z - b.pos.z, l = Math.hypot(dx, dz);
+      if (l > .05) { b.pos.x += dx / l * spd * dt; b.pos.z += dz / l * spd * dt; }
+      const q = ropeQuery(b.pos.x, b.pos.z, X.limit);
+      if (q.sh && q.d > -.4) { const ex = b.pos.x - q.cx, ez = b.pos.z - q.cz, el = Math.hypot(ex, ez) || 1, rr = q.rad - .4; b.pos.x = q.cx + ex / el * rr; b.pos.z = q.cz + ez / el * rr; }
+      b.s = ropeQuery(b.pos.x, b.pos.z).s;
+      let d = (want != null ? want : Math.atan2(dx, dz)) - b.face; d = Math.atan2(Math.sin(d), Math.cos(d)); b.face += d * damp(5, dt);
+    } else if (want != null) { let d = want - b.face; d = Math.atan2(Math.sin(d), Math.cos(d)); b.face += d * damp(6, dt); }
+    b.speed = lerp(b.speed, tgt ? spd / BEAST_RUN : 0, damp(5, dt));
+    const flyTo = b.m.dragon ? (b.state === 'chase' ? .6 : 3.2) : 0; b.fly = lerp(b.fly, flyTo, damp(1.5, dt));
+    b.rig.root.position.set(b.pos.x, ropeWalkHeight(b.pos.x, b.pos.z) + b.fly, b.pos.z);
+    b.rig.root.rotation.y = b.face;
+    if (!b.m.dragon) {
+      const k = 1 / (b.m.scale || 1), P = b.rig;
+      b.phase += dt * (3 + b.speed * 9) * Math.min(1, b.speed * 4) * k * 1.4;
+      const st = .32 * Math.min(1, b.speed * 2), lift = .16 * Math.min(1, b.speed * 2);
+      P.feet.L.set(.17, .035 + Math.max(0, Math.sin(b.phase)) * lift, Math.sin(b.phase) * st - .02);
+      P.feet.R.set(-.17, .035 + Math.max(0, Math.sin(b.phase + Math.PI)) * lift, Math.sin(b.phase + Math.PI) * st + .02);
+      P.crouch = -Math.abs(Math.sin(b.phase)) * .05 * b.speed; P.leanAdd = b.speed * .25;
+      if (b.speed > .05 && Math.sin(b.phase) > .97 && b.m.scale > 1.5) shake(Math.max(0, .05 - dP * .002));
+    }
+    b.rig.update(dt);
+    const top = b.m.dragon ? 5.5 : 2.4 * (b.m.scale || 1);
+    b.lab.position.set(b.pos.x, b.rig.root.position.y + top, b.pos.z);
+    if (b.m.look.aura && Math.random() < dt * 20) FX.add.emit(b.pos.x + rnd(-.6, .6), b.rig.root.position.y + rnd(.2, top - .4), b.pos.z + rnd(-.6, .6), 0, rnd(.3, .9), 0, rnd(.7, 1.2), .08, 0, b.m.look.aura, .8, -.2, .3);
+  }
 }
 function addThief(c) {
   const w = S.swords.find(v => v.u === c.u); if (!w) return;
@@ -292,6 +379,7 @@ function exploreAct() {
   } else if (p.kind === 'gate') {
     if (gateOpen(p.ch) || S.journey[p.ch].myth) { startMyth(p.ch, 'explore'); return; }
     const need = [];
+    if (!S.journey[p.ch].key) need.push(`win the Spirit Key from ${MYTHS[p.ch].name}`);
     if (warriorsBeaten(p.ch) < 3) need.push(`defeat the warriors (${warriorsBeaten(p.ch)}/3)`);
     if (!S.journey[p.ch].puzzle) need.push('awaken the shrine');
     toast('The gate is sealed. First ' + need.join(' and ') + '.');
@@ -307,7 +395,7 @@ function exploreAct() {
 function actLabel(p) {
   if (p.kind === 'warrior') return !isArmed() ? 'No blade! Go to the Dojo' : (p.done ? `Rematch ${p.st.name}` : `⚔ Duel ${p.st.name}`) + (bladeAtRisk(p.st) ? ' ⚠ blade may snap' : '');
   if (p.kind === 'shrine') return S.journey[p.ch].puzzle ? 'Shrine is awake ✓' : orbsFound(p.ch) < 3 ? `Shrine needs orbs (${orbsFound(p.ch)}/3)` : 'Solve the shrine puzzle';
-  if (p.kind === 'gate') return !isArmed() ? 'No blade! Go to the Dojo' : S.journey[p.ch].myth ? `Rematch ${MYTHS[p.ch].name}` : gateOpen(p.ch) ? `Face ${MYTHS[p.ch].name}!${bladeAtRisk(MYTHS[p.ch]) ? ' ⚠ blade may snap' : ''}` : 'Spirit gate (sealed)';
+  if (p.kind === 'gate') return !isArmed() ? 'No blade! Go to the Dojo' : S.journey[p.ch].myth ? `Rematch ${MYTHS[p.ch].name}` : gateOpen(p.ch) ? `Face the Spirit Warrior!${bladeAtRisk(SPIRITS[p.ch]) ? ' ⚠ blade may snap' : ''}` : S.journey[p.ch].key ? 'Spirit gate (sealed)' : 'Spirit gate (needs the Spirit Key)';
   if (p.kind === 'summit') return 'Ring the summit bell';
   if (p.kind === 'dojo') return isArmed() ? 'Enter the Dojo' : 'Take a practice sword';
   if (p.kind === 'tgate') return 'Training gate (beat the ghost)';
@@ -326,6 +414,7 @@ function objectiveTarget() {
   if (orbsFound(ch) < 3) return near(X.pois.filter(p => p.kind === 'orb' && p.ch === ch));
   if (!j.puzzle) return X.pois.find(p => p.kind === 'shrine' && p.ch === ch);
   if (warriorsBeaten(ch) < 3) return near(X.pois.filter(p => p.kind === 'warrior' && p.ch === ch && !p.done));
+  if (!j.key) { const b = (X.beasts || []).find(v => v.ch === ch); return b ? { x: b.pos.x, z: b.pos.z } : null; }
   if (!j.myth) return X.pois.find(p => p.kind === 'gate' && p.ch === ch);
   if (ch < 3) { const b = R.landBeads(ch + 1)[0]; return { x: b.x, z: b.z }; }
   return X.pois.find(p => p.kind === 'summit') || null;
@@ -333,12 +422,13 @@ function objectiveTarget() {
 
 /* ---------- ghost samurai ---------- */
 function ghostCheck() {
-  if (!X || X.enc || !isArmed() || X.clock < X.encCool) return;
+  if (!X || X.enc || !isArmed() || X.clock < X.encCool || X.hunt) return;
   if (!S.tutDone) { const T = rope().tutGhost; if (Math.hypot(T.x - X.pos.x, T.z - X.pos.z) < 6) startEncounter({ spot: T, tut: true }); return; }
   for (const p of X.pois) if (p.kind === 'thief' && Math.hypot(p.x - X.pos.x, p.z - X.pos.z) < 7.5) { startEncounter({ thief: p }); return; }
   for (const gsp of rope().ghosts) {
     if (X.ghostDone.has(gsp) || !chapterUnlocked(gsp.ch)) continue;
     if (gsp.type === 'geisha' && !isArmed()) continue;
+    if ((X.beasts || []).some(b => b.rig.root.visible && Math.hypot(b.pos.x - gsp.x, b.pos.z - gsp.z) < 35)) continue;
     if (Date.now() - ((S.ghostClear || {})[gsp.ch + '-' + gsp.k] || 0) < 8 * 60e3) continue;
     if (Math.hypot(gsp.x - X.pos.x, gsp.z - X.pos.z) < 6.5) { X.ghostDone.add(gsp); startEncounter({ spot: gsp }); return; }
   }
@@ -566,6 +656,8 @@ const ExploreMode = {
       return true;
     });
     // encounters, pickups and the action button
+    beastsUpdate(dt);
+    if (MODE !== ExploreMode || !X) return;
     if (x.enc) encounterUpdate(dt);
     else {
       ghostCheck();
@@ -679,6 +771,12 @@ function drawExploreOverlay(c) {
     else if (p.kind === 'node') { c.fillStyle = MATERIALS[p.n.mat].c; c.save(); c.translate(mx, my); c.rotate(Math.PI / 4); c.fillRect(-2.5, -2.5, 5, 5); c.restore(); }
     else if (p.kind === 'dojo') { c.fillStyle = '#ffe08c'; c.font = "900 12px serif"; c.textAlign = 'center'; c.fillText('道', mx, my + 4); }
     else if (p.kind === 'thief') { c.strokeStyle = '#ff5a5a'; c.lineWidth = 3; c.beginPath(); c.moveTo(mx - 5, my + 5); c.lineTo(mx + 5, my - 5); c.moveTo(mx - 5, my - 5); c.lineTo(mx + 5, my + 5); c.stroke(); }
+  }
+  for (const b of X.beasts || []) {
+    if (!b.rig.root.visible) continue;
+    const [mx, my] = map(b.pos.x, b.pos.z), hunt = b.state === 'chase' || b.state === 'notice';
+    c.fillStyle = hunt ? '#ff3b2a' : '#ff8a6a'; c.beginPath(); c.arc(mx, my, (hunt ? 7 : 5.5) + (hunt ? Math.sin(X.clock * 10) * 1.5 : 0), 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff'; c.font = "900 10px sans-serif"; c.textAlign = 'center'; c.fillText(hunt ? '!' : '鬼', mx, my + 3.5);
   }
   c.restore();
   // guide arrow toward the next objective

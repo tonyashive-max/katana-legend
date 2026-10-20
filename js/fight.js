@@ -69,7 +69,9 @@ function hexRGB(h) { const c = new COL(h); return `${Math.round(c.r * 255)},${Ma
 
 /* ---------- start / end ---------- */
 function startFight(idx, from) { startBattle(STAGES[idx], { kind: 'stage', idx, ch: STAGES[idx].ch, from: from || 'hub' }); }
-function startMyth(ch, from) { startBattle(MYTHS[ch], { kind: 'myth', idx: ch, ch, from: from || 'hub' }); }
+function startMyth(ch, from) { startBattle(SPIRITS[ch], { kind: 'myth', idx: ch, ch, from: from || 'hub' }); }
+function startBeast(ch, from) { startBattle(MYTHS[ch], { kind: 'beast', idx: ch, ch, from: from || 'hub' }); }
+function fightSpec(ctx) { return ctx.kind === 'myth' ? SPIRITS[ctx.idx] : ctx.kind === 'beast' ? MYTHS[ctx.idx] : STAGES[ctx.idx]; }
 function startBattle(st, ctx) {
   if (!isArmed()) { toast('You have no blade! Equip one at the Dojo first.'); return; }
   transition(() => {
@@ -81,8 +83,9 @@ function startBattle(st, ctx) {
     if (st.dragon) E = new DragonBoss(st);
     else {
       const wdef = st.weapon === 'club' ? CLUB_DEF : swordDef(st.weapon || st.sword);
-      E = new Samurai(st.look, wdef, { boss: !!st.boss });
+      E = new Samurai(st.look, wdef, { boss: !!st.boss || !!st.spirit });
       E.root.scale.setScalar(st.scale || 1);
+      if (st.spirit) { E.mat.emissive = new COL(st.look.aura).multiplyScalar(.28); E.baseEmissive = E.mat.emissive.clone(); }
     }
     E.root.rotation.order = 'YXZ'; P.root.rotation.order = 'YXZ';
     P.setSheathed(true); if (E.hasSaya) E.setSheathed(true);
@@ -111,15 +114,15 @@ function startBattle(st, ctx) {
     showHUD('fight');
     $('#meName').innerHTML = (S.name || 'Shep').toUpperCase() + `<small>${outfitDef(S.outfit).name}</small>`;
     $('#foeName').innerHTML = st.name.toUpperCase() + `<small>${st.weak ? `Weak to ${ELEMENTS[st.weak].i} ${ELEMENTS[st.weak].n}` : st.title}</small>`;
-    $('#stageLbl').textContent = ctx.kind === 'myth' ? `Mythical boss · ${CHAPTERS[st.ch].name}` : `${CHAPTERS[st.ch].name} · Power ${playerPower()} vs ${st.rec}`;
+    $('#stageLbl').textContent = ctx.kind === 'myth' ? `Spirit Warrior · ${CHAPTERS[st.ch].name}` : ctx.kind === 'beast' ? `Mythical beast · ${CHAPTERS[st.ch].name}` : `${CHAPTERS[st.ch].name} · Power ${playerPower()} vs ${st.rec}`;
     dollSVG($('#dollMe'), false); dollSVG($('#dollFoe'), true);
     $('#viewBtn').textContent = F.view === 'fp' ? 'Behind view' : 'First person';
     OV.draw = drawFightOverlay; OV.trailCol = hexRGB(swordDef(eqSword().id).glow || '#ffffff');
     updateFightHUD();
-    banner(st.name, st.title);
-    if (ctx.kind === 'myth') setTimeout(() => { if (F && F.state === 'intro') hint(st.intro); }, 300);
+    banner(st.spirit ? 'Spirit of ' + st.name : st.name, st.title);
+    if (ctx.kind === 'myth' || ctx.kind === 'beast') setTimeout(() => { if (F && F.state === 'intro') hint(st.intro); }, 300);
     if (F.fragile) { setTimeout(() => { if (F && !F.over) { hint(`⚠ Your ${swordDef(eqSword().id).name} is too weak for ${st.name}. It could snap!`); sfx.bell && sfx.bell(); } }, ctx.kind === 'myth' ? 2600 : 600); }
-    sfx.taiko(1); if (ctx.kind === 'myth') setTimeout(() => sfx.taiko(1.3), 350);
+    sfx.taiko(1); if (ctx.kind === 'myth' || ctx.kind === 'beast') setTimeout(() => sfx.taiko(1.3), 350);
     MUSIC.start('fight');
     setMode(FightMode);
   });
@@ -133,7 +136,7 @@ function endFight(dest) {
 }
 
 /* ---------- enemy AI ---------- */
-function toState(s, dur) { F.state = s; F.t = 0; F.dur = dur || 0; }
+function toState(s, dur) { F.state = s; F.t = 0; F.dur = (dur || 0) / ((s === 'idle' || s === 'recover' || s === 'guard') ? (F.st.spd || 1) : 1); }
 function aiDecide() {
   const st = F.st, g = st.guard * (F.E.det.armL ? .5 : 1);
   if (st.teleport && Math.random() < st.teleport) { vanish(); return; }
@@ -707,6 +710,15 @@ function updateFightHUD() {
 }
 
 /* ---------- results ---------- */
+function grantBeastWin() {
+  const st = F.st, ch = F.ctx.ch, first = !S.journey[ch].key;
+  S.journey[ch].key = true; S.beastNap[ch] = 0;
+  const r = { first, gold: Math.round(st.gold * (first ? .6 : .3)), steel: Math.round(st.steel * (first ? .6 : .3)) };
+  S.gold += r.gold; S.steel += r.steel; S.wins++;
+  r.mats = rollDrops(ch, 'myth');
+  save();
+  return r;
+}
 function grantWin() {
   const st = F.st, ctx = F.ctx, myth = ctx.kind === 'myth';
   const first = myth ? !S.journey[ctx.ch].myth : !S.beaten[ctx.idx];
@@ -724,6 +736,7 @@ function grantWin() {
   r.stars = stars;
   S.gold += r.gold; S.steel += r.steel; S.wins++;
   r.mats = rollDrops(ctx.ch, myth ? 'myth' : st.boss ? 'boss' : 'warrior');
+  if (myth && first) S.journey[ctx.ch].key = true;
   save();
   return r;
 }
@@ -731,12 +744,26 @@ function starRow(n, max) { let s = ''; for (let i = 0; i < (max || 3); i++) s +=
 function showFightResult() {
   hint('');
   const fromJourney = F.ctx.from === 'explore';
-  if (F.outcome === 'win') {
+  if (F.outcome === 'win' && F.ctx.kind === 'beast') {
+    const r = grantBeastWin(), ch = F.ctx.ch, ready = gateOpen(ch);
+    openOverlay(`<div class="modal win">
+      <div class="kicker">Beast defeated!</div>
+      <p><b>${F.st.name}</b> falls, and its spirit flees to the gate.</p>
+      <div class="reveal" style="--rc:#ffe08c33;--glow:#ffe08c"><div class="rays"></div><div class="keyicon">🗝️</div></div>
+      <h3>The Spirit Key</h3>
+      <p class="muted">${ready ? 'The spirit gate is ready. Its Spirit Warrior waits behind it, faster than anything you have faced.' : `The key opens the spirit gate once you ${[warriorsBeaten(ch) < 3 ? `defeat the warriors (${warriorsBeaten(ch)}/3)` : '', !S.journey[ch].puzzle ? 'awaken the shrine' : ''].filter(Boolean).join(' and ')}.`}</p>
+      <div class="rewards"><span class="chip gold"><i></i>+${r.gold}</span><span class="chip steel"><i></i>+${r.steel}</span></div>
+      <div class="rewards">${Object.entries(r.mats || {}).map(([id, n]) => `<span class="chip mat"><i style="background:${MATERIALS[id].c}"></i>+${n} ${MATERIALS[id].n}</span>`).join('')}</div>
+      <div class="actions">
+        ${fromJourney ? '<button class="btn primary" data-res="journey">Continue journey</button>' : ''}
+        <button class="btn" data-res="home">Dojo</button>
+      </div></div>`);
+  } else if (F.outcome === 'win') {
     const r = grantWin(), d = swordDef(r.sword), rc = RAR[d.r];
     const nextCh = r.chapterDone && F.ctx.ch < 3 ? F.ctx.ch + 1 : null;
     openOverlay(`<div class="modal win">
       <div class="kicker">${r.myth ? 'Legendary!' : 'Victory!'}</div>
-      <p><b>${F.st.name}</b> is defeated. ${starRow(r.stars)}</p>
+      <p><b>${F.st.spirit ? 'The Spirit of ' + F.st.name : F.st.name}</b> is defeated. ${starRow(r.stars)}</p>
       <div class="reveal" style="--rc:${rc.c}33;--glow:${d.glow || rc.c}"><div class="rays"></div>${bladeSVG(d)}</div>
       <div><div class="rar ${d.r}" style="color:${rc.c}">${rc.n}</div><h3 class="name ${d.r}">${d.name}</h3></div>
       <p class="muted">${r.newSword ? 'You won their blade! It is in your collection now.' : ownsSword(r.sword) ? `You already own this blade, so it was smelted into ${r.smelt} steel.` : `No blade this time (rematches drop it 1 time in 3). You got ${r.smelt} steel.`}</p>
@@ -754,6 +781,7 @@ function showFightResult() {
       </div></div>`);
   } else {
     const B = F.broken;
+    if (F.ctx.kind === 'beast') { S.beastNap[F.ctx.ch] = Date.now(); save(); if (fromJourney) EXPLORE_RETURN = landEntry(F.ctx.ch); }
     if (B) openOverlay(`<div class="modal">
       <div class="kicker lose">Blade broken!</div>
       <div class="reveal broken" style="--rc:#ff3b3b22;--glow:rgba(255,80,60,.3)">${bladeSVG(swordDef(B.id))}</div>
@@ -784,7 +812,7 @@ function fightResultAction(act, el) {
     S.eq = +el.dataset.u; save(); toast('Equipped ' + swordDef(eqSword().id).name + '!');
     endFight(ctx && ctx.from === 'explore' ? 'journey' : 'home'); return;
   }
-  if (act === 'retry' && ctx) { F = null; startBattle(ctx.kind === 'myth' ? MYTHS[ctx.idx] : STAGES[ctx.idx], ctx); return; }
+  if (act === 'retry' && ctx) { F = null; startBattle(fightSpec(ctx), ctx); return; }
   if (act === 'nextland') { F = null; OV.draw = null; hideHUD(); startExplore(+el.dataset.ch); return; }
   if (act === 'journey') { endFight('journey'); return; }
   if (act === 'forge') { endFight(); setTimeout(() => showTab('forge'), 450); return; }

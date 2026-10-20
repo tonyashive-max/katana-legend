@@ -111,7 +111,7 @@ function check(ok, text) { return `<li class="${ok ? 'ok' : ''}"><span>${ok ? '�
 function screenQuest() {
   const pw = playerPower();
   return `<div class="stack">
-    <section class="panel"><h2>Your journey</h2><p class="muted" style="margin-top:6px">In each land: find 3 spirit orbs, solve the shrine puzzle, defeat the 3 warriors, then open the spirit gate to face a mythical beast. Your power: <b>${pw}</b>.</p></section>
+    <section class="panel"><h2>Your journey</h2><p class="muted" style="margin-top:6px">In each land: find 3 spirit orbs, solve the shrine puzzle and defeat the 3 warriors. A mythical beast roams the road: beat it for the Spirit Key, then open the spirit gate and face its Spirit Warrior. Your power: <b>${pw}</b>.</p></section>
     ${CHAPTERS.map((c, ci) => {
       const open = chapterUnlocked(ci), j = S.journey[ci], m = MYTHS[ci], wb = warriorsBeaten(ci), of = orbsFound(ci);
       return `<section class="panel chapter ${open ? '' : 'locked-ch'}">
@@ -121,9 +121,10 @@ function screenQuest() {
           ${check(of === 3, `Spirit orbs found (${of}/3)`)}
           ${check(j.puzzle, `Shrine puzzle: ${PUZZLE_NAMES[ci]}`)}
           ${check(wb === 3, `Warriors defeated (${wb}/3)`)}
-          ${check(j.myth, `Mythical beast: ${m.name}, ${m.title} · power ${m.rec}`)}
+          ${check(j.key, `Spirit Key: defeat ${m.name}, ${m.title} · power ${m.rec}`)}
+          ${check(j.myth, `Spirit Warrior of ${m.name} · power ${SPIRITS[ci].rec}`)}
         </ul>
-        <div class="row"><button class="btn primary" data-explore="${ci}">🗺 Explore</button>${j.myth ? `<button class="btn small" data-myth="${ci}">Rematch ${m.name}</button>` : ''}</div>
+        <div class="row"><button class="btn primary" data-explore="${ci}">🗺 Explore</button>${j.key ? `<button class="btn small" data-beast="${ci}">Rematch ${m.name}</button>` : ''}${j.myth ? `<button class="btn small" data-myth="${ci}">Rematch Spirit Warrior</button>` : ''}</div>
         <div class="stages">${chapterStages(ci).map(([s, i]) => stageCard(s, i)).join('')}</div>` : ''}
       </section>`;
     }).join('')}
@@ -220,7 +221,7 @@ function screenSwords() {
       const known = S.seen.includes(d.id), owned = S.swords.filter(w => w.id === d.id);
       return `<div class="card ${known ? '' : 'unknown'}">${bladeSVG(d, { sil: !known })}
         <div class="nm ${known ? 'name ' + d.r : ''}" style="${known && d.r !== 'mythic' ? `color:${RAR[d.r].c}` : ''}">${known ? d.name : '???'}</div>
-        <small>${known ? `${RAR[d.r].n} · ${d.dmg} dmg${owned.length ? ` · owned ×${owned.length}` : ''}` : (carriers[d.id] ? (d.myth != null ? `Guarded by a mythical beast` : `Carried by a warrior`) : 'Mystery forge only')}</small></div>`;
+        <small>${known ? `${RAR[d.r].n} · ${d.dmg} dmg${owned.length ? ` · owned ×${owned.length}` : ''}` : (carriers[d.id] ? (d.myth != null ? `Carried by a Spirit Warrior` : `Carried by a warrior`) : 'Mystery forge only')}</small></div>`;
     }).join('')}</div>
     <section class="panel stack"><h3>Your blades</h3>
       ${S.swords.slice().sort((a, b) => RAR[swordDef(b.id).r].i - RAR[swordDef(a.id).r].i || swordDmg(b) - swordDmg(a)).map(w => {
@@ -513,6 +514,7 @@ function wireInput() {
     else if (d.fight != null) { sfx.taiko(.7); startFight(+d.fight); }
     else if (d.explore != null) { sfx.ui(); startExplore(d.explore === 'resume' ? null : +d.explore); }
     else if (d.myth != null) { sfx.taiko(.8); startMyth(+d.myth); }
+    else if (d.beast != null) { sfx.taiko(.8); startBeast(+d.beast); }
     else if (d.pz) puzzleAction(d.pz, b);
     else if (b.id === 'actBtn') exploreAct();
     else if (d.train) { startTraining(d.train); }
