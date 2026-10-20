@@ -322,6 +322,13 @@ button.card{width:100%;}
 .trainreq small{opacity:.75;font-weight:700}
 .trials{display:grid;gap:6px;margin-top:10px}
 .tag.train{background:rgba(255,200,90,.16);color:#ffd27a}
+.card.captured{border-color:rgba(255,90,90,.45);background:linear-gradient(160deg,rgba(90,20,30,.55),rgba(20,16,30,.8));}
+.card.captured .name,.card.destroyed .name{color:#c9c2b0;}
+.card.destroyed{border-color:rgba(255,140,80,.35);background:linear-gradient(160deg,rgba(60,30,20,.55),rgba(20,16,30,.8));opacity:.92}
+.tag.lost{background:rgba(255,80,80,.18);color:#ff9a8a;font-weight:900;letter-spacing:.04em}
+.tag.lost.cap{background:rgba(160,120,255,.2);color:#d8c8ff}
+.lostblade{position:relative}.lostblade svg{filter:grayscale(.85) brightness(.7);opacity:.65}
+.ghosticon{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:30px;filter:drop-shadow(0 0 8px #9fe8ff);animation:bob 2.2s ease-in-out infinite}
 #fade{position:fixed;inset:0;z-index:30;background:#05060c;opacity:0;pointer-events:none;transition:opacity .35s ease;}
 #fade.on{opacity:1;pointer-events:auto;}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%) translateY(-20px);z-index:40;

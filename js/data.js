@@ -387,10 +387,11 @@ function swordFx(w) {
 }
 /* bosses snap blades that are too weak for them */
 function bladeAtRisk(st, w) { w = w || eqSword(); return !!(st && st.breakAt && w && swordDmg(w) < st.breakAt); }
-function breakEquipped() {
+function breakEquipped(by, ch) {
   const i = S.swords.findIndex(w => w.u === S.eq); if (i < 0) return null;
   const w = S.swords.splice(i, 1)[0];
   S.broken = (S.broken || 0) + 1;
+  S.lost = (S.lost || []).concat([{ id: w.id, lvl: w.lvl || 0, by: by || 'a boss', ch: ch || 0 }]).slice(-12);
   const free = usableSwords().sort((a, b) => swordDmg(b) - swordDmg(a));
   let loan = false;
   if (free.length) S.eq = free[0].u; else { const b = addSword('bokken'); S.eq = b.u; loan = true; }

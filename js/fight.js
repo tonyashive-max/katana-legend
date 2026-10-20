@@ -332,7 +332,7 @@ function splitSwordMesh(group, cut, above) {
 function shatterBlade() {
   const P = F.P, def = swordDef(eqSword().id), name = def.name;
   const tip = P.bladePoint(.75), mid = P.bladePoint(.42), len = P.sword.userData.len, cut = len * .42;
-  const res = breakEquipped(); if (!res) return;
+  const res = breakEquipped(F.st.spirit ? 'the Spirit of ' + F.st.name : F.st.name, F.st.ch); if (!res) return;
   F.broken = { name, loan: res.loan, next: swordDef(res.next.id).name, id: def.id };
   // the top half spins away; a jagged stub stays in your hands
   P.root.updateMatrixWorld(true);

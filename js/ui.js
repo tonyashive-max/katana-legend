@@ -239,15 +239,34 @@ function screenSwords() {
     <section class="panel"><div class="row between"><h2>Blade collection</h2><b>${S.seen.length} / ${SWORDS.length}</b></div>
       <div class="bar" style="margin-top:10px"><i style="width:${Math.round(S.seen.length / SWORDS.length * 100)}%;background:linear-gradient(90deg,#ffb53d,#ff5fb0,#b357ff)"></i></div></section>
     <section class="panel stack"><h3>Your blades</h3>
-      ${S.swords.slice().sort((a, b) => RAR[swordDef(b.id).r].i - RAR[swordDef(a.id).r].i || swordDmg(b) - swordDmg(a)).map(w => {
+      ${S.swords.slice().sort((a, b) => (a.captured ? 1 : 0) - (b.captured ? 1 : 0) || RAR[swordDef(b.id).r].i - RAR[swordDef(a.id).r].i || swordDmg(b) - swordDmg(a)).map(w => {
         const d = swordDef(w.id), eq = w.u === S.eq;
+        if (w.captured) {
+          const c = S.captured.find(x => x.u === w.u) || { ch: 0 };
+          return `<div class="card captured">
+            <div class="row between"><b class="name">${d.name}${w.lvl ? ` +${w.lvl}` : ''}</b><span class="tag lost cap">👻 CAPTURED</span></div>
+            <div class="lostblade">${bladeSVG(d)}<span class="ghosticon">👻</span></div>
+            <small>A ghost holds it in <b>${CHAPTERS[c.ch].name}</b>. Look for the red beam on the road and win the draw to take it back.</small>
+            ${isArmed() ? `<button class="btn small primary" data-explore="${c.ch}">Hunt the ghost</button>` : '<small class="muted">Equip another blade first.</small>'}
+          </div>`;
+        }
         return `<div class="card ${eq ? 'sel' : ''}">
           <div class="row between"><b class="name ${d.r}" style="${d.r !== 'mythic' ? `color:${RAR[d.r].c}` : ''}">${d.name}${w.lvl ? ` +${w.lvl}` : ''}</b><small>${Math.round(swordDmg(w))} dmg ${elTag(swordFx(w).el)}</small></div>
           ${bladeSVG(d)}
-          <div class="row">${w.captured ? `<span class="tag boss">Captured by a ghost</span><small>Find it in ${CHAPTERS[(S.captured.find(c => c.u === w.u) || { ch: 0 }).ch].name}</small>` : eq ? '<span class="tag new">Equipped</span>' : `<button class="btn small primary" data-equip="${w.u}">Equip</button><button class="btn small" data-smelt="${w.u}">Smelt · +${smeltValue(w)} steel</button>`}</div>
+          <div class="row">${eq ? '<span class="tag new">Equipped</span>' : `<button class="btn small primary" data-equip="${w.u}">Equip</button><button class="btn small" data-smelt="${w.u}">Smelt · +${smeltValue(w)} steel</button>`}</div>
         </div>`;
       }).join('')}
     </section>
+    ${(S.lost || []).length ? `<section class="panel stack"><h3>Broken blades</h3><p class="muted" style="font-size:13px">A boss snapped these. They are gone for good, but you can win another copy.</p>
+      ${(S.lost || []).slice().reverse().slice(0, 6).map(l => {
+        const d = swordDef(l.id), src = STAGES.map((s, i) => [s, i]).find(([s]) => s.sword === l.id), owned = ownsSword(l.id);
+        return `<div class="card destroyed">
+          <div class="row between"><b class="name">${d.name}${l.lvl ? ` +${l.lvl}` : ''}</b><span class="tag lost">💥 DESTROYED</span></div>
+          <div class="reveal broken">${bladeSVG(d)}</div>
+          <small>Snapped by <b>${l.by}</b>.</small>
+          ${owned ? '<small style="color:var(--jade)">✓ You have another one now.</small>' : src && S.beaten[src[1]] ? `<button class="btn small" data-fight="${src[1]}">Win another from ${src[0].name}</button>` : src ? `<small class="muted">${src[0].name} carries another one.</small>` : '<small class="muted">Try the mystery forge for another.</small>'}
+        </div>`;
+      }).join('')}</section>` : ''}
     <section class="panel"><h3>Every blade in the lands</h3></section>
     <div class="grid2">${SWORDS.map(d => {
       const known = S.seen.includes(d.id), owned = S.swords.filter(w => w.id === d.id);
