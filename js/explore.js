@@ -3,6 +3,7 @@
 
 let X = null;
 let EXPLORE_RETURN = null;
+const _lp = new V3();
 const KEYS = {};
 window.addEventListener('keydown', e => { KEYS[e.key.toLowerCase()] = true; });
 window.addEventListener('keyup', e => { KEYS[e.key.toLowerCase()] = false; });
@@ -16,7 +17,7 @@ function labelSprite(text, color, sub) {
     if (sub) { x.font = "900 22px 'Zen Maru Gothic', sans-serif"; x.lineWidth = 6; x.strokeText(sub, s / 2, 62); x.fillStyle = '#ffe08c'; x.fillText(sub, s / 2, 62); }
   }, 80);
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, fog: false }));
-  sp.scale.set(2.6, .82, 1); sp.renderOrder = 8;
+  sp.scale.set(2.6, .82, 1); sp.renderOrder = 8; sp.userData.label = true;
   return sp;
 }
 function barrierMat(c1, c2) {
@@ -768,6 +769,9 @@ const ExploreMode = {
     // encounters, pickups and the action button
     beastsUpdate(dt);
     if (MODE !== ExploreMode || !X) return;
+    // labels fade as you walk up to them so they never fill the screen
+    if (!x.labels || (x.labelT = (x.labelT || 0) - 1) <= 0) { x.labels = []; x.poi.traverse(o => { if (o.isSprite && o.userData.label) x.labels.push(o); }); x.labelT = 30; }
+    for (const l of x.labels) { const d = CAM.position.distanceTo(l.getWorldPosition(_lp)); l.material.opacity = smooth(3.5, 8, d) * (1 - smooth(60, 80, d)); }
     if (x.enc) encounterUpdate(dt);
     else {
       ghostCheck();

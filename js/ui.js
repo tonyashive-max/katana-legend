@@ -345,10 +345,10 @@ const HubMode = {
     H.P.update(dt);
     auraFX(H.P, dt);
     const portrait = VH > VW;
-    const a = Math.sin(H.clock * .12) * .28, R = portrait ? 4.3 : 3.3;
+    const a = Math.sin(H.clock * .12) * .28, R = portrait ? 4.3 : 4.2;
     const right = new V3(Math.cos(a), 0, -Math.sin(a));
-    const pos = new V3(Math.sin(a) * R, portrait ? 1.35 : 1.45, Math.cos(a) * R);
-    const look = new V3(0, portrait ? .55 : 1.1, 0).addScaledVector(right, portrait ? 0 : -1.05);
+    const pos = new V3(Math.sin(a) * R, portrait ? 1.35 : 1.4, Math.cos(a) * R);
+    const look = new V3(0, portrait ? .55 : 1.0, 0).addScaledVector(right, portrait ? 0 : -1.3 * Math.min(1.4, VW / VH / 1.3));
     H.camPos.lerp(pos, damp(H.clock < .1 ? 60 : 3, dt)); H.camLook.lerp(look, damp(H.clock < .1 ? 60 : 3, dt));
     CAM.position.copy(H.camPos); CAM.lookAt(H.camLook);
     CAM.fov = lerp(CAM.fov, 45, damp(6, dt)); CAM.updateProjectionMatrix(); FX.setScale();
