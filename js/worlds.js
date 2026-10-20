@@ -64,12 +64,16 @@ function addGround(W, o) {
   m.receiveShadow = true; W.scene.add(m); W.ground = m;
 }
 function addArena(W, o) {
-  const disc = new THREE.CircleGeometry(o.r || 4.6, 72); disc.rotateX(-Math.PI / 2);
+  // raked arena floor: real concentric grooves, a worn darker rim and a painted crest in the centre
+  const R0 = o.r || 4.6, disc = new THREE.RingGeometry(.01, R0, 96, 48); disc.rotateX(-Math.PI / 2);
   const pos = disc.attributes.position, col = new Float32Array(pos.count * 3);
-  const a = new COL(o.a), b = new COL(o.b), t = new COL();
+  const a = shadeHex(o.a, -.12), b = shadeHex(o.b, -.18), rim = shadeHex(o.b, -.38), crest = new COL(o.crest || o.glowRing || o.b).lerp(shadeHex(o.b, -.45), .35), t = new COL();
   for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i), r = Math.hypot(x, z);
-    t.copy(a).lerp(b, (Math.sin(r * (o.rings || 9)) * .5 + .5) * .7);
+    const x = pos.getX(i), z = pos.getZ(i), r = Math.hypot(x, z), ang = Math.atan2(z, x);
+    t.copy(a).lerp(b, Math.pow(Math.sin(r * (o.rings || 9)) * .5 + .5, 2.5) * .85);
+    t.lerp(rim, smooth(R0 - .9, R0, r) * .7);
+    const ring = 1 - Math.min(1, Math.abs(r - R0 * .32) / .09); if (ring > 0) t.lerp(crest, ring * .8);
+    if (r < R0 * .26 && r > R0 * .08 && Math.cos(ang * 3 + r * 2.2) > .6) t.lerp(crest, .45);
     col[i * 3] = t.r; col[i * 3 + 1] = t.g; col[i * 3 + 2] = t.b;
   }
   disc.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -220,7 +224,7 @@ function worldBamboo() {
   addSky(W, { top: '#2c2160', mid: '#ff9566', bot: '#ffcf8a', sunDir: sun, sunCol: '#ffd9a0', sunDeg: 5.5, fog: '#f0a07e', fogNear: 22, fogFar: 140, haze: .7 });
   addLights(W, { sky: '#ffd6b0', ground: '#4a3a5a', hemi: .75, key: '#ffe2c0', keyI: .95, keyDir: new V3(-.6, 1, -.4), rim: '#ff8a4a', rimI: 1.1, rimDir: new V3(.1, .5, 1) });
   addGround(W, { a: '#6f8a3c', b: '#8a9a48', c: '#c08a6a', clear: 7, hill: 2.5, flat: true });
-  addArena(W, { a: '#c9b080', b: '#b0965f', rings: 10, stone: '#7a7468' });
+  addArena(W, { a: '#c2a574', b: '#a08453', rings: 10, stone: '#7a7468', crest: '#c0392b' });
   addMountains(W, { base: '#6a4a7a', top: '#b06a7a', snow: '#ffd0c0', snowLine: .82, r0: 80, r1: 160, h0: 22, h1: 55 });
   addMountains(W, { base: '#5a4070', top: '#8a5a7a', snow: '#ffd0c0', snowLine: .9, r0: 70, r1: 120, h0: 16, h1: 30, a0: 1.8, a1: 4.5, seed: 4, n: 14 });
   // bamboo groves
@@ -274,7 +278,7 @@ function worldSnow() {
   addSky(W, { top: '#0a1534', mid: '#5f84bf', bot: '#c2d6f0', sunDir: moon, sunCol: '#e8f2ff', sunDeg: 3, fog: '#9fb8d8', fogNear: 18, fogFar: 120, stars: true, haze: .3 });
   addLights(W, { sky: '#b8d4ff', ground: '#4a5a7a', hemi: .8, key: '#e6f0ff', keyI: .85, keyDir: new V3(-.5, 1, .6), rim: '#7fd8ff', rimI: 1.0, rimDir: new V3(.2, .6, 1) });
   addGround(W, { a: '#e9f1fa', b: '#cddcef', c: '#b8c9e6', clear: 7, hill: 3.2, flat: true });
-  addArena(W, { a: '#d3e6f6', b: '#a9c8e6', rings: 8, stone: '#5d6b80' });
+  addArena(W, { a: '#d3e6f6', b: '#a9c8e6', rings: 8, stone: '#5d6b80', crest: '#3a7ac8' });
   addMountains(W, { base: '#4d6188', top: '#8aa2c8', snow: '#f4f8ff', snowLine: .45, r0: 80, r1: 170, h0: 30, h1: 70 });
   addMountains(W, { base: '#3e5078', top: '#7088b0', snow: '#f4f8ff', snowLine: .5, r0: 70, r1: 120, h0: 18, h1: 40, a0: 1.6, a1: 4.6, seed: 12, n: 14 });
   const pine = merge([
