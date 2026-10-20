@@ -583,6 +583,20 @@ function getRopeWorld() {
     new Ambient({ n: 320, tex: TEX.glow, color: '#ffb03a', color2: '#ff4a1a', size: .07, alpha: 1, blending: THREE.AdditiveBlending, cx: 0, cy: 4, cz: 0, ax: 12, ay: 5, az: 12, sway: .6, twinkle: 3, vel: r => [(r() - .5) * .4, .6 + r() * 1.1, (r() - .5) * .4], seed: 23 }),
   ];
   W.fireflies = new Ambient({ n: 120, tex: TEX.glow, color: '#d8ff7a', color2: '#ffe27a', size: .09, alpha: 1, blending: THREE.AdditiveBlending, cx: 0, cy: 2, cz: 0, ax: 12, ay: 2, az: 12, sway: .5, twinkle: 2.2, vel: r => [(r() - .5) * .3, (r() - .5) * .15, (r() - .5) * .3], seed: 17 });
+  /* worn stepping stones along the road (skipping arenas, bridges and the dojo grounds) */
+  { const stoneCols = [['#b8ab92', '#a39680', '#c9bda2'], ['#c9d8e8', '#aebfd2', '#dce8f4'], ['#4a4458', '#3e3a4c', '#5a5468'], ['#3a2a26', '#4a3630', '#2e2220']];
+    for (let s0 = 6; s0 < R.total; s0 += 1.25) {
+      const p = R.pts[clamp(Math.round(s0 / R.ds), 0, R.N)];
+      for (const lat of [-.75, .75]) {
+        if (rr() < .25) continue;
+        const o = lat + (rr() - .5) * .5, x = p.x + p.nx * o + (rr() - .5) * .3, z = p.z + p.nz * o + (rr() - .5) * .3;
+        const q = ropeQuery(x, z); if (q.sh && q.sh.bead) continue;
+        if (R.crossings.some(c => { const ci = crossInfo(x, z, c); return Math.abs(ci.along) < 3.2 && Math.abs(ci.lat) < 6; })) continue;
+        const ch = landOf(s0), k = .5 + rr() * .5;
+        put('pathStone', s0, { p: [x, ropeHeight(x, z) + .02, z], r: [0, rr() * 6, 0], s: [k * (1 + rr() * .4), .5 + rr() * .3, k], c: pick(stoneCols[ch]) });
+      }
+    }
+  }
   W.ambient = W.amb.concat([W.fireflies]);
   // build instanced meshes per chunk
   const MATS = {};
@@ -600,6 +614,7 @@ function getRopeWorld() {
     spike: [G.spike, () => toon({ flatShading: true }), true], mountain: [G.mountain, () => toon({ flatShading: true }), false],
     lantern: [G.lantern, () => toon({ vertexColors: true, flatShading: true }), true], lanternLight: [G.lanternLight, () => glowify(new THREE.MeshBasicMaterial({ color: '#ffffff' })), false],
     reed: [G.reed, () => toon({ vertexColors: true }), false],
+    pathStone: [G.pathStone || (G.pathStone = (() => { const g = GEO.dodec(.32); g.scale(1, .2, .78); return g; })()), () => toon({ flatShading: true }), false],
   };
   buckets.forEach(b => {
     const sp = spec[b.type]; if (!sp) return;
@@ -661,6 +676,9 @@ function buildTerrain(W) {
         const cr = lerp(A.cracks ? 1 : 0, B.cracks ? 1 : 0, w.t);
         if (cr > 0 && nz > .66) tmp.lerp(crack, (nz - .66) * 2.4 * cr);
       }
+      // fine grain so the ground never reads as one flat colour, and a darker worn edge along the road
+      { const hsh = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; tmp.multiplyScalar(.93 + (hsh - Math.floor(hsh)) * .13); }
+      if (main && d <= .2) { const e = 1 - Math.abs(dc - 2.15) / .45; if (e > 0) tmp.multiplyScalar(1 - .14 * e); }
       for (const c of R.crossings) { const ci = crossInfo(x, z, c); if (Math.abs(ci.along) < 2.6 && Math.abs(ci.lat) < 70) tmp.lerp(c2.set(c.kind === 'lava' ? '#2a120c' : '#5a5040'), .6); }
       col[i * 3] = tmp.r; col[i * 3 + 1] = tmp.g; col[i * 3 + 2] = tmp.b;
     }
