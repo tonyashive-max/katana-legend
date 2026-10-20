@@ -80,9 +80,9 @@ function addArena(W, o) {
     W.scene.add(inst(GEO.dodec(1), toon({ flatShading: true }), list));
   }
   if (o.glowRing) {
-    const ring = new THREE.Mesh(GEO.tor((o.r || 4.6) + .05, .04, 6, 96), new THREE.MeshBasicMaterial({ color: o.glowRing, fog: false }));
+    const ring = new THREE.Mesh(GEO.tor((o.r || 4.6) + .05, .04, 6, 96), glowify(new THREE.MeshBasicMaterial({ color: o.glowRing, fog: false })));
     ring.rotation.x = Math.PI / 2; ring.position.y = .03; W.scene.add(ring);
-    const ring2 = new THREE.Mesh(GEO.tor((o.r || 4.6) * .55, .025, 6, 72), new THREE.MeshBasicMaterial({ color: o.glowRing, fog: false }));
+    const ring2 = new THREE.Mesh(GEO.tor((o.r || 4.6) * .55, .025, 6, 72), glowify(new THREE.MeshBasicMaterial({ color: o.glowRing, fog: false })));
     ring2.rotation.x = Math.PI / 2; ring2.position.y = .03; W.scene.add(ring2);
     W.updaters.push((dt, tt) => { const k = .75 + Math.sin(tt * 2.2) * .25; ring.material.color.set(o.glowRing).multiplyScalar(k); ring2.material.color.set(o.glowRing).multiplyScalar(k); });
   }
@@ -162,7 +162,7 @@ function addLanterns(W, spots, stone, light) {
   spots = spots.filter(([x, z]) => clearOK(x, z));
   spots.forEach(([x, z, sc]) => obs(W, x, z, .45 * (sc || 1)));
   W.scene.add(inst(stoneLanternGeo(stone), toon({ vertexColors: true, flatShading: true }), spots.map(([x, z, s]) => ({ p: [x, W.hAt(x, z), z], r: [0, rnd(0, 3), 0], s: s || 1 })), true));
-  const lights = inst(GEO.box(.3, .26, .3), new THREE.MeshBasicMaterial({ color: light, fog: false }), spots.map(([x, z, s]) => ({ p: [x, W.hAt(x, z) + 1.36 * (s || 1), z], s: [(s || 1) * 1.02, (s || 1) * 1.02, (s || 1) * 1.02] })));
+  const lights = inst(GEO.box(.3, .26, .3), glowify(new THREE.MeshBasicMaterial({ color: light, fog: false })), spots.map(([x, z, s]) => ({ p: [x, W.hAt(x, z) + 1.36 * (s || 1), z], s: [(s || 1) * 1.02, (s || 1) * 1.02, (s || 1) * 1.02] })));
   W.scene.add(lights);
   spots.forEach(([x, z, s]) => { const h = halo(light, 2.2 * (s || 1), .7); h.position.set(x, W.hAt(x, z) + 1.36 * (s || 1), z); W.scene.add(h); });
 }
@@ -337,7 +337,7 @@ function worldCastle() {
   const castle = new THREE.Mesh(merge(keep), toon({ vertexColors: true })); castle.position.set(0, W.hAt(0, 46), 46); castle.castShadow = true; W.scene.add(castle);
   const wins = [];
   for (let k = 0; k < 18; k++) wins.push({ p: [rnd(-4, 4), castle.position.y + rnd(6, 16), 46 - 4.3], s: [rnd(.4, .7), rnd(.5, .8), .2] });
-  W.scene.add(inst(GEO.box(1, 1, 1), new THREE.MeshBasicMaterial({ color: '#ffb35a', fog: false }), wins));
+  W.scene.add(inst(GEO.box(1, 1, 1), glowify(new THREE.MeshBasicMaterial({ color: '#ffb35a', fog: false })), wins));
   // courtyard walls
   const seg = merge([
     P(GEO.box(4.2, 1.1, .9), stone, [0, .55, 0]),
@@ -362,7 +362,7 @@ function worldCastle() {
   W.scene.add(inst(GEO.ico(1, 1), toon({ flatShading: true }), mb, true));
   // hanging paper lanterns on ropes
   const lanternGroup = new THREE.Group(); W.scene.add(lanternGroup);
-  const lanternMat = new THREE.MeshBasicMaterial({ color: '#ff5a3a', fog: false });
+  const lanternMat = glowify(new THREE.MeshBasicMaterial({ color: '#ff5a3a', fog: false }));
   const capMat = toon({ color: '#1a1214' });
   const lanterns = [];
   for (const side of [-1, 1]) {
@@ -543,7 +543,7 @@ function worldDojo() {
   });
   // hanging lanterns
   for (const [x, z] of [[-3, -2], [3, -2], [-3, 4], [3, 4]]) {
-    const l = new THREE.Mesh(GEO.sph(.28, 12, 10), new THREE.MeshBasicMaterial({ color: '#ffd9a0', fog: false })); l.scale.set(1, 1.3, 1); l.position.set(x, 3.4, z); W.scene.add(l);
+    const l = new THREE.Mesh(GEO.sph(.28, 12, 10), glowify(new THREE.MeshBasicMaterial({ color: '#ffd9a0', fog: false }))); l.scale.set(1, 1.3, 1); l.position.set(x, 3.4, z); W.scene.add(l);
     const h = halo('#ffc070', 2.4, .6); h.position.copy(l.position); W.scene.add(h);
   }
   // weapon rack

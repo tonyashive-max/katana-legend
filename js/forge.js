@@ -21,7 +21,7 @@ function worldForge() {
     P(GEO.box(1.8, 1.0, 1.5), '#6a5a52', [-1.6, .5, 1.6]), P(GEO.box(1.6, .2, 1.3), '#4a3a34', [-1.6, 1.05, 1.6]),
     P(GEO.cyl(.5, .7, 1.8, 8), '#5a4a44', [-1.6, 2.0, 2.0]), P(GEO.cyl(.35, .35, 2.6, 8), '#3a2a24', [-1.6, 3.6, 2.2]),
   ]), toon({ vertexColors: true, flatShading: true })); furn.castShadow = true; sc.add(furn);
-  W.coals = new THREE.Mesh(GEO.box(1.2, .12, .9), new THREE.MeshBasicMaterial({ color: '#ff5a1a' })); W.coals.position.set(-1.6, 1.12, 1.5); sc.add(W.coals);
+  W.coals = new THREE.Mesh(GEO.box(1.2, .12, .9), glowify(new THREE.MeshBasicMaterial({ color: '#ff5a1a' }))); W.coals.position.set(-1.6, 1.12, 1.5); sc.add(W.coals);
   W.flame = halo('#ff8a3a', 2.2, .8); W.flame.position.set(-1.6, 1.4, 1.5); sc.add(W.flame);
   // bellows
   W.bellows = new THREE.Group(); W.bellows.position.set(-2.9, .45, 1.2); sc.add(W.bellows);

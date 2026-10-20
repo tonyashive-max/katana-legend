@@ -105,6 +105,7 @@ const GEO = {
   oct: r => new THREE.OctahedronGeometry(r, 0),
   tor: (r, t, rs, ts, arc) => new THREE.TorusGeometry(r, t, rs || 8, ts || 20, arc == null ? Math.PI * 2 : arc),
 };
+function glowify(m) { m.userData.glow = true; return m; }
 function P(geo, color, pos, rot, scl, cf) { return { geo, color, pos, rot, scl, cf }; }
 const _mm = new THREE.Matrix4(), _mq = new Q4(), _me = new THREE.Euler(), _mv = new V3(), _ms = new V3();
 function merge(items) {
@@ -664,7 +665,6 @@ const POST = {
       const m = o.material; let g = false;
       if (m && !Array.isArray(m)) {
         if (m.blending === THREE.AdditiveBlending || (m.userData && m.userData.glow)) g = true;
-        else if (m.type === 'MeshBasicMaterial' && !m.map && m.color && Math.max(m.color.r, m.color.g, m.color.b) > .85 && !o.isInstancedMesh && o.geometry && o.geometry.attributes.position && o.geometry.attributes.position.count < 400) g = true;
       }
       o.userData._gl = g; if (g) o.layers.enable(1);
     });

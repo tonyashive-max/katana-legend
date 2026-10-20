@@ -298,7 +298,7 @@ class RoamDragon {
     for (let i = 0; i < 5; i++) for (const sg of [-1, 1]) jw.push(P(GEO.cone(.04, .18, 4), cream, [sg * (.22 - i * .02), .06, .35 + i * .22]));
     for (let i = 0; i < 5; i++) jw.push(P(GEO.cone(.08, .5 + (i % 2) * .25, 4), i % 2 ? mane : gold, [(i - 2) * .1, -.28, .25 + Math.abs(i - 2) * .08], [2.4, 0, (i - 2) * .2]));
     mk(merge(jw), this.jaw);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: '#fff27a', fog: false }); this.mats.push(eyeMat);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: '#fff27a', fog: false }); eyeMat.userData.glow = true; this.mats.push(eyeMat);
     const pupil = new THREE.MeshBasicMaterial({ color: '#2a0806', fog: false }); this.mats.push(pupil);
     for (const sg of [-1, 1]) {
       const e = new THREE.Mesh(GEO.sph(.13, 8, 6), eyeMat); e.scale.set(.55, .8, 1.25); e.position.set(sg * .4, .28, .5); this.head.add(e);

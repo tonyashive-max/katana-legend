@@ -232,7 +232,7 @@ class Samurai {
       P(GEO.sph(.122, 14, 8, Math.PI / 2 - 1.1, 2.2, 1.5, 1.0), shadeHex(maskCol, -.2), [0, 0, 0]),
       P(GEO.box(.09, .012, .02), shadeHex(maskCol, .25), [0, -.045, .115]),
     ]), this.head);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: L.eye || '#ffe6a0', fog: false });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: L.eye || '#ffe6a0', fog: false }); eyeMat.userData.glow = true;
     this.eyes = [];
     for (const sg of [-1, 1]) {
       const e = new THREE.Mesh(GEO.box(.046, .014, .012), eyeMat); e.position.set(sg * .042, .022, .108); e.rotation.z = -sg * .18; this.head.add(e);

@@ -127,10 +127,10 @@ function buildPOIs() {
       if (S.journey[ch].orbs[br.k]) return;
       const col = ORB_COLS[ch], y = ropeWalkHeight(br.ex, br.ez);
       const og = new THREE.Group(); og.position.set(br.ex, y + 1.1, br.ez);
-      og.add(new THREE.Mesh(GEO.ico(.28, 2), new THREE.MeshBasicMaterial({ color: col, fog: false })));
+      og.add(new THREE.Mesh(GEO.ico(.28, 2), glowify(new THREE.MeshBasicMaterial({ color: col, fog: false }))));
       og.add(new THREE.Mesh(GEO.ico(.42, 1), glowMat(col, .25)));
       og.add(halo(col, 2.4, .9));
-      const beam = new THREE.Mesh(new THREE.CylinderGeometry(.12, .3, 18, 10, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(.12, .3, 18, 10, 1, true), glowify(new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })));
       beam.position.set(br.ex, y + 9, br.ez); g.add(beam, og);
       X.pois.push({ kind: 'orb', ch, k: br.k, x: br.ex, z: br.ez, r: 1.5, g: og, beam, baseY: y + 1.1 });
     });
@@ -148,7 +148,7 @@ function buildPOIs() {
       ]), toon({ vertexColors: true }));
       base.castShadow = true; sg.add(base);
       const col = ORB_COLS[ch];
-      const slots = [-1, 0, 1].map(i => { const m = new THREE.Mesh(GEO.ico(.18, 2), new THREE.MeshBasicMaterial({ color: col, fog: false })); m.position.set(i * .9, 1.25, .9); sg.add(m); const h = halo(col, 1, .8); h.position.copy(m.position); sg.add(h); return [m, h]; });
+      const slots = [-1, 0, 1].map(i => { const m = new THREE.Mesh(GEO.ico(.18, 2), glowify(new THREE.MeshBasicMaterial({ color: col, fog: false }))); m.position.set(i * .9, 1.25, .9); sg.add(m); const h = halo(col, 1, .8); h.position.copy(m.position); sg.add(h); return [m, h]; });
       const glow = halo('#ffe08c', 6, 0); glow.position.set(0, 1.6, -.4); sg.add(glow);
       const lab = labelSprite('Spirit Shrine', '#ffe08c', PUZZLE_NAMES[ch]); lab.position.set(x, y + 3.6, z); g.add(lab);
       X.W.obs.push({ x, z, r: 2.1, poi: true });
@@ -214,7 +214,7 @@ function buildPOIs() {
     const M = MATERIALS[n.mat], y = ropeWalkHeight(n.x, n.z);
     const ng = new THREE.Group(); ng.position.set(n.x, y, n.z);
     const rock = new THREE.Mesh(GEO.dodec(.42), toon({ color: n.ch === 1 ? '#7a8496' : n.ch === 3 ? '#2a1e1c' : '#6a6458', flatShading: true })); rock.scale.set(1, .6, 1); rock.position.y = .15; rock.castShadow = true; ng.add(rock);
-    const cm = new THREE.MeshBasicMaterial({ color: M.c });
+    const cm = glowify(new THREE.MeshBasicMaterial({ color: M.c }));
     for (let i = 0; i < (n.rare ? 5 : 3); i++) { const cr = new THREE.Mesh(GEO.oct(1), cm); cr.scale.set(.07, .22 + Math.random() * .16, .07); cr.position.set(Math.cos(i * 2.1) * .18, .4, Math.sin(i * 2.1) * .18); cr.rotation.set(rnd(-.4, .4), 0, rnd(-.4, .4)); ng.add(cr); }
     const h = halo(M.c, n.rare ? 1.8 : 1.2, .75); h.position.y = .5; ng.add(h);
     g.add(ng);
@@ -435,7 +435,7 @@ function addThief(c) {
   const y = ropeWalkHeight(c.x, c.z);
   const icon = new THREE.Group(); icon.position.set(c.x, y + 2.2, c.z);
   const sw = buildSword(swordDef(w.id)); sw.rotation.z = Math.PI; sw.position.y = .4; icon.add(sw); icon.add(halo('#ff5a5a', 2.6, .7));
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.2, .45, 22, 10, 1, true), new THREE.MeshBasicMaterial({ color: '#ff5a5a', transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.2, .45, 22, 10, 1, true), glowify(new THREE.MeshBasicMaterial({ color: '#ff5a5a', transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })));
   beam.position.set(c.x, y + 11, c.z);
   const lab = labelSprite('Ghost Thief', '#ffb4a8', 'Reclaim your ' + swordDef(w.id).name); lab.position.set(c.x, y + 4.4, c.z);
   X.poi.add(icon, beam, lab);

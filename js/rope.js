@@ -521,7 +521,7 @@ function getRopeWorld() {
     keep.push(P(GEO.box(1.2, .9, .5), gold, [0, y + .3, 0]));
     const km = new THREE.Mesh(merge(keep), toon({ vertexColors: true })); km.position.set(best.x, ropeHeight(best.x, best.z) - 1, best.z); km.rotation.y = Math.atan2(gb.x - best.x, gb.z - best.z); km.scale.setScalar(1.2); chunkOf(gb.s).g.add(km);
     const wins = []; for (let k = 0; k < 18; k++) wins.push({ p: [best.x + rnd(-3, 3), km.position.y + rnd(7, 19), best.z + rnd(-3, 3)], s: [.6, .7, .6] });
-    chunkOf(gb.s).g.add(inst(GEO.box(1, 1, 1), new THREE.MeshBasicMaterial({ color: '#ffb35a' }), wins));
+    chunkOf(gb.s).g.add(inst(GEO.box(1, 1, 1), glowify(new THREE.MeshBasicMaterial({ color: '#ffb35a' })), wins));
   }
   const summit = R.beads.find(b => b.kind === 'summit');
   {
@@ -598,7 +598,7 @@ function getRopeWorld() {
     darkHouse: [G.darkHouse, () => toon({ vertexColors: true }), true], mapleTrunk: [G.mapleTrunk, () => toon({ vertexColors: true }), true],
     post: [G.post, () => toon({ vertexColors: true }), true], dead: [G.dead, () => toon({ vertexColors: true }), true],
     spike: [G.spike, () => toon({ flatShading: true }), true], mountain: [G.mountain, () => toon({ flatShading: true }), false],
-    lantern: [G.lantern, () => toon({ vertexColors: true, flatShading: true }), true], lanternLight: [G.lanternLight, () => new THREE.MeshBasicMaterial({ color: '#ffffff' }), false],
+    lantern: [G.lantern, () => toon({ vertexColors: true, flatShading: true }), true], lanternLight: [G.lanternLight, () => glowify(new THREE.MeshBasicMaterial({ color: '#ffffff' })), false],
     reed: [G.reed, () => toon({ vertexColors: true }), false],
   };
   buckets.forEach(b => {
