@@ -3,6 +3,7 @@
 
 let VS = null;
 const VS_HP = 160, VS_TELE = .5;
+const VS_BUILD = (document.currentScript && (document.currentScript.src.match(/[?&]v=(\d+)/) || [])[1]) || 'dev';
 const IN_CLAUDE = !!(window.claude && typeof window.claude.use === 'function');
 
 function vsDmg(swordId, lvl) { const ri = RAR[swordDef(swordId).r].i; return 13 * (1 + ri * .05) * (1 + (lvl || 0) * .02); }
@@ -133,7 +134,7 @@ const NET = {
   },
 };
 function newCode() { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 4; i++) s += a[(Math.random() * a.length) | 0]; return s; }
-function myVsProfile() { const w = eqSword(); return { name: (S.name || 'Shep').slice(0, 14), outfit: S.outfit, sword: w.id, lvl: w.lvl || 0 }; }
+function myVsProfile() { const w = eqSword(); return { name: (S.name || 'Shep').slice(0, 14), outfit: S.outfit, sword: w.id, lvl: w.lvl || 0, v: VS_BUILD }; }
 
 /* ---------- lobby (online) ---------- */
 let LOBBY = null;
@@ -161,7 +162,10 @@ async function vsJoin(code) {
 function lobbyWire() {
   const me = myVsProfile();
   NET.handler = d => {
-    if (d.type === 'hi' && LOBBY && !LOBBY.other) {
+    if (d.type === 'hi' && LOBBY && !LOBBY.other && d.v && d.v !== VS_BUILD && VS_BUILD !== 'dev') {
+      NET.send('hi', me);
+      LOBBY.status = 'Found your friend, but your two games are different versions. Close the game on BOTH devices, open it again, and try a new code.'; LOBBY.error = true; renderLobby();
+    } else if (d.type === 'hi' && LOBBY && !LOBBY.other) {
       LOBBY.other = { name: String(d.name || 'Friend').slice(0, 14), outfit: OUTFITS.some(o => o.id === d.outfit) ? d.outfit : 'ronin', sword: SWORDS.some(s => s.id === d.sword) ? d.sword : 'iron', lvl: clamp(+d.lvl || 0, 0, 10) };
       NET.send('hi', me);
       LOBBY.error = false; LOBBY.status = `${LOBBY.other.name} joined! Get ready…`; renderLobby(); sfx.up();
