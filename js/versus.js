@@ -10,7 +10,8 @@ function makeFighter(o) {
   const rig = new Samurai(lookFromOutfit(outfitDef(o.outfit)), swordDef(o.sword), {});
   rig.root.rotation.order = 'YXZ';
   return { rig, name: o.name, outfit: o.outfit, sword: o.sword, lvl: o.lvl || 0, hp: VS_HP, max: VS_HP, limbs: { armL: 80, armR: 80, legs: 80, head: 70 },
-    state: 'ready', t: 0, dir: 'R', tele: VS_TELE, blocking: false, atkId: 0, dmg: vsDmg(o.sword, o.lvl), dmgMul: 1, legsPen: 1, lunge: 0, kb: 0, resolved: false, pendingRes: null };
+    state: 'ready', t: 0, dir: 'R', tele: VS_TELE, blocking: false, atkId: 0, dmg: vsDmg(o.sword, o.lvl), dmgMul: 1, legsPen: 1, lunge: 0, kb: 0, resolved: false, pendingRes: null,
+    sta: 100, staWait: 0, bad: [], tired: false };
 }
 function swipeDir(ux, uy) {
   if (Math.abs(uy) > Math.abs(ux) * 1.2) return uy > 0 ? 'H' : 'Low';
@@ -207,8 +208,15 @@ function endVersus() {
 
 /* ---------- combat rules ---------- */
 function vsOpp(f) { return f === VS.A ? VS.B : VS.A; }
-function vsStartAttack(f, dir, id) {
-  f.state = 'windup'; f.t = 0; f.dir = dir; f.tele = VS_TELE * (f.rig.det.legs ? 1.25 : 1); f.resolved = false; f.atkId = id || 0;
+const VS_ATK_COST = 22, VS_PARRY_COST = 10;
+function vsSpend(f, n) { f.sta = Math.max(0, f.sta - n); f.staWait = .55; }
+function vsPop(f, text, col) { const s = toScreen(f.rig.partCenter('head')); ovPop(s.x, s.y - 50, text, { size: 26, color: col || '#ffd27a' }); }
+/* swinging wildly throws you off balance: a short stagger that leaves you open */
+function vsOffBalance(f) { vsStagger(f, .6); f.bad.length = 0; vsPop(f, 'OFF BALANCE!', '#ff9a7a'); }
+/* hitting a held block knocks the attacker back, open for a counter */
+function vsBounce(att) { if (VS.over) return; vsStagger(att, .65); vsSpend(att, 12); vsPop(att, 'BOUNCED!', '#bfe2ff'); }
+function vsStartAttack(f, dir, id, tired) {
+  f.state = 'windup'; f.t = 0; f.dir = dir; f.tired = !!tired; f.tele = VS_TELE * (f.rig.det.legs ? 1.25 : 1) * (tired ? 1.6 : 1); f.resolved = false; f.atkId = id || 0;
   f.rig.seq.length = 0; f.rig.setHold('wind' + dir, 4.2 / f.tele); sfx.warn();
 }
 function vsStrikeAnim(f) { f.state = 'strike'; f.t = 0; f.rig.seq.length = 0; f.rig.queue('end' + dir2(f), .16, { ease: easeIn, arc: .3 }); f.lunge = 1; sfx.slash(1.2); }
@@ -224,7 +232,7 @@ function vsParryFX(att) {
 /* resolve an attack landing on def; returns result for the network */
 function vsResolve(att, def) {
   const limb = THREAT_LIMB[att.dir], key = limb === 'head' ? 'helm' : limb;
-  let dmg = att.dmg * att.dmgMul * rnd(.9, 1.1) * (att.state === 'stagger' ? 1 : 1);
+  let dmg = att.dmg * att.dmgMul * rnd(.9, 1.1) * (att.tired ? .4 : 1);
   if (def.state === 'stagger') dmg *= 1.5;
   if (limb === 'head' && def.rig.det.helm) dmg *= 1.3;
   let r = 'hit';
@@ -267,34 +275,46 @@ function vsKO(loser) {
 /* a fighter's swipe (local player or a same-tablet player) */
 function vsSwipe(f, x0, y0, x1, y1) {
   if (!VS || VS.over || VS.intro > 0) return;
-  const o = vsOpp(f);
+  const o = vsOpp(f), now = VS.clock;
   const len = Math.hypot(x1 - x0, y1 - y0) || 1, ux = (x1 - x0) / len, uy = (y1 - y0) / len;
-  // parry attempt
-  if (o.state === 'windup') {
+  const free = f.state === 'ready' || f.state === 'recover';
+  // parry attempt: only when you're not mid-swing yourself, and it costs breath
+  if (o.state === 'windup' && free) {
     let aimed = true;
     if (VS.online) { const ring = ringInfo(o.rig); aimed = segDist(ring.x, ring.y, x0, y0, x1, y1) < ring.r * 1.4; }
     if (aimed) {
+      if (f.sta < VS_PARRY_COST) { vsPop(f, 'Out of breath!'); return; }
+      vsSpend(f, VS_PARRY_COST);
       if (vsCanParry(f, o)) {
-        vsParryFX(o); vsStagger(o, 1.0);
+        vsParryFX(o); vsStagger(o, 1.0); f.state = 'ready';
         if (VS.online) NET.send('res', { id: o.atkId, r: 'parry' });
         return;
-      } else if (f.state !== 'ready') return;
-      else if (!VS.online) { f.state = 'flinch'; f.t = 0; f.rig.jolt = .3; const s = toScreen(f.rig.partCenter('head')); ovPop(s.x, s.y - 40, 'Too early!', { size: 24, color: '#ffb38a' }); return; }
+      }
+      f.state = 'flinch'; f.t = 0; f.rig.jolt = .3; vsPop(f, 'Too early!', '#ffb38a'); return;
     }
   }
-  if (f.state !== 'ready') return;
+  if (f.state !== 'ready') {
+    // swiping while busy: twice in a row and you lose your footing
+    f.bad = f.bad.filter(t => now - t < 1.2); f.bad.push(now);
+    if (f.bad.length >= 2 && (f.state === 'windup' || f.state === 'recover' || f.state === 'strike')) vsOffBalance(f);
+    return;
+  }
+  const tired = f.sta < VS_ATK_COST;
+  if (tired) vsPop(f, 'Out of breath!');
+  vsSpend(f, VS_ATK_COST);
   const id = VS.online ? VS.nextId++ : 0;
-  vsStartAttack(f, swipeDir(ux, uy), id);
-  if (VS.online) NET.send('atk', { id, dir: f.dir });
+  vsStartAttack(f, swipeDir(ux, uy), id, tired);
+  if (VS.online) NET.send('atk', { id, dir: f.dir, tired });
 }
 function vsNetMessage(d) {
   const { A, B } = VS;
-  if (d.type === 'atk' && !VS.over) { if (['R', 'L', 'H', 'Low'].includes(d.dir)) vsStartAttack(B, d.dir, d.id | 0); }
+  if (d.type === 'atk' && !VS.over) { if (['R', 'L', 'H', 'Low'].includes(d.dir)) vsStartAttack(B, d.dir, d.id | 0, !!d.tired); }
   else if (d.type === 'res') {
     if (d.r === 'parry') { if (A.atkId === (d.id | 0) && (A.state === 'windup' || A.state === 'strike')) { vsParryFX(A); vsStagger(A, 1.0); banner('PARRIED!'); } }
     else if (['hit', 'block'].includes(d.r)) {
       if (d.limbs && typeof d.limbs === 'object') for (const k of ['armL', 'armR', 'legs', 'head']) if (typeof d.limbs[k] === 'number') B.limbs[k] = clamp(d.limbs[k], 0, 80);
       vsApplyResult(B, { r: d.r, dmg: clamp(d.dmg | 0, 0, 200), limb: ['armL', 'armR', 'legs', 'head'].includes(d.limb) ? d.limb : 'head', lost: ['armL', 'armR', 'legs', 'head'].includes(d.lost) ? d.lost : null, hp: clamp(+d.hp, 0, VS_HP) }, false);
+      if (d.r === 'block') vsBounce(A);
     }
   } else if (d.type === 'blk') { B.blocking = !!d.on; if (B.state === 'ready') B.rig.setHold(B.blocking ? 'blockMid' : 'guard', 14); }
   else if (d.type === 'again') { VS.again.them = true; vsMaybeRematch(); }
@@ -312,7 +332,7 @@ function vsFighterUpdate(f, dt) {
   else if (f.state === 'strike') {
     if (!f.resolved && f.t >= .08) {
       f.resolved = true;
-      if (!VS.online) { const res = vsResolve(f, o); vsApplyResult(o, res, true); }
+      if (!VS.online) { const res = vsResolve(f, o); vsApplyResult(o, res, true); if (res.r === 'block') vsBounce(f); }
     }
     if (f.t > .35) { f.state = 'recover'; f.t = 0; f.rig.setHold(f === VS.A && VS.online && VS.view === 'fp' ? 'fpGuard' : 'guard', 8); }
   } else if (f.state === 'recover' && f.t > .3) f.state = 'ready';
@@ -322,6 +342,7 @@ function vsFighterUpdate(f, dt) {
     const bp = o.state === 'windup' ? THREAT_BLOCK[o.dir] : 'blockMid';
     if (f.blockPose !== bp) { f.blockPose = bp; f.rig.setHold(bp, 16); }
   }
+  if (f.staWait > 0) f.staWait -= dt; else f.sta = Math.min(100, f.sta + 30 * dt * (f.blocking ? .5 : 1));
   f.lunge = Math.max(0, f.lunge - dt * 2.6); f.kb = Math.max(0, f.kb - dt * 1.2);
 }
 /* online: an incoming remote strike lands on my fighter, resolved by my device */
@@ -333,6 +354,7 @@ function vsRemoteStrikeCheck() {
     const res = vsResolve(B, A);
     NET.send('res', Object.assign({ id: B.atkId, limbs: A.limbs }, res));
     vsApplyResult(A, res, true);
+    if (res.r === 'block') vsBounce(B);
   }
 }
 
@@ -372,10 +394,12 @@ const VsMode = {
     CAM.position.copy(VS.camPos); CAM.lookAt(VS.camLook);
     CAM.fov = lerp(CAM.fov, fov, damp(8, dt)); CAM.updateProjectionMatrix(); FX.setScale();
     applyShake(dt);
-    hint(VS.intro > 0 || VS.over ? '' : VS.online ? 'Swipe to attack · swipe through the gold ring to parry · hold BLOCK' : 'Left player: left half · Right player: right half · Swipe to attack · hold still to block');
+    hint(VS.intro > 0 || VS.over ? '' : VS.online ? 'One swipe per touch · Swipe through the gold ring to parry · Hold BLOCK: blocks bounce attackers!' : 'Left player: left half · Right player: right half · One swipe per touch · Hold still to block: blocks bounce attackers!');
   },
   slash(x0, y0, x1, y1, id) {
     if (!VS) return;
+    // one move per touch: lift your finger to make the next one
+    VS.acted = VS.acted || {}; if (VS.acted[id]) return; VS.acted[id] = true;
     if (VS.online) { vsSwipe(VS.A, x0, y0, x1, y1); return; }
     const p = VS.ptrs[id]; const f = p ? p.f : (x0 < VW / 2 ? VS.A : VS.B);
     if (p) p.swiped = true;
@@ -383,12 +407,16 @@ const VsMode = {
     vsSwipe(f, x0, y0, x1, y1);
   },
   down(x, y, id) {
-    if (!VS || VS.online) return;
+    if (!VS) return;
+    VS.acted = VS.acted || {}; VS.acted[id] = false;
+    if (VS.online) return;
     const f = x < VW / 2 ? VS.A : VS.B;
     VS.ptrs[id] = { f, t0: performance.now(), swiped: false, timer: setTimeout(() => { const p = VS && VS.ptrs[id]; if (p && !p.swiped && f.state === 'ready') { f.blocking = true; f.blockPose = null; } }, 220) };
   },
   up(id) {
-    if (!VS || VS.online) return;
+    if (!VS) return;
+    if (VS.acted) delete VS.acted[id];
+    if (VS.online) return;
     const p = VS.ptrs[id]; if (!p) return;
     clearTimeout(p.timer); if (p.f.blocking) { p.f.blocking = false; p.f.rig.setHold('guard', 9); }
     delete VS.ptrs[id];
@@ -396,6 +424,13 @@ const VsMode = {
 };
 function drawVsOverlay(c) {
   if (!VS || VS.over) return;
+  // breath bars under each fighter
+  for (const f of [VS.A, VS.B]) {
+    if (VS.online && f === VS.B) continue;
+    const p = toScreen(f.rig.root.position.clone().add(new V3(0, -.05, 0))), w = 90, x = p.x - w / 2, y = Math.min(VH - 30, p.y + 14);
+    c.save(); c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(x - 2, y - 2, w + 4, 10);
+    c.fillStyle = f.sta < VS_ATK_COST ? '#ff8a5a' : '#ffd84a'; c.fillRect(x, y, w * f.sta / 100, 6); c.restore();
+  }
   for (const f of [VS.A, VS.B]) {
     if (f.state !== 'windup') continue;
     if (VS.online && f === VS.A) continue;

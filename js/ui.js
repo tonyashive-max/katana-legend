@@ -458,6 +458,26 @@ function previewOutfit(id) {
 }
 function wearOutfit(id) { if (!S.outfits.includes(id)) return; S.outfit = id; save(); sfx.up(); toast(`Now wearing ${outfitDef(id).name}`); if (HUB) hubSetPlayer(null, true); showTab('outfits'); }
 function buyOutfit(id) { const o = outfitDef(id); if (!o.how.gold || S.gold < o.how.gold || S.outfits.includes(id)) return; S.gold -= o.how.gold; S.outfits.push(id); wearOutfit(id); }
+function fsActive() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function fsToggle() {
+  const d = document.documentElement;
+  try {
+    if (fsActive()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else {
+      const r = (d.requestFullscreen || d.webkitRequestFullscreen).call(d, { navigationUI: 'hide' });
+      if (r && r.then) r.then(() => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => toast('Full screen was blocked. Try Add to Home Screen.'));
+    }
+  } catch (e) { toast('Full screen is not available here. Try Add to Home Screen.'); }
+}
+function setupFullscreen() {
+  const b = $('#fsBtn'), d = document.documentElement;
+  const standalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone;
+  if (standalone || !(d.requestFullscreen || d.webkitRequestFullscreen)) return;
+  b.hidden = false;
+  const sync = () => { b.textContent = fsActive() ? '🗗' : '⛶'; b.setAttribute('aria-label', fsActive() ? 'Exit full screen' : 'Full screen'); };
+  b.addEventListener('click', () => { sfx.ui(); fsToggle(); setTimeout(sync, 300); setTimeout(sync, 900); });
+  document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync);
+}
 function openSettings() {
   const seg = (key, opts) => `<div class="seg">${opts.map(([v, l]) => `<button data-set="${key}" data-val="${v}" aria-pressed="${S[key] === v}">${l}</button>`).join('')}</div>`;
   openOverlay(`<div class="modal" style="text-align:left">
@@ -547,6 +567,7 @@ function wireInput() {
     if (MODE === FightMode) endFight(F && F.ctx.from === 'explore' ? 'journey' : 'home'); else if (MODE === TrainMode) endTraining(); else if (MODE === VsMode) endVersus(); else if (MODE === ExploreMode) endExplore(); else if (MODE === ForgeMode) { endForge(); setTimeout(() => showTab('forge'), 450); }
   });
   $('#settingsBtn').addEventListener('click', () => { sfx.ui(); openSettings(); });
+  setupFullscreen();
 
   document.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;

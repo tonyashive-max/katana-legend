@@ -6,6 +6,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Katana Legend">
 <meta name="theme-color" content="#0b0d18">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}*,*::before,*::after{box-sizing:border-box}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Shep's Katana Legend</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -354,6 +357,7 @@ button.card{width:100%;}
     <div class="res">
       <span class="chip gold" title="Gold"><i></i><b id="gold">0</b></span>
       <span class="chip steel" title="Steel"><i></i><b id="steel">0</b></span>
+      <button class="icon-btn" id="fsBtn" aria-label="Full screen" hidden>⛶</button>
       <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
     </div>
   </header>
