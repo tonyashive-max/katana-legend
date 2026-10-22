@@ -60,6 +60,7 @@ const POSES = {
 const SLIDE_OUT = .45, SLIDE_IN = .55;
 const _m1 = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), _dv = new V3(), _dq = new Q4(), _ds = new V3();
 const _pv = new V3(), _pe = new V3();
+const _relR = new V3(-.27, -.52, .07), _relL = new V3(.27, -.52, .07);
 function poseQuat(P, out) { return quatFromDir(_pv.fromArray(P.d), _pe.fromArray(P.e), out); }
 
 /* ---------- sword model ---------- */
@@ -564,6 +565,7 @@ class Samurai {
     if (this.halo) { this.halo.rotation.z += dt * .8; this.halo.children.forEach((f, i) => { if (f.userData.flame) f.scale.y = 1 + Math.sin(this.t * 9 + i * 1.7) * .25; }); }
     if (this.lFreeT > 0) this.lFreeT = Math.max(0, this.lFreeT - dt);
     const driving = this.stepDraw(dt);
+    const gl = this.sword.userData.glow; if (gl) gl.visible = !this.sheathed || !!this.drawAnim; // a sheathed blade doesn't glow through its scabbard
     if (driving) { /* grip driven by the sheathing motion */ }
     else if (this.seq.length) {
       const s = this.seq[0];
@@ -618,7 +620,7 @@ class Samurai {
     const targetY = (legless ? .36 : .92) + this.crouch;
     this.hipsY = dt ? lerp(this.hipsY, targetY, damp(9, dt)) : targetY;
     this.hips.position.set(this.hipOff.x, this.hipsY + bob, this.hipOff.z);
-    const inSaya = this.hasSaya && (this.sheathed || (this.drawAnim && this.drawAnim.mode !== 'approach'));
+    const inSaya = !this.cere && this.hasSaya && (this.sheathed || (this.drawAnim && this.drawAnim.mode !== 'approach'));
     const drawing = !!this.drawAnim;
     let twistT, leanT;
     if (inSaya || drawing) { twistT = this.twistAdd + (drawing ? .38 : 0); leanT = this.leanAdd + (drawing ? .16 : 0); }
@@ -635,6 +637,8 @@ class Samurai {
     const dir = _t4.set(0, 1, 0).applyQuaternion(this.gq);
     let rT = new V3().copy(this.gp).addScaledVector(dir, -.06);
     let lT = new V3().copy(this.gp).addScaledVector(dir, -.18);
+    if (this.cereSpread) { rT = new V3().copy(this.gp).addScaledVector(dir, -.03); lT = new V3().copy(this.gp).addScaledVector(dir, this.cereSpread); } // both hands along a scabbard
+    if (this.relaxW) { rT.lerp(_relR, this.relaxW); lT.lerp(_relL, this.relaxW); } // hands resting at the sides
     if (this.hasSaya && !this.swordDropped && (inSaya || drawing || this.lFreeT > 0)) {
       this.root.updateMatrixWorld(true);
       const mouth = this.chest.worldToLocal(this.saya.localToWorld(new V3(0, .07, 0)));

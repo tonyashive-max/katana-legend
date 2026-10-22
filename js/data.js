@@ -312,6 +312,11 @@ const SENSEI_LOOK = { cloth: '#1f2a4a', armor: '#e9e1cc', trim: '#c0392b', helm:
 
 /* ---------- save ---------- */
 const SAVE_KEY = 'shep-katana-legend-3d-v2';
+/* ---------- player identity: a dueling code and a wax seal, made once per player ---------- */
+const PID_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function newPid() { let s = ''; for (let i = 0; i < 8; i++) s += PID_ABC[(Math.random() * PID_ABC.length) | 0]; return s; }
+function newSealStyle() { return { c: (Math.random() * 7) | 0, m: (Math.random() * 4) | 0, s: (Math.random() * 1e6) | 0 }; }
+function fmtPid(p) { return p ? p.slice(0, 4) + '-' + p.slice(4) : ''; }
 function freshSave() {
   return {
     gold: 80, steel: 6, cleared: 0, stars: {}, beaten: {}, journey: CHAPTERS.map(() => ({ orbs: [0, 0, 0], puzzle: false, key: false, myth: false })), beastNap: {}, mythStars: {},
@@ -320,6 +325,7 @@ function freshSave() {
     sk: { power: { l: 1, x: 0 }, speed: { l: 1, x: 0 }, guard: { l: 1, x: 0 }, vital: { l: 1, x: 0 }, iai: { l: 1, x: 0 } },
     roam: null, captured: [], ghosts: 0, mats: {}, nodeT: {}, forged: [], tutDone: false,
     seen: ['bokken'], sound: true, music: true, quality: 'auto', view: 'fp', wins: 0, parries: 0, name: 'Shep',
+    pid: newPid(), seal: newSealStyle(), rivals: [], chal: {}, duels: { w: 0, l: 0 },
   };
 }
 function loadSave() {
@@ -347,6 +353,13 @@ function loadSave() {
       if (!merged.mats || typeof merged.mats !== 'object') merged.mats = {};
       if (!merged.nodeT || typeof merged.nodeT !== 'object') merged.nodeT = {};
       if (o.tutDone == null) merged.tutDone = Object.keys(merged.beaten || {}).length > 0;
+      // duel identity for players from before challenges existed
+      if (!o.pid) merged.pid = newPid();
+      if (!o.seal || typeof o.seal !== 'object') merged.seal = newSealStyle();
+      if (!Array.isArray(merged.rivals)) merged.rivals = [];
+      if (!merged.chal || typeof merged.chal !== 'object') merged.chal = {};
+      if (!merged.duels) merged.duels = { w: 0, l: 0 };
+      (merged.swords || []).forEach(w => { if (w.made == null && !w.won && (SWORDS.find(d => d.id === w.id) || {}).forged) w.made = 1; });
       return merged;
     }
   } catch (e) { /* storage unavailable */ }
@@ -463,6 +476,9 @@ function addSword(id) {
   return w;
 }
 function ownsSword(id) { return S.swords.some(w => w.id === id); }
+/* blades made at this player's forge, and blades won from rivals: the ones that can be wagered in a challenge */
+function forgedBlades() { return S.swords.filter(w => w.made && !w.won && !w.captured); }
+function wagerBlades() { return S.swords.filter(w => (w.made || w.won) && !w.captured); }
 function bestSword() {
   return S.swords.slice().sort((a, b) => RAR[swordDef(b.id).r].i - RAR[swordDef(a.id).r].i || swordDmg(b) - swordDmg(a))[0];
 }

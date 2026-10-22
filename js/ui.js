@@ -10,8 +10,9 @@ let toastTimer = 0;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400); }
 function openOverlay(html) { const o = $('#overlay'); o.innerHTML = html; o.hidden = false; }
 function closeOverlay() { const o = $('#overlay'); o.hidden = true; o.innerHTML = ''; }
-function transition(fn) {
-  if (transitioning) return; transitioning = true;
+function transition(fn, queue) {
+  if (transitioning) { if (queue) setTimeout(() => transition(fn, queue), 150); return; } // duel scene changes queue up instead of being dropped
+  transitioning = true;
   const f = $('#fade'); f.classList.add('on');
   setTimeout(() => {
     try { fn(); } catch (e) { console.error(e); toast('Something went wrong: ' + e.message); }
@@ -239,7 +240,7 @@ function screenSwords() {
     <section class="panel"><div class="row between"><h2>Blade collection</h2><b>${S.seen.length} / ${SWORDS.length}</b></div>
       <div class="bar" style="margin-top:10px"><i style="width:${Math.round(S.seen.length / SWORDS.length * 100)}%;background:linear-gradient(90deg,#ffb53d,#ff5fb0,#b357ff)"></i></div></section>
     <section class="panel stack"><h3>Your blades</h3>
-      ${S.swords.slice().sort((a, b) => (a.captured ? 1 : 0) - (b.captured ? 1 : 0) || RAR[swordDef(b.id).r].i - RAR[swordDef(a.id).r].i || swordDmg(b) - swordDmg(a)).map(w => {
+      ${S.swords.filter(w => !w.won || w.captured).sort((a, b) => (a.captured ? 1 : 0) - (b.captured ? 1 : 0) || RAR[swordDef(b.id).r].i - RAR[swordDef(a.id).r].i || swordDmg(b) - swordDmg(a)).map(w => {
         const d = swordDef(w.id), eq = w.u === S.eq;
         if (w.captured) {
           const c = S.captured.find(x => x.u === w.u) || { ch: 0 };
@@ -252,11 +253,12 @@ function screenSwords() {
         }
         return `<div class="card ${eq ? 'sel' : ''}">
           <div class="row between"><b class="name ${d.r}" style="${d.r !== 'mythic' ? `color:${RAR[d.r].c}` : ''}">${d.name}${w.lvl ? ` +${w.lvl}` : ''}</b><small>${Math.round(swordDmg(w))} dmg ${elTag(swordFx(w).el)}</small></div>
-          ${bladeSVG(d)}
+          ${bladeSVG(d)}${w.made ? '<small class="maker">⚒ Forged by you · can be wagered in challenges</small>' : ''}
           <div class="row">${eq ? '<span class="tag new">Equipped</span>' : `<button class="btn small primary" data-equip="${w.u}">Equip</button><button class="btn small" data-smelt="${w.u}">Smelt · +${smeltValue(w)} steel</button>`}</div>
         </div>`;
       }).join('')}
     </section>
+    ${trophyCards()}
     ${(S.lost || []).length ? `<section class="panel stack"><h3>Broken blades</h3><p class="muted" style="font-size:13px">A boss snapped these. They are gone for good, but you can win another copy.</p>
       ${(S.lost || []).slice().reverse().slice(0, 6).map(l => {
         const d = swordDef(l.id), src = STAGES.map((s, i) => [s, i]).find(([s]) => s.sword === l.id), owned = ownsSword(l.id);
@@ -298,25 +300,37 @@ function screenOutfits() {
   </div>`;
 }
 function screenVersus() {
-  const opts = S.outfits.map(id => `<option value="${id}">${outfitDef(id).name}</option>`).join('');
-  const swords = [...new Set(S.swords.map(w => w.id))].map(id => `<option value="${id}">${swordDef(id).name}</option>`).join('');
   return `<div class="stack">
-    <section class="panel"><h2>Versus</h2><p class="muted" style="margin-top:6px">Duel a friend. Everyone gets the same health, so skill wins. Swipe to attack, parry at the gold ring, and block to soak up hits.</p></section>
+    <section class="panel"><h2>Versus</h2><p class="muted" style="margin-top:6px">Duel a friend, best of three rounds, in a random land. Your training, armor and blade all count. Arcade duels are just for fun; challenges are fought for blades.</p></section>
+    ${challengePanel()}
     <section class="panel stack">
-      <h3>Same tablet</h3>
-      <p class="muted">Two players share this screen. ${S.name || 'Shep'} swipes on the left half, Player 2 on the right half. Hold a finger still to block.</p>
-      <label class="row between"><span>Player 2 name</span><input id="p2name" value="Player 2" maxlength="14" style="font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:inherit;width:150px"></label>
-      <label class="row between"><span>Player 2 outfit</span><select id="p2outfit" style="font:inherit;padding:8px;border-radius:10px;background:#1a1f36;color:inherit;border:1px solid var(--line)">${opts}</select></label>
-      <label class="row between"><span>Player 2 blade</span><select id="p2sword" style="font:inherit;padding:8px;border-radius:10px;background:#1a1f36;color:inherit;border:1px solid var(--line)">${swords}</select></label>
-      <button class="btn primary" data-local="1">⚔ Start same-tablet duel</button>
+      <h3>Arcade · two devices</h3>
+      <p class="muted">${IN_CLAUDE ? 'Both devices open this game in Claude, signed in to an account that can open it. For friends without Claude accounts, use the website version of the game.' : 'One hosts, the other joins with the code. Works on any wifi or cellular.'}</p>
+      <div class="row"><button class="btn primary" data-vs="host">Host a game</button><button class="btn" data-vs="join">Join with a code</button></div>
     </section>
     <section class="panel stack">
-      <h3>Two devices</h3>
-      <p class="muted">${IN_CLAUDE ? 'Both devices open this game in Claude, signed in to an account that can open it. For friends without Claude accounts, use the website version of the game.' : 'Both devices open this game website on the same wifi (or anywhere online). One hosts, the other joins with the code.'}</p>
-      <div class="row"><button class="btn primary" data-vs="host">Host a game</button><button class="btn" data-vs="join">Join with a code</button></div>
+      <h3>Arcade · same tablet</h3>
+      <p class="muted">Two players share this screen: ${esc(S.name || 'Shep')} on the left half, Player 2 on the right. Player 2 borrows your armory and your training.</p>
+      <button class="btn" data-local="1">⚔ Same-tablet duel</button>
     </section>
   </div>`;
 }
+/* same tablet: player 1 picks, then the guest picks from player 1's armory */
+function localDuelSetup() {
+  openLoadout({ title: `${S.name || 'Shep'}: armor and blade`, sub: 'Same-tablet duel · Player 1', rule: 'any', cancel: () => {},
+    onPick: (outfit, u) => { const p1 = myDuelProfile(outfit, u); localP2(p1); } });
+}
+function localP2(p1) {
+  const opts = S.outfits.map(id => `<option value="${id}">${esc(outfitDef(id).name)}</option>`).join('');
+  const swords = usableSwords().map(w => `<option value="${w.u}">${esc(swordDef(w.id).name)}${w.lvl ? ' +' + w.lvl : ''}</option>`).join('');
+  openOverlay(`<div class="modal" style="text-align:left"><div class="eyebrow">Same-tablet duel · Player 2</div><h2>Player 2: armor and blade</h2>
+    <label class="row between"><span>Name</span><input id="p2name" value="Player 2" maxlength="14" class="inp"></label>
+    <label class="row between"><span>Armor</span><select id="p2outfit" class="inp">${opts}</select></label>
+    <label class="row between"><span>Blade</span><select id="p2sword" class="inp">${swords}</select></label>
+    <div class="actions"><button class="btn" data-close="1">Cancel</button><button class="btn primary" data-local2="1">Ready ⚔</button></div></div>`);
+  LOCAL_P1 = p1;
+}
+let LOCAL_P1 = null;
 
 /* ---------- hub showcase ---------- */
 function enterHub(first) {
@@ -402,7 +416,7 @@ function doRecipe(id) {
     const bi = S.swords.findIndex(w => w.id === r.base && !w.captured && w.u !== S.eq);
     const idx = bi >= 0 ? bi : S.swords.findIndex(w => w.id === r.base && !w.captured);
     S.swords.splice(idx, 1);
-    const nw = addSword(r.id); nw.q = grade === 'Masterwork' ? 1.1 : grade === 'Fine' ? 1.05 : 1; S.eq = nw.u; save();
+    const nw = addSword(r.id); nw.made = 1; nw.q = grade === 'Masterwork' ? 1.1 : grade === 'Fine' ? 1.05 : 1; S.eq = nw.u; save();
     return { msg: `${swordDef(r.id).name} is forged and equipped!${nw.q > 1 ? ` ${grade} quality: +${Math.round((nw.q - 1) * 100)}% damage.` : ''}` };
   } });
 }
@@ -420,7 +434,7 @@ function doCraft() {
   let roll = Math.random() * 100, rar = 'common';
   for (const [r, p] of CRAFT_ODDS) { if (roll < p) { rar = r; break; } roll -= p; }
   const pool = SWORDS.filter(s => s.r === rar && s.id !== 'bokken' && s.myth == null && !s.forged);
-  const d = pick(pool), isNew = !S.seen.includes(d.id), w = addSword(d.id); save();
+  const d = pick(pool), isNew = !S.seen.includes(d.id), w = addSword(d.id); w.made = 1; save();
   sfx.forge(); setTimeout(() => { RAR[d.r].i >= 3 ? sfx.win() : sfx.coin(); }, 500);
   openOverlay(`<div class="modal ${RAR[d.r].i >= 3 ? 'win' : ''}">
     <div class="eyebrow">The forge fire roars…</div>
@@ -482,6 +496,7 @@ function openSettings() {
   const seg = (key, opts) => `<div class="seg">${opts.map(([v, l]) => `<button data-set="${key}" data-val="${v}" aria-pressed="${S[key] === v}">${l}</button>`).join('')}</div>`;
   openOverlay(`<div class="modal" style="text-align:left">
     <div class="row between"><h2>Settings</h2><button class="btn small" data-close="1">Done</button></div>
+    <div class="toggle"><span>Your wax seal</span><span class="row" style="gap:10px">${sealSVG({ name: S.name, seal: S.seal }, 54)}<small class="muted">Dueling code<br><b style="color:var(--gold-2)">${fmtPid(S.pid)}</b></small></span></div>
     <label class="toggle"><span>Player name</span><input id="nameInput" value="${(S.name || 'Shep').replace(/"/g, '')}" maxlength="14" style="font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:inherit;width:150px"></label>
     <div class="toggle"><span>Sound effects</span>${seg('sound', [[true, 'On'], [false, 'Off']])}</div>
     <div class="toggle"><span>Music</span>${seg('music', [[true, 'On'], [false, 'Off']])}</div>
@@ -571,7 +586,8 @@ function wireInput() {
   $('#leaveBtn').addEventListener('click', () => {
     const b = $('#leaveBtn');
     if (MODE === ExploreMode) { endExplore(); return; }
-    if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Tap again to leave'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Leave'; }, 2200); return; }
+    if (b.dataset.armed !== '1') { const fo = MODE === VsMode && vsLeaveNeedsForfeit(); b.dataset.armed = '1'; b.textContent = fo ? 'Tap again: forfeit your blade' : 'Tap again to leave'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Leave'; }, fo ? 3200 : 2200); return; }
+    if (MODE === VsMode && vsLeaveNeedsForfeit()) { vsForfeit(); return; }
     if (MODE === FightMode) endFight(F && F.ctx.from === 'explore' ? 'journey' : 'home'); else if (MODE === TrainMode) endTraining(); else if (MODE === VsMode) endVersus(); else if (MODE === ExploreMode) endExplore(); else if (MODE === ForgeMode) { endForge(); setTimeout(() => showTab('forge'), 450); }
   });
   $('#settingsBtn').addEventListener('click', () => { sfx.ui(); openSettings(); });
@@ -581,6 +597,7 @@ function wireInput() {
     const b = e.target.closest('button'); if (!b) return;
     AUD.init();
     const d = b.dataset;
+    if (loadoutClick(d) || chalClick(d, b)) return;
     if (d.tab) { sfx.ui(); showTab(d.tab); }
     else if (d.fight != null) { sfx.taiko(.7); startFight(+d.fight); }
     else if (d.explore != null) { sfx.ui(); startExplore(d.explore === 'resume' ? null : +d.explore); }
@@ -602,9 +619,11 @@ function wireInput() {
     else if (d.res) fightResultAction(d.res, b);
     else if (d.tres) trainResultAction(d.tres);
     else if (d.vsres) vsResultAction(d.vsres);
-    else if (d.local) {
-      const p2 = { name: ($('#p2name').value || 'Player 2').slice(0, 14), outfit: $('#p2outfit').value, sword: $('#p2sword').value, lvl: 0 };
-      startVersusLocal(p2);
+    else if (d.local) localDuelSetup();
+    else if (d.local2 && LOCAL_P1) {
+      const name = ($('#p2name').value || 'Player 2').slice(0, 14), w = S.swords.find(x => x.u === +$('#p2sword').value) || eqSword();
+      const p2 = cleanProfile({ pid: 'guest', name, seal: { c: (name.length * 3) % 7, m: name.length % 4, s: name.length * 977 }, outfit: $('#p2outfit').value, sk: LOCAL_P1.sk, sword: swordPack(w) });
+      const p1 = LOCAL_P1; LOCAL_P1 = null; closeOverlay(); startVersusLocal(p1, p2);
     }
     else if (d.vs === 'host') vsHost();
     else if (d.vs === 'join') joinPad();
@@ -671,6 +690,8 @@ function boot() {
     renderTop();
     requestAnimationFrame(frame); setTimeout(() => { $('#loading').hidden = true; }, 400);
     setTimeout(vsBootLinks, 900);
+    setTimeout(() => { MAIL.open(); updateScrollBadge(); }, 1200);
+    setInterval(() => { maybeShowScroll(); }, 2500);
   } catch (e) {
     console.error(e);
     bootError('This device could not start 3D graphics (' + e.message + '). Try a newer browser.');

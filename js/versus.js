@@ -6,12 +6,15 @@ const VS_HP = 160, VS_TELE = .5;
 const VS_BUILD = (document.currentScript && (document.currentScript.src.match(/[?&]v=(\d+)/) || [])[1]) || 'dev';
 const IN_CLAUDE = !!(window.claude && typeof window.claude.use === 'function');
 
-function vsDmg(swordId, lvl) { const ri = RAR[swordDef(swordId).r].i; return 13 * (1 + ri * .05) * (1 + (lvl || 0) * .02); }
-function makeFighter(o) {
-  const rig = new Samurai(lookFromOutfit(outfitDef(o.outfit)), swordDef(o.sword), {});
+/* a duelist built from a profile: training, armor and blade decide the numbers */
+function makeFighter(p) {
+  const st = duelStats(p);
+  const rig = new Samurai(lookFromOutfit(outfitDef(p.outfit)), swordDef(p.sword.id), {});
   rig.root.rotation.order = 'YXZ';
-  return { rig, name: o.name, outfit: o.outfit, sword: o.sword, lvl: o.lvl || 0, hp: VS_HP, max: VS_HP, limbs: { armL: 80, armR: 80, legs: 80, head: 70 },
-    state: 'ready', t: 0, dir: 'R', tele: VS_TELE, blocking: false, atkId: 0, dmg: vsDmg(o.sword, o.lvl), dmgMul: 1, legsPen: 1, lunge: 0, kb: 0, resolved: false, pendingRes: null,
+  return { rig, prof: p, pid: p.pid, name: p.name, outfit: p.outfit, sword: p.sword.id, hp: st.hp, max: st.hp,
+    limbs: { armL: st.hp * .5, armR: st.hp * .5, legs: st.hp * .5, head: st.hp * .44 }, limbMax: st.hp * .5,
+    state: 'ready', t: 0, dir: 'R', tele: st.tele, teleBase: st.tele, blocking: false, atkId: 0, dmg: st.dmg, dmgMul: 1, legsPen: 1, lunge: 0, kb: 0, resolved: false,
+    pass: st.pass, parryWin: st.parryWin, regen: st.regen, atkCost: st.atkCost, stepCost: st.stepCost, stepCdMax: st.stepCd, crit: st.crit,
     sta: 100, staWait: 0, bad: [], tired: false, lx: 0, px: 0, aim: 0, stepCd: 0, lean: 0 };
 }
 function swipeDir(ux, uy) {
@@ -71,8 +74,8 @@ class MqttLink {
       clearInterval(this.ping); this.ping = setInterval(() => { try { this.ws.send(new Uint8Array([0xC0, 0])); } catch (e) { /* */ } }, 20000);
       if (this.waitOpen) { this.waitOpen.res(); this.waitOpen = null; }
     } else if (type === 3) { // PUBLISH (QoS 0)
-      const tl = (body[0] << 8) | body[1];
-      try { this.onMsg(new TextDecoder().decode(body.subarray(2 + tl))); } catch (e) { /* */ }
+      const tl = (body[0] << 8) | body[1], topic = new TextDecoder().decode(body.subarray(2, 2 + tl));
+      try { this.onMsg(new TextDecoder().decode(body.subarray(2 + tl)), topic); } catch (e) { /* */ }
     }
   }
   /* after switching apps the socket can be silently dead: poke it, and redial if nothing comes back */
@@ -83,9 +86,9 @@ class MqttLink {
     try { this.ws.send(new Uint8Array([0xC0, 0])); } catch (e) { /* */ }
     setTimeout(() => { if (!this.dead && this.ready && (this.lastRx || 0) === t0) { try { this.ws.close(); } catch (e) { /* */ } } }, 2500);
   }
-  pub(txt) {
-    if (!this.ready) return;
-    try { this.ws.send(MqttLink.pkt(0x30, [...MqttLink.str(this.topic), ...new TextEncoder().encode(txt)])); } catch (e) { /* */ }
+  pub(txt, retain, topic) {
+    if (!this.ready) return false;
+    try { this.ws.send(MqttLink.pkt(retain ? 0x31 : 0x30, [...MqttLink.str(topic || this.topic), ...new TextEncoder().encode(txt)])); return true; } catch (e) { return false; }
   }
   close() { this.dead = true; clearInterval(this.ping); try { if (this.ready) this.ws.send(new Uint8Array([0xE0, 0])); this.ws.close(); } catch (e) { /* */ } }
 }
@@ -126,7 +129,7 @@ const NET = {
     if (last && last.has(m.s)) return;
     const set = last || new Set(); set.add(m.s); if (set.size > 400) set.delete(set.values().next().value); this.seen.set(m.f, set);
     this.lastHeard = performance.now();
-    if (this.handler && typeof m.d === 'object') this.handler(m.d);
+    if (this.handler && typeof m.d === 'object') this.handler(m.d, m.f);
   },
   send(type, data) {
     const msg = Object.assign({ type }, data || {});
@@ -143,7 +146,6 @@ const NET = {
   },
 };
 function newCode() { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 4; i++) s += a[(Math.random() * a.length) | 0]; return s; }
-function myVsProfile() { const w = eqSword(); return { name: (S.name || 'Shep').slice(0, 14), outfit: S.outfit, sword: w.id, lvl: w.lvl || 0, v: VS_BUILD }; }
 
 /* ---------- lobby (online) ---------- */
 let LOBBY = null;
@@ -162,57 +164,126 @@ function vsBootLinks() {
     const q = new URLSearchParams(location.search), j = (q.get('join') || '').toUpperCase();
     if (j) { history.replaceState(null, '', location.pathname); if (/^[A-Z2-9]{4}$/.test(j) && !IN_CLAUDE) { vsJoin(j); return; } }
     const h = ssGet('vsHost');
-    if (h && h.code && Date.now() - h.t < 15 * 60e3 && !IN_CLAUDE) vsHost(h.code);
+    if (h && h.code && Date.now() - h.t < 15 * 60e3 && !IN_CLAUDE) vsHost(h.code, h.opts);
   } catch (e) { /* */ }
 }
-async function vsHost(resume) {
+/* opts: { mode: 'challenge', cid, reserve: rival pid } for a challenge; nothing for an arcade duel */
+async function vsHost(resume, opts) {
+  opts = opts || {};
   const code = resume || newCode();
-  if (!IN_CLAUDE) ssSet('vsHost', { code, t: Date.now() });
-  LOBBY = { code, host: true, other: null, status: 'Opening a game…' };
+  if (!IN_CLAUDE) ssSet('vsHost', { code, t: Date.now(), opts });
+  LOBBY = { code, host: true, other: null, status: 'Opening a game…', mode: opts.mode || 'arcade', cid: opts.cid || null, reserve: opts.reserve || null, rname: opts.rname || null, land: (Math.random() * NL) | 0 };
   renderLobby();
   try {
     if (IN_CLAUDE) await NET.openRoom(code); else await NET.openRelay(code);
-    LOBBY.status = resume ? 'Back! Still waiting for your friend…' : 'Waiting for your friend to join…'; renderLobby();
+    if (!LOBBY || LOBBY.code !== code) return;
+    LOBBY.status = LOBBY.mode === 'challenge' ? `The dueling ground is open. Waiting for ${esc(LOBBY.rname || 'your rival')}…` : resume ? 'Back! Still waiting for your friend…' : 'Waiting for your friend to join…';
+    renderLobby();
     lobbyWire();
-  } catch (e) { LOBBY.status = e.message; LOBBY.error = true; renderLobby(); }
+    if (opts.onOpen) opts.onOpen(code);
+  } catch (e) { if (LOBBY) { LOBBY.status = e.message; LOBBY.error = true; renderLobby(); } }
 }
 async function vsJoin(code) {
   LOBBY = { code, host: false, other: null, status: 'Connecting…' };
   renderLobby();
   try {
     if (IN_CLAUDE) await NET.openRoom(code); else await NET.openRelay(code);
+    if (!LOBBY || LOBBY.code !== code) return;
     LOBBY.status = 'Looking for the host…'; renderLobby();
     lobbyWire();
     const mine = LOBBY;
-    setTimeout(() => { if (LOBBY === mine && !LOBBY.other) { LOBBY.status = 'No game found with code ' + code + ' yet. Check the host screen says “Waiting for your friend” with the same code. Still trying…'; LOBBY.error = true; renderLobby(); } }, 12000);
-  } catch (e) { LOBBY.status = e.message; LOBBY.error = true; renderLobby(); }
+    setTimeout(() => { if (LOBBY === mine && !LOBBY.other && !LOBBY.dead) { LOBBY.status = 'No game found with code ' + code + ' yet. Check the host screen says “Waiting” with the same code. Still trying…'; LOBBY.error = true; renderLobby(); } }, 12000);
+  } catch (e) { if (LOBBY) { LOBBY.status = e.message; LOBBY.error = true; renderLobby(); } }
 }
+function myHello() {
+  const L = LOBBY;
+  return Object.assign(myIdent(), { v: VS_BUILD, host: !!L.host, mode: L.mode || 'arcade', cid: L.cid || null, wager: wagerBlades().length > 0, land: L.host ? L.land : undefined, lock: L.host && L.other ? L.other.pid : undefined });
+}
+function cleanHello(d) { return { pid: String(d.pid || '').slice(0, 8), name: String(d.name || 'Friend').slice(0, 14), seal: cleanSeal(d.seal), wager: !!d.wager }; }
 function lobbyWire() {
-  const me = myVsProfile();
-  NET.handler = d => {
-    if (d.type === 'hi' && LOBBY && !LOBBY.other && d.v && d.v !== VS_BUILD && VS_BUILD !== 'dev') {
-      NET.send('hi', me);
-      LOBBY.status = 'Found your friend, but your two games are different versions. Close the game on BOTH devices, open it again, and try a new code.'; LOBBY.error = true; renderLobby();
-    } else if (d.type === 'hi' && LOBBY && !LOBBY.other) {
-      LOBBY.other = { name: String(d.name || 'Friend').slice(0, 14), outfit: OUTFITS.some(o => o.id === d.outfit) ? d.outfit : 'ronin', sword: SWORDS.some(s => s.id === d.sword) ? d.sword : 'iron', lvl: clamp(+d.lvl || 0, 0, 10) };
-      NET.send('hi', me);
-      LOBBY.error = false; LOBBY.status = `${LOBBY.other.name} joined! Get ready…`; renderLobby(); sfx.up();
-      setTimeout(() => { if (LOBBY && LOBBY.other) startVersusOnline(LOBBY.code, LOBBY.host, me, LOBBY.other); }, 1600);
-    } else if (VS && VS.online) vsNetMessage(d);
+  NET.handler = (d, from) => {
+    if (VS && VS.online) {
+      if (d.type === 'hi') { if (VS.host && (!from || from !== NET.peer)) NET.send('full', { to: d.pid }); return; }
+      if (d.type === 'full') return;
+      if (NET.peer && from && from !== NET.peer) return; // someone else on this code: ignore them
+      vsNetMessage(d); return;
+    }
+    const L = LOBBY; if (!L || L.dead) return;
+    if (d.type === 'full') {
+      if (d.to === S.pid && !L.other) { L.dead = true; L.error = true; L.status = d.rsv ? 'This dueling ground is reserved for a challenge between two other samurai.' : 'That game is full: two samurai are already dueling there. Ask your friend for a new code.'; clearInterval(L.hiTimer); renderLobby(); }
+      return;
+    }
+    if (d.type === 'hi') {
+      if (L.other) { // already paired: answer our partner (they may have missed us), turn everyone else away
+        if (!from || from === NET.peer) { if (!L.started) NET.send('hi', myHello()); }
+        else if (L.host) NET.send('full', { to: d.pid });
+        return;
+      }
+      if (d.v && d.v !== VS_BUILD && VS_BUILD !== 'dev') {
+        NET.send('hi', myHello());
+        L.status = 'Found your friend, but your two games are different versions. Close the game on BOTH devices, open it again, and try a new code.'; L.error = true; renderLobby(); return;
+      }
+      if (!L.host && !d.host) return; // two joiners hearing each other
+      if (!L.host && d.lock && d.lock !== S.pid) { L.dead = true; L.error = true; L.status = 'That game is full: two samurai are already dueling there.'; clearInterval(L.hiTimer); renderLobby(); return; }
+      if (L.host && L.reserve && d.pid !== L.reserve) { NET.send('full', { to: d.pid, rsv: 1 }); return; }
+      L.other = cleanHello(d); NET.peer = from || null;
+      if (!L.host) { L.mode = d.mode === 'challenge' ? 'challenge' : 'arcade'; L.cid = d.cid ? String(d.cid).slice(0, 12) : null; L.land = clamp(d.land | 0, 0, NL - 1); }
+      NET.send('hi', myHello());
+      addRival(L.other);
+      clearInterval(L.hiTimer);
+      L.error = false; L.status = `${esc(L.other.name)} is here! Choose your armor and blade…`; renderLobby(); sfx.up();
+      setTimeout(() => { if (LOBBY === L && !L.dead) vsLoadoutOnline(); }, 1200);
+      return;
+    }
+    if (NET.peer && from && from !== NET.peer) return;
+    if (d.type === 'pick') { L.theirPick = cleanProfile(d.p); if (L.myPick) renderLobbyWait(); vsMaybeGo(); }
+    else if (d.type === 'go') { if (!L.host && L.myPick) { if (!L.theirPick && d.p) L.theirPick = cleanProfile(d.p); if (L.theirPick) { L.land = clamp(d.land | 0, 0, NL - 1); startVersusOnline(); } } }
+    else if (d.type === 'bye') { L.dead = true; L.error = true; L.status = `${esc(L.other ? L.other.name : 'Your friend')} left.`; LOADOUT = null; renderLobby(); }
   };
-  NET.peersCb = n => { if (n > 0) NET.send('hi', me); };
-  NET.send('hi', me);
-  LOBBY.hiTimer = setInterval(() => { if (LOBBY && !LOBBY.other) NET.send('hi', me); else clearInterval(LOBBY && LOBBY.hiTimer); }, 1500);
+  NET.peersCb = n => { if (n > 0 && LOBBY && !LOBBY.other) NET.send('hi', myHello()); };
+  NET.send('hi', myHello());
+  LOBBY.hiTimer = setInterval(() => { if (LOBBY && !LOBBY.other && !LOBBY.dead) NET.send('hi', myHello()); else clearInterval(LOBBY && LOBBY.hiTimer); }, 1500);
+}
+function vsLoadoutOnline() {
+  const L = LOBBY, o = L.other, chal = L.mode === 'challenge';
+  const rule = !chal ? 'any' : (wagerBlades().length && o.wager ? 'wager' : 'bokken');
+  L.rule = rule;
+  openLoadout({
+    title: chal ? `Challenge with ${o.name}` : `Duel with ${o.name}`, sub: chal ? 'Blades at stake · best of 3' : 'Arcade duel · best of 3', rule,
+    bokkenWhy: wagerBlades().length ? `${o.name} has no forged or won blade to wager yet, so this is an honor duel: both fight with bokkens and no blade changes hands.` : 'You have no forged or won blade to wager yet, so this is an honor duel: both fight with bokkens and no blade changes hands. Forge a blade to fight for real!',
+    cancel: () => { NET.send('bye', {}); cancelLobby(); },
+    onPick: (outfit, u) => {
+      if (LOBBY !== L || L.dead) return;
+      L.myPick = myDuelProfile(outfit, u, rule === 'bokken');
+      NET.send('pick', { p: L.myPick });
+      clearInterval(L.pickTimer); L.pickTimer = setInterval(() => { if (LOBBY === L && !L.started) NET.send('pick', { p: L.myPick }); else clearInterval(L.pickTimer); }, 2000);
+      renderLobbyWait(); vsMaybeGo();
+    },
+  });
+}
+function renderLobbyWait() {
+  const L = LOBBY; if (!L || !L.myPick) return;
+  openOverlay(`<div class="modal"><div class="eyebrow">${L.mode === 'challenge' ? 'Challenge' : 'Arcade duel'}</div>
+    <h2>${L.theirPick ? 'Both samurai are ready!' : `Waiting for ${esc(L.other.name)}…`}</h2>
+    <p class="muted">${L.theirPick ? 'Entering the dueling ground…' : `${esc(L.other.name)} is choosing armor and a blade.`}</p>
+    <div class="actions"><button class="btn" data-vs="cancel">Cancel</button></div></div>`);
+}
+function vsMaybeGo() {
+  const L = LOBBY;
+  if (!L || !L.host || !L.myPick || !L.theirPick || L.started) return;
+  NET.send('go', { land: L.land });
+  startVersusOnline();
 }
 function renderLobby() {
   if (!LOBBY) return;
+  const L = LOBBY, chal = L.mode === 'challenge' && L.host;
   openOverlay(`<div class="modal">
-    <div class="eyebrow">Two-device duel</div>
-    <h2>${LOBBY.host ? 'Your game code' : 'Joining game'}</h2>
-    <div class="code">${LOBBY.code}</div>
-    <p class="${LOBBY.error ? '' : 'muted'}" style="${LOBBY.error ? 'color:#ffb4a8' : ''}">${LOBBY.status}</p>
-    ${LOBBY.host && !LOBBY.error ? `<p class="muted" style="font-size:14px">${IN_CLAUDE ? 'On the other device, open this same game in Claude' : 'Tap <b>Share invite</b> to text a link, or on the other device open this game website'}, tap Versus → Join, and type <b>${LOBBY.code}</b>.</p>` : ''}
-    <div class="actions"><button class="btn" data-vs="cancel">Cancel</button>${LOBBY.host && !IN_CLAUDE ? '<button class="btn primary" data-vs="share">Share invite</button>' : ''}</div>
+    <div class="eyebrow">${chal ? 'Challenge · dueling ground' : 'Two-device duel'}</div>
+    <h2>${L.host ? 'Your game code' : 'Joining game'}</h2>
+    <div class="code">${L.code}</div>
+    <p class="${L.error ? '' : 'muted'}" style="${L.error ? 'color:#ffb4a8' : ''}">${L.status}</p>
+    ${L.host && !L.error && !L.other ? `<p class="muted" style="font-size:14px">${IN_CLAUDE ? 'On the other device, open this same game in Claude' : chal ? `${esc(L.rname || 'Your rival')} gets a scroll with this code. You can also tap <b>Share invite</b> to text them` : 'Tap <b>Share invite</b> to text a link, or on the other device open this game website'}, tap Versus → Join, and type <b>${L.code}</b>.</p>` : ''}
+    <div class="actions"><button class="btn" data-vs="cancel">${L.dead ? 'Close' : 'Cancel'}</button>${L.host && !IN_CLAUDE && !L.other ? '<button class="btn primary" data-vs="share">Share invite</button>' : ''}</div>
   </div>`);
 }
 function joinPad() {
@@ -234,57 +305,66 @@ function joinPad() {
 let JOINPAD = null;
 function cancelLobby() {
   ssSet('vsHost', null);
-  if (LOBBY && LOBBY.hiTimer) clearInterval(LOBBY.hiTimer);
-  LOBBY = null; JOINPAD = null; NET.close(); closeOverlay();
+  if (LOBBY) { clearInterval(LOBBY.hiTimer); clearInterval(LOBBY.pickTimer); }
+  LOBBY = null; JOINPAD = null; LOADOUT = null; NET.close(); NET.peer = null; closeOverlay();
 }
 
 /* ---------- match setup ---------- */
-function setupVsScene(ch, a, b) {
+const VS_SHOW_SECS = 8;
+function vsBuild(c) {
   clearSceneActors();
-  const W = buildWorld(ch); activateWorld(W);
-  const A = makeFighter(a), B = makeFighter(b);
+  const W = buildWorld(c.land); activateWorld(W);
+  VS = Object.assign({ W, clock: 0, intro: 0, over: true, phase: 'show', showT: VS_SHOW_SECS, round: 1, wins: { A: 0, B: 0 }, endT: 0, ptrs: {}, acted: {},
+    camPos: new V3(), camLook: new V3(), nextId: 1, again: { me: false, them: false }, view: S.view, debris: [] }, c);
+  vsSpawn();
+  vsHUD(VS.A.name, VS.B.name, '');
+  showHUD(VS.online ? 'vs-online' : 'vs-local');
+  $('#hud').classList.add('vs-show');
+  if (VS.online) $('#viewBtn').textContent = VS.view === 'fp' ? 'Behind view' : 'First person';
+  renderShowcase(VS.profA, VS.profB, VS.mode, VS.land, VS_SHOW_SECS);
+  vsLabel();
+  sfx.taiko(1); MUSIC.start('fight');
+  setMode(VsMode);
+}
+function vsSpawn() {
+  const sc = VS.W.scene;
+  for (const f of [VS.A, VS.B]) if (f) { sc.remove(f.rig.root, f.rig.trail.mesh); if (f.rig.swordDropped && f.rig.sword.parent) sc.remove(f.rig.sword.parent); }
+  VS.debris.forEach(g => sc.remove(g)); VS.debris.length = 0;
+  const A = makeFighter(VS.profA), B = makeFighter(VS.profB);
   A.rig.root.position.set(0, 0, 0); B.rig.root.position.set(0, 0, DIST); B.rig.root.rotation.y = Math.PI;
-  W.scene.add(A.rig.root, B.rig.root, A.rig.trail.mesh, B.rig.trail.mesh);
-  return { W, A, B };
+  sc.add(A.rig.root, B.rig.root, A.rig.trail.mesh, B.rig.trail.mesh);
+  if (VS.online) B.remote = true;
+  VS.A = A; VS.B = B;
 }
-function startVersusLocal(p2) {
-  transition(() => {
-    const ch = (Math.random() * Math.min(NL, currentChapter() + 1)) | 0;
-    const { W, A, B } = setupVsScene(ch, myVsProfile(), p2);
-    VS = { online: false, W, A, B, clock: 0, intro: 2.2, over: false, endT: 0, ptrs: {}, camPos: new V3(), camLook: new V3() };
-    A.rig.setHold('guard', 10); B.rig.setHold('guard', 10);
-    vsHUD(A.name, B.name, 'Same tablet · left vs right');
-    showHUD('vs-local');
-    banner('VERSUS', `${A.name} vs ${B.name}`); sfx.taiko(1); MUSIC.start('fight');
-    setMode(VsMode);
-  });
+function startVersusLocal(p1, p2) {
+  transition(() => vsBuild({ online: false, mode: 'arcade', land: (Math.random() * NL) | 0, profA: p1, profB: p2 }), true);
 }
-function startVersusOnline(code, host, me, other) {
+function startVersusOnline() {
+  const L = LOBBY; if (!L || L.started) return;
+  L.started = true;
   ssSet('vsHost', null);
-  if (LOBBY && LOBBY.hiTimer) clearInterval(LOBBY.hiTimer);
-  closeOverlay();
+  clearInterval(L.hiTimer); clearInterval(L.pickTimer);
+  LOBBY = null; LOADOUT = null; closeOverlay();
   transition(() => {
-    const ch = code.charCodeAt(0) % NL;
-    const { W, A, B } = setupVsScene(ch, me, other);
-    B.remote = true;
-    VS = { online: true, code, host, W, A, B, clock: 0, intro: 2.4, over: false, endT: 0, view: S.view, camPos: new V3(), camLook: new V3(), nextId: 1, again: { me: false, them: false } };
-    A.rig.setFP(VS.view === 'fp'); A.rig.setHold(VS.view === 'fp' ? 'fpGuard' : 'guard', 10); B.rig.setHold('guard', 10);
-    vsHUD(me.name, other.name, 'Online duel · ' + code);
-    showHUD('vs-online');
-    $('#viewBtn').textContent = VS.view === 'fp' ? 'Behind view' : 'First person';
-    banner('VERSUS', `${me.name} vs ${other.name}`); sfx.taiko(1); MUSIC.start('fight');
-    LOBBY = null;
+    vsBuild({ online: true, code: L.code, host: L.host, mode: L.mode || 'arcade', cid: L.cid, land: L.land, profA: L.myPick, profB: L.theirPick });
     // heartbeat so a dropped connection is noticed instead of a frozen opponent
     clearInterval(NET.beat); NET.lastHeard = performance.now(); let warned = false;
     NET.beat = setInterval(() => {
       if (!VS || !VS.online) { clearInterval(NET.beat); return; }
       NET.send('png', {});
       const quiet = performance.now() - NET.lastHeard;
-      if (NET.kind === 'relay' && quiet > 9000 && !warned && !VS.over) { warned = true; toast('Lost touch with your friend… waiting for them to come back.'); }
+      if (NET.kind === 'relay' && quiet > 9000 && !warned && VS.phase !== 'done' && VS.phase !== 'cere') { warned = true; toast('Lost touch with your friend… waiting for them to come back.'); }
       if (quiet < 3000) warned = false;
+      // a challenge that loses its connection for good is called off: nobody loses a blade to a dead battery
+      if (NET.kind === 'relay' && quiet > 45000 && VS.mode === 'challenge' && !VS.decided) { clearInterval(NET.beat); vsInterrupted(); }
     }, 2000);
-    setMode(VsMode);
-  });
+  }, true);
+}
+function vsInterrupted() {
+  if (!VS) return;
+  VS.over = true; VS.phase = 'void';
+  openOverlay(`<div class="modal"><div class="kicker lose">Duel interrupted</div><p class="muted">The connection to ${esc(VS.B.name)} was lost before the duel was decided. No blades changed hands. Send a new challenge to try again.</p>
+    <div class="actions"><button class="btn primary" data-vsres="home">Back to dojo</button></div></div>`);
 }
 function vsHUD(a, b, lbl) {
   $('#meName').textContent = a.toUpperCase(); $('#foeName').textContent = b.toUpperCase();
@@ -293,41 +373,74 @@ function vsHUD(a, b, lbl) {
   $('#spWrap').style.visibility = 'hidden'; $('#spFoeWrap').style.visibility = 'hidden';
   OV.draw = drawVsOverlay; OV.trailCol = '255,255,255';
 }
+function vsLabel() {
+  if (!VS) return;
+  const pips = n => '●'.repeat(n) + '○'.repeat(2 - n);
+  const kind = VS.mode === 'challenge' ? 'Challenge' : VS.online ? 'Online duel' : 'Same tablet';
+  $('#stageLbl').textContent = `${kind} · Round ${Math.min(3, VS.round)} · ${pips(VS.wins.A)} – ${pips(VS.wins.B)}`;
+}
 function vsUpdateHUD() {
   if (!VS) return;
   const { A, B } = VS;
   setBar('hpMe', A.hp / A.max); setBar('hpFoe', B.hp / B.max);
-  const la = {}, lb = {}; for (const k in A.limbs) { la[k] = A.limbs[k] / 80; lb[k] = B.limbs[k] / 80; }
+  const la = {}, lb = {}; for (const k in A.limbs) { la[k] = A.limbs[k] / A.limbMax; lb[k] = B.limbs[k] / B.limbMax; }
   la.torso = A.hp / A.max; lb.torso = B.hp / B.max;
   dollUpdate($('#dollMe'), la, A.rig.det); dollUpdate($('#dollFoe'), lb, B.rig.det);
 }
 function endVersus() {
-  if (VS && VS.online) { clearInterval(NET.beat); NET.send('bye', {}); NET.close(); }
-  VS = null; OV.draw = null; hideHUD();
+  if (VS && VS.online) { clearInterval(NET.beat); NET.send('bye', {}); NET.close(); NET.peer = null; }
+  if (VS && VS.cere) cereEnd();
+  VS = null; OV.draw = null; hideHUD(); hideShowcase(); $('#hud').classList.remove('vs-show');
   $('#spWrap').style.visibility = ''; $('#spFoeWrap').style.visibility = '';
   enterHub();
 }
+/* leaving a challenge before it is decided forfeits your blade */
+function vsLeaveNeedsForfeit() { return VS && VS.mode === 'challenge' && VS.online && !VS.decided && ['show', 'fight', 'between'].includes(VS.phase); }
+function vsForfeit() {
+  if (!vsLeaveNeedsForfeit()) { endVersus(); return; }
+  NET.send('forfeit', {});
+  VS.winner = VS.B; VS.loser = VS.A; duelDecided(true);
+  setTimeout(endVersus, 250);
+}
+
+/* ---------- rounds ---------- */
+function vsBeginRound(first) {
+  transition(() => {
+    if (!VS) return;
+    if (!first) vsSpawn();
+    hideShowcase(); $('#hud').classList.remove('vs-show');
+    const { A, B } = VS;
+    A.rig.setFP(VS.online && VS.view === 'fp'); A.rig.setHold(VS.online && VS.view === 'fp' ? 'fpGuard' : 'guard', 10); B.rig.setHold('guard', 10);
+    VS.phase = 'fight'; VS.over = false; VS.intro = 2.0; VS.acted = {}; VS.ptrs = {}; VS.clock = 0;
+    if (VS.online) { A.blocking = false; $('#blockBtn').classList.remove('on'); }
+    banner(VS.round === 3 ? 'FINAL ROUND' : `ROUND ${VS.round}`, `${VS.A.name} ${VS.wins.A} – ${VS.wins.B} ${VS.B.name}`); sfx.taiko(1.2);
+    vsUpdateHUD(); vsLabel();
+  }, true);
+}
+function vsNextRound() { if (!VS || VS.phase !== 'between') return; VS.phase = 'loading'; VS.round++; VS.pendingRound = 0; vsBeginRound(false); }
 
 /* ---------- combat rules ---------- */
 function vsOpp(f) { return f === VS.A ? VS.B : VS.A; }
 const VS_ATK_COST = 22, VS_PARRY_COST = 10;
+function vsSend(type, data) { NET.send(type, Object.assign({ rd: VS.round }, data || {})); }
 function vsSpend(f, n) { f.sta = Math.max(0, f.sta - n); f.staWait = .55; }
 function vsPop(f, text, col) { const s = f === VS.A && VS.online ? { x: VW / 2, y: VH * .58 } : toScreen(f.rig.partCenter('head')); ovPop(s.x, s.y - 50, text, { size: 26, color: col || '#ffd27a' }); }
 /* ---------- footwork: three spots to stand in, step late and they miss ---------- */
-const VS_LANE = .85, VS_STEP_COST = 12, VS_STEP_CD = .3, VS_TRACK = .45;
+const VS_LANE = .85, VS_STEP_COST = 12, VS_STEP_CD = .3;
 function vsLaneX(f, lanes) { return (f === VS.A ? -1 : 1) * lanes * VS_LANE; }
+function vsLockAt(att) { const def = vsOpp(att); return 1 - def.parryWin * def.legsPen; } // aim locks when the defender's gold ring appears
 function vsStep(f, d) {
   if (!VS || VS.over || VS.intro > 0 || !f) return false;
   if (f.state !== 'ready' && f.state !== 'recover') return false;
   if (f.stepCd > 0) return false;
   const nl = f.lx + d;
   if (Math.abs(nl) > 1) { vsPop(f, 'Edge!', '#c9c2b0'); return false; }
-  const cost = VS_STEP_COST * (f.rig.det.legs ? 1.6 : 1);
+  const cost = f.stepCost * (f.rig.det.legs ? 1.6 : 1);
   if (f.sta < cost) { vsPop(f, 'Out of breath!'); return false; }
   vsSpend(f, cost); f.staWait = .3;
-  f.lx = nl; f.stepCd = VS_STEP_CD * (f.rig.det.legs ? 1.7 : 1); f.lean = d;
+  f.lx = nl; f.stepCd = f.stepCdMax * (f.rig.det.legs ? 1.7 : 1); f.lean = d;
   sfx.whoosh(); FX.puff(f.rig.root.position.clone().add(new V3(0, .08, 0)), 5, '#e8dcc4', .35);
-  if (VS.online && f === VS.A) NET.send('step', { lx: nl });
+  if (VS.online && f === VS.A) vsSend('step', { lx: nl });
   return true;
 }
 /* swinging at empty air leaves you wide open */
@@ -337,13 +450,12 @@ function vsOffBalance(f) { vsStagger(f, .6); f.bad.length = 0; vsPop(f, 'OFF BAL
 /* hitting a held block knocks the attacker back, open for a counter */
 function vsBounce(att) { if (VS.over) return; vsStagger(att, .65); vsSpend(att, 12); vsPop(att, 'BOUNCED!', '#bfe2ff'); }
 function vsStartAttack(f, dir, id, tired) {
-  f.state = 'windup'; f.t = 0; f.dir = dir; f.aim = vsOpp(f).lx; f.tired = !!tired; f.tele = VS_TELE * (f.rig.det.legs ? 1.25 : 1) * (tired ? 1.6 : 1); f.resolved = false; f.atkId = id || 0;
+  f.state = 'windup'; f.t = 0; f.dir = dir; f.aim = vsOpp(f).lx; f.tired = !!tired; f.tele = f.teleBase * (f.rig.det.legs ? 1.25 : 1) * (tired ? 1.6 : 1); f.resolved = false; f.atkId = id || 0;
   f.rig.seq.length = 0; f.rig.setHold('wind' + dir, 4.2 / f.tele); sfx.warn();
 }
-function vsStrikeAnim(f) { f.state = 'strike'; f.t = 0; f.rig.seq.length = 0; f.rig.queue('end' + dir2(f), .16, { ease: easeIn, arc: .3 }); f.lunge = 1; sfx.slash(1.2); }
-function dir2(f) { return f.dir; }
+function vsStrikeAnim(f) { f.state = 'strike'; f.t = 0; f.rig.seq.length = 0; f.rig.queue('end' + f.dir, .16, { ease: easeIn, arc: .3 }); f.lunge = 1; sfx.slash(1.2); }
 function vsStagger(f, dur) { f.state = 'stagger'; f.t = 0; f.dur = dur || 1; f.rig.seq.length = 0; f.rig.setHold('stagger', 10); f.rig.jolt = .6; f.kb = .25; }
-function vsCanParry(def, att) { return att.state === 'windup' && att.t >= att.tele * (1 - .55 * def.legsPen); }
+function vsCanParry(def, att) { return att.state === 'windup' && att.t >= att.tele * (1 - def.parryWin * def.legsPen); }
 function vsParryFX(att) {
   const bp = att.rig.bladePoint(.6);
   FX.sparks(bp, '#fff3b0', 40, 6, .09); FX.glowBurst(bp, '#ffe08c', 1.5);
@@ -354,22 +466,23 @@ function vsParryFX(att) {
 function vsResolve(att, def) {
   const limb = THREAT_LIMB[att.dir], key = limb === 'head' ? 'helm' : limb;
   if (def.lx !== att.aim) return { r: 'miss', dmg: 0, limb, lost: null, hp: def.hp };
-  let dmg = att.dmg * att.dmgMul * rnd(.9, 1.1) * (att.tired ? .4 : 1);
+  const crit = !att.tired && Math.random() < att.crit;
+  let dmg = att.dmg * att.dmgMul * rnd(.9, 1.1) * (att.tired ? .4 : 1) * (crit ? 1.6 : 1);
   if (def.state === 'stagger') dmg *= 1.5;
   if (limb === 'head' && def.rig.det.helm) dmg *= 1.3;
   let r = 'hit';
-  if (def.blocking) { r = 'block'; dmg *= def.rig.det.armL ? .55 : .3; def.limbs[limb] -= dmg * .35; }
+  if (def.blocking) { r = 'block'; dmg *= Math.min(.6, def.pass * (def.rig.det.armL ? 1.8 : 1)); def.limbs[limb] -= dmg * .35; }
   else def.limbs[limb] -= dmg;
   def.hp = Math.max(0, def.hp - dmg);
   let lost = null;
   if (def.limbs[limb] <= 0 && !def.rig.det[key]) lost = limb;
-  return { r, dmg: Math.round(dmg), limb, lost, hp: def.hp };
+  return { r, dmg: Math.round(dmg), limb, lost, hp: def.hp, crit: crit && r === 'hit' };
 }
 function vsApplyResult(def, res, local) {
   const pt = def.rig.partCenter(res.limb === 'head' ? 'head' : res.limb), s = def === VS.A && VS.online ? { x: VW / 2, y: VH * .66 } : toScreen(pt);
   if (res.r === 'miss') { sfx.whoosh(); ovPop(s.x, s.y - 30, 'DODGED!', { size: 30, color: '#9ff0c8', stroke: '#06261a' }); return; }
   if (res.r === 'block') { sfx.clang(); FX.sparks(def.rig.bladePoint(.45), '#d9eeff', 20, 4); ovPop(s.x, s.y - 30, 'BLOCKED', { size: 24, color: '#bfe2ff', stroke: '#0a1a3a' }); }
-  else { sfx.hit(); def.rig.hitFlash(1); FX.sparks(pt, '#ffffff', 16, 4); shake(.05); ovPop(s.x, s.y - 20, String(res.dmg), { size: 32 }); if (def === VS.A && VS.online) { OV.vig = .8; OV.vigCol = '255,40,30'; } }
+  else { sfx.hit(); def.rig.hitFlash(1); FX.sparks(pt, '#ffffff', 16, 4); shake(.05); ovPop(s.x, s.y - 20, (res.crit ? 'CRIT ' : '') + res.dmg, { size: res.crit ? 40 : 32, color: res.crit ? '#ffe08c' : '#ffffff' }); if (def === VS.A && VS.online) { OV.vig = .8; OV.vigCol = '255,40,30'; } }
   def.hp = res.hp;
   if (res.lost) vsLoseLimb(def, res.lost, s);
   if (def.hp <= 0 || (def.rig.det.armL && def.rig.det.armR)) vsKO(def);
@@ -381,19 +494,29 @@ function vsLoseLimb(f, limb, s) {
   f.limbs[limb] = 0;
   const push = new V3(0, 0, f === VS.A ? -2 : 2);
   const g = f.rig.detach(key, VS.W.scene, push);
-  if (g) g.traverse(o => { o.visible = true; });
+  if (g) { g.traverse(o => { o.visible = true; }); VS.debris.push(g); }
   sfx.chop(); hitstop(90); shake(.07); FX.puff(f.rig.partCenter('torso'), 8, '#ffffff', .5);
   if (s) ovPop(s.x, s.y - 40, pick(['CHOP!', 'POW!', 'SLICE!']), { size: 42, color: '#2a1200', stroke: '#fff6d8', burst: pick(['#ffd23a', '#ff8a3a', '#7fe8ff']), rot: rnd(-.25, .25), life: 1.1, vy: -30 });
   if (limb === 'armR') f.dmgMul = .65;
   if (limb === 'legs') f.legsPen = .8;
   if (limb === 'head') vsStagger(f, 1);
 }
+/* a round ends; two round wins take the duel */
 function vsKO(loser) {
   if (VS.over) return;
   VS.over = true; VS.endT = 0; VS.loser = loser; VS.winner = vsOpp(loser);
   loser.rig.ko(); VS.winner.rig.setHold('show', 5);
-  slowmo(.35, 1); hitstop(140); sfx.win();
-  banner(`${VS.winner.name.toUpperCase()} WINS!`);
+  slowmo(.35, 1); hitstop(140);
+  const k = VS.winner === VS.A ? 'A' : 'B'; VS.wins[k]++;
+  if (VS.wins[k] >= 2) {
+    VS.phase = 'done'; sfx.win();
+    banner(`${VS.winner.name.toUpperCase()} WINS THE DUEL!`, `${VS.A.name} ${VS.wins.A} – ${VS.wins.B} ${VS.B.name}`);
+    if (VS.mode === 'challenge' && VS.online) duelDecided(false);
+  } else {
+    VS.phase = 'between'; VS.betweenT = 0; sfx.taiko(1.1);
+    banner(`${VS.winner.name.toUpperCase()} TAKES ROUND ${VS.round}`, `${VS.A.name} ${VS.wins.A} – ${VS.wins.B} ${VS.B.name} · both samurai are healed`);
+  }
+  vsLabel();
 }
 /* a fighter's swipe (local player or a same-tablet player) */
 function vsSwipe(f, x0, y0, x1, y1) {
@@ -410,7 +533,7 @@ function vsSwipe(f, x0, y0, x1, y1) {
       vsSpend(f, VS_PARRY_COST);
       if (vsCanParry(f, o)) {
         vsParryFX(o); vsStagger(o, 1.0); f.state = 'ready';
-        if (VS.online) NET.send('res', { id: o.atkId, r: 'parry' });
+        if (VS.online) vsSend('res', { id: o.atkId, r: 'parry' });
         return;
       }
       f.state = 'flinch'; f.t = 0; f.rig.jolt = .3; vsPop(f, 'Too early!', '#ffb38a'); return;
@@ -422,37 +545,49 @@ function vsSwipe(f, x0, y0, x1, y1) {
     if (f.bad.length >= 2 && (f.state === 'windup' || f.state === 'recover' || f.state === 'strike')) vsOffBalance(f);
     return;
   }
-  const tired = f.sta < VS_ATK_COST;
+  const tired = f.sta < f.atkCost;
   if (tired) vsPop(f, 'Out of breath!');
-  vsSpend(f, VS_ATK_COST);
+  vsSpend(f, f.atkCost);
   const id = VS.online ? VS.nextId++ : 0;
   vsStartAttack(f, swipeDir(ux, uy), id, tired);
-  if (VS.online) NET.send('atk', { id, dir: f.dir, tired });
+  if (VS.online) vsSend('atk', { id, dir: f.dir, tired });
 }
+const LIMBS4 = ['armL', 'armR', 'legs', 'head'];
 function vsNetMessage(d) {
   const { A, B } = VS;
+  if (['atk', 'res', 'step', 'blk'].includes(d.type) && (d.rd | 0) !== VS.round) return; // left over from an earlier round
   if (d.type === 'atk' && !VS.over) { if (['R', 'L', 'H', 'Low'].includes(d.dir)) vsStartAttack(B, d.dir, d.id | 0, !!d.tired); }
   else if (d.type === 'res') {
     if (d.r === 'parry') { if (A.atkId === (d.id | 0) && (A.state === 'windup' || A.state === 'strike')) { vsParryFX(A); vsStagger(A, 1.0); banner('PARRIED!'); } }
     else if (['hit', 'block', 'miss'].includes(d.r)) {
-      if (d.limbs && typeof d.limbs === 'object') for (const k of ['armL', 'armR', 'legs', 'head']) if (typeof d.limbs[k] === 'number') B.limbs[k] = clamp(d.limbs[k], 0, 80);
-      vsApplyResult(B, { r: d.r, dmg: clamp(d.dmg | 0, 0, 200), limb: ['armL', 'armR', 'legs', 'head'].includes(d.limb) ? d.limb : 'head', lost: ['armL', 'armR', 'legs', 'head'].includes(d.lost) ? d.lost : null, hp: clamp(+d.hp, 0, VS_HP) }, false);
+      if (d.limbs && typeof d.limbs === 'object') for (const k of LIMBS4) if (typeof d.limbs[k] === 'number') B.limbs[k] = clamp(d.limbs[k], 0, B.limbMax);
+      vsApplyResult(B, { r: d.r, dmg: clamp(d.dmg | 0, 0, 999), limb: LIMBS4.includes(d.limb) ? d.limb : 'head', lost: LIMBS4.includes(d.lost) ? d.lost : null, hp: clamp(+d.hp, 0, B.max), crit: !!d.crit }, false);
       if (d.r === 'block') vsBounce(A); else if (d.r === 'miss') vsWhiff(A);
     }
   } else if (d.type === 'step') { const l = d.lx | 0; if (l >= -1 && l <= 1 && l !== B.lx) { B.lean = Math.sign(l - B.lx); B.lx = l; FX.puff(B.rig.root.position.clone().add(new V3(0, .08, 0)), 5, '#e8dcc4', .35); } }
   else if (d.type === 'blk') { B.blocking = !!d.on; if (B.state === 'ready') B.rig.setHold(B.blocking ? 'blockMid' : 'guard', 14); }
+  else if (d.type === 'round') { const n = d.n | 0; if (VS.phase === 'between' && n === VS.round + 1) vsNextRound(); else if (n === VS.round + 1) VS.pendingRound = n; }
   else if (d.type === 'again') { VS.again.them = true; vsMaybeRematch(); }
-  else if (d.type === 'bye') { toast('Your friend left the duel.'); }
+  else if (d.type === 'again-go') { if (!VS.host) { VS.again.them = true; VS.again.me = true; vsRematchGo(clamp(d.land | 0, 0, NL - 1)); } }
+  else if (d.type === 'forfeit') {
+    if (VS.mode === 'challenge' && !VS.decided) { VS.winner = VS.A; VS.loser = VS.B; VS.over = true; VS.phase = 'done'; duelDecided(true); hideShowcase(); vsForfeitWin(); }
+  }
+  else if (d.type === 'bye') { if (VS.mode !== 'challenge' || VS.decided) toast('Your friend left the duel.'); }
 }
 function vsMaybeRematch() {
-  if (!VS || !VS.again.me || !VS.again.them) return;
-  const code = VS.code, host = VS.host, me = myVsProfile(), other = { name: VS.B.name, outfit: VS.B.outfit, sword: VS.B.sword, lvl: VS.B.lvl };
-  closeOverlay(); startVersusOnline(code, host, me, other);
+  if (!VS || !VS.again.me || !VS.again.them || !VS.host) return;
+  const land = (Math.random() * NL) | 0;
+  NET.send('again-go', { land }); vsRematchGo(land);
+}
+function vsRematchGo(land) {
+  const c = { online: true, code: VS.code, host: VS.host, mode: VS.mode, cid: VS.cid, land, profA: VS.profA, profB: VS.profB };
+  closeOverlay();
+  transition(() => vsBuild(c), true);
 }
 function vsFighterUpdate(f, dt) {
   f.t += dt;
   const o = vsOpp(f);
-  if (f.state === 'windup' && f.t < f.tele * VS_TRACK) f.aim = o.lx; // aim follows you until the gold ring shows, then it's locked
+  if (f.state === 'windup' && f.t < f.tele * vsLockAt(f)) f.aim = o.lx; // aim follows you until the gold ring shows, then it's locked
   f.stepCd = Math.max(0, f.stepCd - dt);
   f.px = lerp(f.px, f.lx, damp(f.rig.det.legs ? 9 : 16, dt)); f.lean = lerp(f.lean, 0, damp(6, dt));
   if (f.state === 'windup' && f.t >= f.tele) vsStrikeAnim(f);
@@ -469,7 +604,7 @@ function vsFighterUpdate(f, dt) {
     const bp = o.state === 'windup' ? THREAT_BLOCK[o.dir] : 'blockMid';
     if (f.blockPose !== bp) { f.blockPose = bp; f.rig.setHold(bp, 16); }
   }
-  if (f.staWait > 0) f.staWait -= dt; else f.sta = Math.min(100, f.sta + 30 * dt * (f.blocking ? .5 : 1));
+  if (f.staWait > 0) f.staWait -= dt; else f.sta = Math.min(100, f.sta + f.regen * dt * (f.blocking ? .5 : 1));
   f.lunge = Math.max(0, f.lunge - dt * 2.6); f.kb = Math.max(0, f.kb - dt * 1.2);
 }
 /* online: an incoming remote strike lands on my fighter, resolved by my device */
@@ -479,7 +614,7 @@ function vsRemoteStrikeCheck() {
     B.resolved = true;
     if (VS.over) return;
     const res = vsResolve(B, A);
-    NET.send('res', Object.assign({ id: B.atkId, limbs: A.limbs }, res));
+    vsSend('res', Object.assign({ id: B.atkId, limbs: A.limbs }, res));
     vsApplyResult(A, res, true);
     if (res.r === 'block') vsBounce(B); else if (res.r === 'miss') vsWhiff(B);
   }
@@ -489,52 +624,76 @@ const VsMode = {
   name: 'vs',
   update(dt) {
     if (!VS) return;
+    if (VS.phase === 'cere') { cereUpdate(dt); return; }
     const { A, B } = VS;
     VS.clock += dt;
+    if (VS.phase === 'show') {
+      VS.showT -= dt;
+      const c = $('#scCount'); if (c) c.textContent = Math.max(1, Math.ceil(VS.showT));
+      if (VS.showT <= 0) { VS.phase = 'loading'; vsBeginRound(true); }
+    }
     if (VS.intro > 0) { VS.intro -= dt; if (VS.intro <= 0) { banner('FIGHT!'); sfx.taiko(1.3); } }
-    if (!VS.over) {
+    if (VS.phase === 'fight') {
       vsFighterUpdate(A, dt);
       if (VS.online) { const wasResolved = B.resolved; B.resolved = true; vsFighterUpdate(B, dt); B.resolved = wasResolved; vsRemoteStrikeCheck(); }
       else vsFighterUpdate(B, dt);
-    } else {
+    } else if (VS.phase === 'between') {
+      VS.betweenT += dt;
+      if (!VS.online) { if (VS.betweenT > 3.4) vsNextRound(); }
+      else if (VS.host) { if (VS.betweenT > 3.4) { NET.send('round', { n: VS.round + 1 }); vsNextRound(); } }
+      else if ((VS.pendingRound === VS.round + 1 && VS.betweenT > 1) || VS.betweenT > 7.5) vsNextRound();
+    } else if (VS.phase === 'done') {
       VS.endT += dt;
-      if (!VS.shown && VS.endT > 2.2) { VS.shown = true; vsResult(); }
+      if (!VS.shown && VS.endT > 2.6) {
+        VS.shown = true;
+        if (VS.mode === 'challenge' && VS.online && VS.decided && !VS.forfeit) cereStart(); else vsResult();
+      }
     }
-    A.rig.root.position.set(vsLaneX(A, A.px), 0, easeOut(A.lunge) * .5 - A.kb);
-    B.rig.root.position.set(vsLaneX(B, B.px), 0, DIST - easeOut(B.lunge) * .5 + B.kb);
-    for (const f of [A, B]) {
-      const o = vsOpp(f), busy = f.state === 'windup' || f.state === 'strike';
-      const tx = busy ? vsLaneX(o, f.aim) : o.rig.root.position.x, tz = o === B ? DIST : 0;
-      const want = Math.atan2(tx - f.rig.root.position.x, tz - f.rig.root.position.z);
-      let dr = want - f.rig.root.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr));
-      f.rig.root.rotation.y += dr * damp(14, dt);
-      f.rig.root.rotation.z = -f.lean * .12 * (f === A ? 1 : -1);
+    const show = VS.phase === 'show' || (VS.phase === 'loading' && VS.round === 1 && !VS.intro);
+    if (show) {
+      // side by side for the showcase, facing the camera with blades raised
+      A.rig.root.position.set(0, 0, DIST / 2 - .62); B.rig.root.position.set(0, 0, DIST / 2 + .62);
+      for (const f of [A, B]) { f.rig.root.rotation.y = lerp(f.rig.root.rotation.y, -Math.PI / 2 + (f === A ? .35 : -.35), damp(6, dt)); if (!f.showing) { f.showing = true; f.rig.setFP(false); f.rig.setHold('show', 6); } }
+    } else {
+      A.rig.root.position.set(vsLaneX(A, A.px), 0, easeOut(A.lunge) * .5 - A.kb);
+      B.rig.root.position.set(vsLaneX(B, B.px), 0, DIST - easeOut(B.lunge) * .5 + B.kb);
+      for (const f of [A, B]) {
+        const o = vsOpp(f), busy = f.state === 'windup' || f.state === 'strike';
+        const tx = busy ? vsLaneX(o, f.aim) : o.rig.root.position.x, tz = o === B ? DIST : 0;
+        const want = Math.atan2(tx - f.rig.root.position.x, tz - f.rig.root.position.z);
+        let dr = want - f.rig.root.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr));
+        f.rig.root.rotation.y += dr * damp(14, dt);
+        f.rig.root.rotation.z = -f.lean * .12 * (f === A ? 1 : -1);
+      }
     }
     A.rig.update(dt); B.rig.update(dt);
     // camera
     let pos, look, fov;
-    if (VS.online && !VS.over) {
+    if (show) {
+      const asp = VW / VH, d = 4.6 * Math.max(1, 1.35 / asp);
+      pos = new V3(-d, 1.45, DIST / 2 + Math.sin(VS.clock * .25) * .3); look = new V3(0, 1.3, DIST / 2); fov = 42;
+    } else if (VS.online && VS.phase === 'fight') {
       const P = A.rig; P.root.updateMatrixWorld(true); B.rig.root.updateMatrixWorld(true);
       const eChest = B.rig.chest.localToWorld(new V3(0, .18, 0));
       if (VS.view === 'fp') { pos = P.hips.localToWorld(new V3(0, .68, -.2)); fov = 70; }
       else { pos = P.root.localToWorld(new V3(-1.0, 2.15, -2.05)); fov = 55; }
       look = VS.view === 'fp' ? eChest : P.chest.getWorldPosition(new V3()).lerp(eChest, .8);
     } else {
-      const asp = VW / VH, d = 4.4 * Math.max(1, 1.3 / asp);
-      const a = VS.over ? -Math.PI / 2 + Math.sin(VS.endT * .4) * .5 : -Math.PI / 2;
-      pos = new V3(Math.sin(a) * -d * -1, 2.7, DIST / 2 + Math.cos(a) * d); look = new V3(.2, 1.0, DIST / 2); fov = 50;
-      if (VS.online && VS.over) { pos = new V3(-3.5, 1.9, DIST / 2 + Math.sin(VS.endT * .4)); }
+      const asp = VW / VH, d = 4.4 * Math.max(1, 1.3 / asp), idle = VS.phase !== 'fight';
+      const a = idle ? -Math.PI / 2 + Math.sin(VS.clock * .4) * .35 : -Math.PI / 2;
+      pos = new V3(Math.sin(a) * d, 2.7, DIST / 2 + Math.cos(a) * d); look = new V3(.2, 1.0, DIST / 2); fov = 50;
     }
-    VS.camPos.lerp(pos, damp(VS.clock < .1 ? 60 : 12, dt)); VS.camLook.lerp(look, damp(VS.clock < .1 ? 60 : 12, dt));
+    const snap = VS.clock < .1 || VS.snapCam; VS.snapCam = false;
+    VS.camPos.lerp(pos, damp(snap ? 60 : 12, dt)); VS.camLook.lerp(look, damp(snap ? 60 : 12, dt));
     CAM.position.copy(VS.camPos); CAM.lookAt(VS.camLook);
     CAM.fov = lerp(CAM.fov, fov, damp(8, dt)); CAM.updateProjectionMatrix(); FX.setScale();
     applyShake(dt);
-    hint(VS.intro > 0 || VS.over ? '' : VS.online ? 'Gold ring = their aim is locked: swipe through it to parry, or STEP aside to make them miss!' : 'Swipe on your half · Hold still to block · ▲▼ to step: step when the gold ring shows and they miss!');
+    hint(VS.phase !== 'fight' || VS.intro > 0 ? '' : VS.online ? 'Gold ring = their aim is locked: swipe through it to parry, or STEP aside to make them miss!' : 'Swipe on your half · Hold still to block · ▲▼ to step: step when the gold ring shows and they miss!');
   },
   slash(x0, y0, x1, y1, id) {
-    if (!VS) return;
+    if (!VS || VS.phase !== 'fight') return;
     // one move per touch: lift your finger to make the next one
-    VS.acted = VS.acted || {}; if (VS.acted[id]) return; VS.acted[id] = true;
+    if (VS.acted[id]) return; VS.acted[id] = true;
     if (VS.online) { vsSwipe(VS.A, x0, y0, x1, y1); return; }
     const p = VS.ptrs[id]; const f = p ? p.f : (x0 < VW / 2 ? VS.A : VS.B);
     if (p) p.swiped = true;
@@ -543,14 +702,15 @@ const VsMode = {
   },
   down(x, y, id) {
     if (!VS) return;
-    VS.acted = VS.acted || {}; VS.acted[id] = false;
-    if (VS.online) return;
+    if (VS.phase === 'show' && !VS.online && VS.showT > .4) { VS.showT = .4; return; } // same tablet: tap to skip the showcase
+    VS.acted[id] = false;
+    if (VS.online || VS.phase !== 'fight') return;
     const f = x < VW / 2 ? VS.A : VS.B;
     VS.ptrs[id] = { f, t0: performance.now(), swiped: false, timer: setTimeout(() => { const p = VS && VS.ptrs[id]; if (p && !p.swiped && f.state === 'ready') { f.blocking = true; f.blockPose = null; } }, 220) };
   },
   up(id) {
     if (!VS) return;
-    if (VS.acted) delete VS.acted[id];
+    delete VS.acted[id];
     if (VS.online) return;
     const p = VS.ptrs[id]; if (!p) return;
     clearTimeout(p.timer); if (p.f.blocking) { p.f.blocking = false; p.f.rig.setHold('guard', 9); }
@@ -558,18 +718,18 @@ const VsMode = {
   },
 };
 function drawVsOverlay(c) {
-  if (!VS || VS.over) return;
+  if (!VS || VS.phase !== 'fight') return;
   // breath bars under each fighter
   for (const f of [VS.A, VS.B]) {
     if (VS.online && f === VS.B) continue;
     const p = toScreen(f.rig.root.position.clone().add(new V3(0, -.05, 0))), w = 90, x = p.x - w / 2, y = Math.min(VH - 30, p.y + 14);
     c.save(); c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(x - 2, y - 2, w + 4, 10);
-    c.fillStyle = f.sta < VS_ATK_COST ? '#ff8a5a' : '#ffd84a'; c.fillRect(x, y, w * f.sta / 100, 6); c.restore();
+    c.fillStyle = f.sta < f.atkCost ? '#ff8a5a' : '#ffd84a'; c.fillRect(x, y, w * f.sta / 100, 6); c.restore();
   }
   for (const f of [VS.A, VS.B]) {
     if (f.state !== 'windup') continue;
     if (VS.online && f === VS.A) continue;
-    const ring = ringInfo(f.rig), w0 = f.tele * (1 - .55);
+    const ring = ringInfo(f.rig), w0 = f.tele * vsLockAt(f);
     if (f.t >= w0) drawRing(c, ring.x, ring.y, ring.r * (VS.online ? 1 : .8), Math.max(0, 1 - (f.t - w0) / (f.tele - w0)), '255,214,90', VS.online ? 'SWIPE!' : 'PARRY!');
     else { c.save(); c.globalAlpha = .35; drawRing(c, ring.x, ring.y, ring.r * .7, 0, '255,255,255'); c.restore(); }
   }
@@ -582,23 +742,31 @@ function drawVsOverlay(c) {
   }
 }
 function vsResult() {
-  const w = VS.winner, iWon = !VS.online || w === VS.A;
+  const w = VS.winner, iWon = !VS.online || w === VS.A, chal = VS.mode === 'challenge';
   openOverlay(`<div class="modal ${iWon ? 'win' : ''}">
-    <div class="kicker ${iWon || !VS.online ? '' : 'lose'}">${w.name} wins!</div>
-    <p class="muted">${VS.online ? (iWon ? 'Great duel. Want a rematch?' : 'So close. Rematch?') : 'What a battle! Swap sides or go again.'}</p>
+    <div class="kicker ${iWon || !VS.online ? '' : 'lose'}">${esc(w.name)} wins!</div>
+    <p class="score-line">${esc(VS.A.name)} <b>${VS.wins.A}</b> – <b>${VS.wins.B}</b> ${esc(VS.B.name)}</p>
+    <p class="muted">${chal ? 'An honor duel, fought with bokkens. Bows are exchanged; no blade changes hands.' : VS.online ? (iWon ? 'Great duel. Want a rematch?' : 'So close. Rematch?') : 'What a battle! Swap sides or go again.'}</p>
     <div class="actions">
-      <button class="btn primary" data-vsres="again">Rematch</button>
-      <button class="btn" data-vsres="home">Back to dojo</button>
+      ${chal ? '' : '<button class="btn primary" data-vsres="again">Rematch</button>'}
+      <button class="btn ${chal ? 'primary' : ''}" data-vsres="home">Back to dojo</button>
     </div></div>`);
+}
+function vsForfeitWin() {
+  VS.forfeit = true;
+  const prize = VS.prize ? swordDef(VS.prize.id) : null;
+  openOverlay(`<div class="modal win"><div class="kicker">${esc(VS.B.name)} forfeits!</div>
+    <p class="muted">${esc(VS.B.name)} left the dueling ground before it was decided.${prize ? ` By the code of the duel, <b>${esc(prize.name)}</b> is now yours.` : ' It was an honor duel, so no blade changes hands.'}</p>
+    ${prize ? `<div class="reveal" style="--rc:${RAR[prize.r].c}44;--glow:${prize.glow || RAR[prize.r].c}"><div class="rays"></div>${bladeSVG(prize)}</div>` : ''}
+    <div class="actions"><button class="btn primary" data-vsres="home">Back to dojo</button></div></div>`);
 }
 function vsResultAction(act) {
   if (act === 'again') {
     if (VS.online) { VS.again.me = true; NET.send('again', {}); toast('Waiting for your friend to tap Rematch…'); vsMaybeRematch(); return; }
-    const p2 = { name: VS.B.name, outfit: VS.B.outfit, sword: VS.B.sword, lvl: VS.B.lvl };
-    closeOverlay(); startVersusLocal(p2); return;
+    const a = VS.profA, b = VS.profB;
+    closeOverlay(); startVersusLocal(a, b); return;
   }
   closeOverlay(); endVersus();
 }
-
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { NET.wake(); if (LOBBY && !LOBBY.other && LOBBY.hiTimer) NET.send('hi', myVsProfile()); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { NET.wake(); MAIL.wake(); if (LOBBY && !LOBBY.other && LOBBY.hiTimer) NET.send('hi', myHello()); } });
 window.addEventListener('pageshow', () => NET.wake());
