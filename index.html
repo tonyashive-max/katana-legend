@@ -508,6 +508,25 @@ button.card{width:100%;}
 body::before,body::after{content:"";position:fixed;left:0;right:0;height:0;background:#000;z-index:5;pointer-events:none;transition:height .7s cubic-bezier(.4,0,.2,1);}
 body::before{top:0}body::after{bottom:0}
 body.cine::before,body.cine::after{height:9vh;}
+
+/* title cards: an ink brush stroke, a big seal-red kanji and the name, for new lands and big foes */
+#tcard{position:fixed;inset:0;z-index:8;pointer-events:none;display:grid;place-items:center;}
+#tcard .tc{position:relative;display:grid;grid-template-columns:auto auto;align-items:center;gap:clamp(10px,2vw,22px);padding:16px 40px;opacity:0;}
+#tcard .tc.show{animation:tcIn 3.1s cubic-bezier(.2,.8,.2,1) forwards;}
+#tcard .tc.low{transform-origin:left center;}
+#tcard .stroke{position:absolute;left:-6%;right:-18%;top:50%;height:clamp(70px,13vw,124px);transform:translateY(-50%);z-index:-1;}
+#tcard .stroke path{fill:rgba(10,6,8,.82);}
+#tcard .stroke{clip-path:inset(0 100% 0 0);animation:tcBrush .55s .05s cubic-bezier(.6,0,.2,1) forwards;}
+#tcard .kj{width:clamp(70px,11vw,108px);height:clamp(70px,11vw,108px);border-radius:14px;display:grid;place-items:center;font-family:'Yuji Syuku',serif;font-size:clamp(40px,7vw,68px);color:#fff4e6;
+  background:radial-gradient(circle at 38% 30%,#e8473a,#a3121c 62%,#640812);box-shadow:0 0 0 3px rgba(255,214,140,.35),0 8px 26px rgba(0,0,0,.5);transform:rotate(-4deg);}
+#tcard .tx{display:grid;gap:2px;text-align:left;}
+#tcard .tx b{font-family:var(--display);font-weight:400;font-size:clamp(28px,5.4vw,56px);line-height:1;color:#fff6e4;text-shadow:0 3px 0 #2a0800,0 0 24px rgba(255,150,60,.35);white-space:nowrap;}
+#tcard .tx span{font-family:'Yuji Syuku',Georgia,serif;font-size:clamp(14px,2.2vw,22px);color:#ffd9a6;letter-spacing:.06em;white-space:nowrap;}
+#tcard .tx em{font-style:normal;font-size:11px;font-weight:900;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,214,140,.75);}
+@keyframes tcIn{0%{opacity:0;transform:translateX(-24px)}12%{opacity:1;transform:none}82%{opacity:1;transform:none}100%{opacity:0;transform:translateX(18px)}}
+@keyframes tcBrush{to{clip-path:inset(0 0 0 0)}}
+@media (prefers-reduced-motion:reduce){#tcard .tc.show{animation-duration:3.1s}#tcard .stroke{animation:none;clip-path:none}}
+#hud.ended .big-btn{opacity:0;pointer-events:none;transition:opacity .4s}
 </style>
 
 </head><body>
@@ -583,6 +602,7 @@ body.cine::before,body.cine::after{height:9vh;}
 <div id="storyBox" hidden></div>
 <button id="storySkip" class="btn small" data-story-skip="1" hidden>Skip ⏭</button>
 <div id="title" hidden></div>
+<div id="tcard" aria-live="polite"></div>
 <div id="overlay" hidden></div>
 <div id="fade"></div>
 <div id="toast"></div>
@@ -595,20 +615,20 @@ body.cine::before,body.cine::after{height:9vh;}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="js/data.js?v=1792691372"></script>
-<script src="js/engine.js?v=1792691372"></script>
-<script src="js/rig.js?v=1792691372"></script>
-<script src="js/worlds.js?v=1792691372"></script>
-<script src="js/rope.js?v=1792691372"></script>
-<script src="js/fight.js?v=1792691372"></script>
-<script src="js/train.js?v=1792691372"></script>
-<script src="js/dragon.js?v=1792691372"></script>
-<script src="js/explore.js?v=1792691372"></script>
-<script src="js/puzzles.js?v=1792691372"></script>
-<script src="js/forge.js?v=1792691372"></script>
-<script src="js/duel.js?v=1792691372"></script>
-<script src="js/versus.js?v=1792691372"></script>
-<script src="js/story.js?v=1792691372"></script>
-<script src="js/ui.js?v=1792691372"></script>
+<script src="js/data.js?v=1792691801"></script>
+<script src="js/engine.js?v=1792691801"></script>
+<script src="js/rig.js?v=1792691801"></script>
+<script src="js/worlds.js?v=1792691801"></script>
+<script src="js/rope.js?v=1792691801"></script>
+<script src="js/fight.js?v=1792691801"></script>
+<script src="js/train.js?v=1792691801"></script>
+<script src="js/dragon.js?v=1792691801"></script>
+<script src="js/explore.js?v=1792691801"></script>
+<script src="js/puzzles.js?v=1792691801"></script>
+<script src="js/forge.js?v=1792691801"></script>
+<script src="js/duel.js?v=1792691801"></script>
+<script src="js/versus.js?v=1792691801"></script>
+<script src="js/story.js?v=1792691801"></script>
+<script src="js/ui.js?v=1792691801"></script>
 
 </body></html>

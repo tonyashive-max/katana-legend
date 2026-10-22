@@ -123,7 +123,9 @@ function startBattle(st, ctx) {
     $('#viewBtn').textContent = F.view === 'fp' ? 'Behind view' : 'First person';
     OV.draw = drawFightOverlay; OV.trailCol = hexRGB(swordDef(eqSword().id).glow || '#ffffff');
     updateFightHUD();
-    banner(st.spirit ? 'Spirit of ' + st.name : st.name, st.title);
+    { const kj = st.spirit ? '霊' : st.dragon || ctx.kind === 'beast' ? '獣' : ctx.kind === 'myth' ? '鬼' : st.boss ? '将' : st.duo ? '双' : '侍';
+      const kick = st.spirit ? 'Spirit Warrior' : ctx.kind === 'beast' ? 'Mythical beast' : st.boss ? `Master of ${CHAPTERS[st.ch].name}` : st.train ? 'Trial warrior' : CHAPTERS[st.ch].name;
+      titleCard(kj, st.spirit ? 'Spirit of ' + st.name : st.name, st.title, kick); }
     if (ctx.kind === 'myth' || ctx.kind === 'beast') setTimeout(() => { if (F && F.state === 'intro') hint(st.intro); }, 300);
     if (F.fragile) { setTimeout(() => { if (F && !F.over) { hint(`⚠ Your ${swordDef(eqSword().id).name} is too weak for ${st.name}. It could snap!`); sfx.bell && sfx.bell(); } }, ctx.kind === 'myth' ? 2600 : 600); }
     sfx.taiko(1); if (ctx.kind === 'myth' || ctx.kind === 'beast') setTimeout(() => sfx.taiko(1.3), 350);
@@ -553,7 +555,7 @@ function specialUpdate(dt) {
 /* ---------- win / lose ---------- */
 function win(reason) {
   if (F.over) return;
-  F.over = true; F.outcome = 'win'; F.endT = 0;
+  F.over = true; F.outcome = 'win'; F.endT = 0; $('#hud').classList.add('ended');
   toState('ko'); slowmo(.3, 1.1); hitstop(140);
   F.E.root.visible = true;
   F.E.ko(); F.P.setHold('show', 5);
@@ -573,7 +575,7 @@ function win(reason) {
 }
 function defeat(reason) {
   if (F.over) return;
-  F.over = true; F.outcome = 'lose'; F.endT = 0;
+  F.over = true; F.outcome = 'lose'; F.endT = 0; $('#hud').classList.add('ended');
   F.P.ko(); F.E.setHold('show', 4); F.E.root.visible = true;
   banner(reason); sfx.lose(); slowmo(.4, .8);
   F.state = 'idle';

@@ -772,7 +772,7 @@ const ExploreMode = {
     // where on the road are we?
     const sq = ropeQuery(x.pos.x, x.pos.z); x.s = sq.s;
     const land = landOf(x.s);
-    if (land !== x.land) { const first = x.land >= 0; x.land = land; updateObjective(); if (first) banner(CHAPTERS[land].name, CHAPTERS[land].jp); storyArrive(land); }
+    if (land !== x.land) { const first = x.land >= 0; x.land = land; updateObjective(); if (first) { titleCard(CHAPTERS[land].jp[0], CHAPTERS[land].name, CHAPTERS[land].blurb, `Chapter ${land + 1}`); sfx.taiko(.8); } storyArrive(land); }
     updateRopeWorld(x.W, x.pos.x, x.pos.z, x.s);
     // walk animation
     const P = x.P;

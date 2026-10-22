@@ -29,6 +29,17 @@ function showHUD(mode) {
   $('#viewBtn').hidden = mode === 'vs-local' || mode === 'explore';
   $('#actBtn').hidden = true; $('#hiltBtn').hidden = true;
 }
+/* an ink-stroke title card: kanji in a red seal, a name and a line beneath */
+const BRUSH_PATH = 'M8 52 C40 30 120 22 220 20 C330 18 470 16 590 24 C640 27 690 34 712 46 C700 52 690 54 700 60 C680 74 600 82 480 84 C360 86 210 88 110 84 C60 82 22 74 10 64 C18 60 4 58 8 52Z';
+let _tcT = 0;
+function titleCard(kj, name, sub, kicker) {
+  const el = $('#tcard'); if (!el) return;
+  clearTimeout(_tcT);
+  el.innerHTML = `<div class="tc"><svg class="stroke" viewBox="0 0 720 104" preserveAspectRatio="none" aria-hidden="true"><defs><filter id="tcf"><feTurbulence type="fractalNoise" baseFrequency=".035 .5" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="14"/></filter></defs><path d="${BRUSH_PATH}" filter="url(#tcf)"/></svg>
+    <div class="kj">${esc(kj)}</div><div class="tx">${kicker ? `<em>${esc(kicker)}</em>` : ''}<b>${esc(name)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div></div>`;
+  requestAnimationFrame(() => { const c = el.querySelector('.tc'); if (c) c.classList.add('show'); });
+  _tcT = setTimeout(() => { el.innerHTML = ''; }, 3300);
+}
 function hideHUD() { $('#hud').hidden = true; $('#tInfo').innerHTML = ''; hint(''); }
 function fmt(n) { return Math.round(n).toLocaleString(); }
 function renderTop() { $('#gold').textContent = fmt(S.gold); $('#steel').textContent = fmt(S.steel); }

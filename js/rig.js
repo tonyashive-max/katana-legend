@@ -168,7 +168,7 @@ function buildSword(def, opt) {
     const dark = shadeHex(def.blade, -.5), pale = new COL(def.edge).lerp(new COL('#ffffff'), .6);
     const hm = new THREE.Mesh(hamonGeo(def, L, w, c, depth, 0, .00055), new THREE.MeshBasicMaterial({ color: dark, transparent: true, opacity: .7, depthWrite: false, side: THREE.DoubleSide }));
     const hf = new THREE.Mesh(hamonGeo(def, L, w, c, depth, .0014, .0009), new THREE.MeshBasicMaterial({ color: pale, transparent: true, opacity: .9, depthWrite: false, side: THREE.DoubleSide }));
-    hm.renderOrder = hf.renderOrder = 2; g.add(hm, hf); g.userData.hamon = hm;
+    hm.renderOrder = hf.renderOrder = 2; g.add(hm, hf); g.userData.hamon = [hm, hf];
   }
   g.userData.len = L + .035; g.userData.mat = mat;
   if (def.glow) {
@@ -365,7 +365,7 @@ class Samurai {
     this.trail = new Trail(this.swordDef.glow || '#ffffff');
     this.hasSaya = !this.swordDef.club && !this.opt.noSaya;
     if (this.hasSaya) this.buildSaya();
-    if (this.ghost) { this.ft.L.visible = this.ft.R.visible = false; if (this.saya) this.saya.visible = false; }
+    if (this.ghost) { this.ft.L.visible = this.ft.R.visible = false; if (this.saya) this.saya.visible = false; (this.sword.userData.hamon || []).forEach(h => { h.visible = false; }); }
     if (L.geisha) this.buildGeisha();
     this.solveAll(0);
   }
