@@ -68,11 +68,11 @@ function showTab(name) {
   el.scrollTop = 0;
   renderTop();
 }
-/* a skill row in the Dojo: tap it to go straight into that skill's drill */
+/* a skill row in the Dojo: tap once to pick it, tap again to confirm and go into that skill's drill */
 function skillRow(k) {
   const s = S.sk[k], need = skillNeed(s.l), pct = s.l >= 30 ? 100 : Math.round(s.x / need * 100);
   const drill = Object.keys(TRAININGS).find(t => TRAININGS[t].skill === k);
-  return `<button class="skill skill-go" ${drill ? `data-train="${drill}"` : 'disabled'} aria-label="Train ${SKILLS[k].n}"><div class="glyph">${SKILLS[k].g}</div><div><div class="nm">${SKILLS[k].n}<small>${SKILLS[k].d}</small></div><div class="bar"><i style="width:${pct}%"></i></div></div><div class="lvl">Lv ${s.l}<span class="go">Train ▶</span></div></button>`;
+  return `<button class="skill skill-go" ${drill ? `data-skill-arm="${drill}"` : 'disabled'} aria-label="Train ${SKILLS[k].n}"><div class="glyph">${SKILLS[k].g}</div><div><div class="nm">${SKILLS[k].n}<small>${SKILLS[k].d}</small></div><div class="bar"><i style="width:${pct}%"></i></div></div><div class="lvl">Lv ${s.l}<span class="go">Train ▶</span><span class="go2">Tap again to start</span></div></button>`;
 }
 function screenDojo() {
   const st = stats(), w = eqSword(), d = swordDef(w.id), o = outfitDef(S.outfit);
@@ -110,7 +110,7 @@ function screenDojo() {
       <div class="row" style="margin-top:10px"><button class="btn small" data-tab="forge">Forge it stronger</button><button class="btn small" data-tab="swords">Change blade</button></div>
       <p class="muted" style="margin-top:10px;font-size:13px">Rarest blade owned: <b style="color:${RAR[best.r].c}">${best.name}</b> · ${S.seen.length} of ${SWORDS.length} discovered</p>
     </section>
-    <section class="panel stack"><div class="row between"><h3>Skills</h3><span class="muted" style="font-size:13px">Tap a skill to train it</span></div>${Object.keys(SKILLS).map(skillRow).join('')}</section>
+    <section class="panel stack"><div class="row between"><h3>Skills</h3><span class="muted" style="font-size:13px">Tap a skill, then tap again to train</span></div>${Object.keys(SKILLS).map(skillRow).join('')}</section>
   </div>`;
 }
 function check(ok, text) { return `<li class="${ok ? 'ok' : ''}"><span>${ok ? '✓' : '○'}</span>${text}</li>`; }
@@ -613,6 +613,12 @@ function wireInput() {
     else if (d.pz) puzzleAction(d.pz, b);
     else if (b.id === 'actBtn') exploreAct();
     else if (d.train) { startTraining(d.train); }
+    else if (d.skillArm) {
+      if (b.classList.contains('armed')) { startTraining(d.skillArm); return; }
+      document.querySelectorAll('.skill-go.armed').forEach(x => x.classList.remove('armed'));
+      b.classList.add('armed'); sfx.ui();
+      clearTimeout(b._disarm); b._disarm = setTimeout(() => b.classList.remove('armed'), 3500);
+    }
     else if (d.upgrade) doUpgrade();
     else if (d.recipe) doRecipe(d.recipe);
     else if (d.infuse) doInfuse(d.infuse);
