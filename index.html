@@ -527,6 +527,10 @@ body.cine::before,body.cine::after{height:9vh;}
 @keyframes tcBrush{to{clip-path:inset(0 0 0 0)}}
 @media (prefers-reduced-motion:reduce){#tcard .tc.show{animation-duration:3.1s}#tcard .stroke{animation:none;clip-path:none}}
 #hud.ended .big-btn{opacity:0;pointer-events:none;transition:opacity .4s}
+#hud.fightmode .step-btn.on1,#hud.footwork .step-btn.on1{display:grid;}
+#hud.fightmode .step-btn.on1{bottom:calc(env(safe-area-inset-bottom,0px) + 34px + clamp(96px,13vw,128px));}
+#hud.fightmode .step-btn.on1.sr{right:calc(max(16px,env(safe-area-inset-right,0px)) + 8px);}
+#hud.ended .step-btn{opacity:0;pointer-events:none;transition:opacity .4s}
 </style>
 
 </head><body>
@@ -615,20 +619,20 @@ body.cine::before,body.cine::after{height:9vh;}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="js/data.js?v=1792691801"></script>
-<script src="js/engine.js?v=1792691801"></script>
-<script src="js/rig.js?v=1792691801"></script>
-<script src="js/worlds.js?v=1792691801"></script>
-<script src="js/rope.js?v=1792691801"></script>
-<script src="js/fight.js?v=1792691801"></script>
-<script src="js/train.js?v=1792691801"></script>
-<script src="js/dragon.js?v=1792691801"></script>
-<script src="js/explore.js?v=1792691801"></script>
-<script src="js/puzzles.js?v=1792691801"></script>
-<script src="js/forge.js?v=1792691801"></script>
-<script src="js/duel.js?v=1792691801"></script>
-<script src="js/versus.js?v=1792691801"></script>
-<script src="js/story.js?v=1792691801"></script>
-<script src="js/ui.js?v=1792691801"></script>
+<script src="js/data.js?v=1792693874"></script>
+<script src="js/engine.js?v=1792693874"></script>
+<script src="js/rig.js?v=1792693874"></script>
+<script src="js/worlds.js?v=1792693874"></script>
+<script src="js/rope.js?v=1792693874"></script>
+<script src="js/fight.js?v=1792693874"></script>
+<script src="js/train.js?v=1792693874"></script>
+<script src="js/dragon.js?v=1792693874"></script>
+<script src="js/explore.js?v=1792693874"></script>
+<script src="js/puzzles.js?v=1792693874"></script>
+<script src="js/forge.js?v=1792693874"></script>
+<script src="js/duel.js?v=1792693874"></script>
+<script src="js/versus.js?v=1792693874"></script>
+<script src="js/story.js?v=1792693874"></script>
+<script src="js/ui.js?v=1792693874"></script>
 
 </body></html>

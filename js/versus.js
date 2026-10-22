@@ -688,7 +688,7 @@ const VsMode = {
     CAM.position.copy(VS.camPos); CAM.lookAt(VS.camLook);
     CAM.fov = lerp(CAM.fov, fov, damp(8, dt)); CAM.updateProjectionMatrix(); FX.setScale();
     applyShake(dt);
-    hint(VS.phase !== 'fight' || VS.intro > 0 ? '' : VS.online ? 'Gold ring = their aim is locked: swipe through it to parry, or STEP aside to make them miss!' : 'Swipe on your half · Hold still to block · ▲▼ to step: step when the gold ring shows and they miss!');
+    hint(VS.phase !== 'fight' || VS.intro > 0 ? '' : VS.online ? 'Gold ring = their aim is locked: swipe through it to parry, or STEP aside (two-finger swipe) to make them miss!' : 'Swipe on your half · Hold still to block · ▲▼ to step: step when the gold ring shows and they miss!');
   },
   slash(x0, y0, x1, y1, id) {
     if (!VS || VS.phase !== 'fight') return;

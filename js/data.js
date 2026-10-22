@@ -289,7 +289,7 @@ const PUZZLE_NAMES = ['The Lantern Song', 'The Frozen Seals', 'The Moon Path', '
 
 const SKILLS = {
   power: { n: 'Power', g: '力', d: 'More damage with every slash' },
-  speed: { n: 'Speed', g: '速', d: 'Slash again sooner' },
+  speed: { n: 'Speed', g: '速', d: 'Slash sooner and step quicker' },
   guard: { n: 'Guard', g: '守', d: 'Easier parries and stronger blocks' },
   vital: { n: 'Vitality', g: '命', d: 'More health in battle' },
   iai: { n: 'Iai', g: '抜', d: 'Faster draws and more time against ghosts' },
@@ -300,6 +300,7 @@ const TRAININGS = {
   reflex: { name: 'Lightning Reflex', skill: 'speed', g: '速', desc: 'Swipe the way the arrow points before the circle closes. It gets faster!' },
   parry: { name: 'Sensei Parry Drill', skill: 'guard', g: '守', desc: 'The sensei swings a practice sword. Swipe through the gold ring right as it flashes.' },
   stance: { name: 'Lantern Focus', skill: 'vital', g: '命', desc: 'Keep your finger on the floating lantern. Stay calm and follow it everywhere.' },
+  dodge: { name: 'Footwork Drill', skill: 'speed', g: '足', desc: 'The sensei thrusts at the spot where you stand. Step aside with the arrows the moment the gold ring locks his aim. Step too early and he follows you!' },
   iai: { name: 'Iai Quick Draw', skill: 'iai', g: '抜', desc: 'Wait for the bell, swipe from your hilt to draw, cut the straw target, then slide the blade back into its sheath with one smooth stroke. Targets move at higher levels.' },
 };
 const GHOST_LOOK = { cloth: '#5a7ab0', armor: '#d9eeff', trim: '#9fe8ff', helm: 'kabuto', helmCol: '#cfe8ff', crest: 'moon', crestCol: '#9fe8ff', eye: '#ffffff', scarf: '#bff4ff', mask: '#9fc4e8' };

@@ -40,6 +40,13 @@ function titleCard(kj, name, sub, kicker) {
   requestAnimationFrame(() => { const c = el.querySelector('.tc'); if (c) c.classList.add('show'); });
   _tcT = setTimeout(() => { el.innerHTML = ''; }, 3300);
 }
+/* one step, wherever you are: a duel, a story fight, or the footwork drill */
+function stepInput(d, who) {
+  if (MODE === VsMode && VS) return vsStep(VS[who || 'A'], d);
+  if (MODE === FightMode && F) return fightStep(d);
+  if (MODE === TrainMode && T && T.kind === 'dodge') return DodgeGame.step(d);
+  return false;
+}
 function hideHUD() { $('#hud').hidden = true; $('#tInfo').innerHTML = ''; hint(''); }
 function fmt(n) { return Math.round(n).toLocaleString(); }
 function renderTop() { $('#gold').textContent = fmt(S.gold); $('#steel').textContent = fmt(S.steel); }
@@ -539,19 +546,38 @@ function openSettings() {
 
 /* ---------- input ---------- */
 const PTR = {};
+/* two fingers swiped together, left or right, take a step (the buttons still work too) */
+let TWO = null;
+const twoFingerOK = () => MODE === FightMode || (MODE === TrainMode && T && T.kind === 'dodge') || (MODE === VsMode && VS && VS.online);
 function wireInput() {
   const gl = $('#gl');
   const slashMode = () => MODE && (MODE.slashActive ? MODE.slashActive() : (MODE.name !== 'hub' && MODE.name !== 'explore'));
   gl.addEventListener('pointerdown', e => {
     AUD.init(); MUSIC.start(MODE ? (MODE.name === 'hub' ? 'hub' : MODE.name === 'train' ? 'train' : 'fight') : 'hub');
     try { gl.setPointerCapture(e.pointerId); } catch (er) { /* */ }
-    PTR[e.pointerId] = { sx: e.clientX, sy: e.clientY, x0: e.clientX, y0: e.clientY };
+    PTR[e.pointerId] = { sx: e.clientX, sy: e.clientY, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY };
+    const ids = Object.keys(PTR);
+    if (ids.length === 2 && twoFingerOK()) {
+      const a = PTR[ids[0]], b = PTR[ids[1]];
+      TWO = { ids, x0: (a.cx + b.cx) / 2, y0: (a.cy + b.cy) / 2, done: false };
+      a.two = b.two = true; OV.trail.length = 0;
+      if (MODE === VsMode && VS) ids.forEach(id => { VS.acted[id] = true; });
+      return;
+    }
     if (slashMode()) OV.trail.push({ x: e.clientX, y: e.clientY, t: performance.now() });
     if (MODE && MODE.down) MODE.down(e.clientX, e.clientY, e.pointerId);
   });
   gl.addEventListener('pointermove', e => {
     const p = PTR[e.pointerId]; if (!p) return;
     const x = e.clientX, y = e.clientY;
+    p.cx = x; p.cy = y;
+    if (p.two) {
+      if (TWO && !TWO.done) {
+        const a = PTR[TWO.ids[0]], b = PTR[TWO.ids[1]];
+        if (a && b) { const dx = (a.cx + b.cx) / 2 - TWO.x0, dy = (a.cy + b.cy) / 2 - TWO.y0; if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.3) { TWO.done = true; stepInput(dx < 0 ? -1 : 1, 'A'); } }
+      }
+      return;
+    }
     if (MODE && MODE.move) MODE.move(x, y, e.pointerId);
     if (!slashMode()) return;
     OV.trail.push({ x, y, t: performance.now() });
@@ -559,6 +585,7 @@ function wireInput() {
   });
   const end = e => {
     const p = PTR[e.pointerId]; if (!p) return;
+    if (p.two) { delete PTR[e.pointerId]; if (!Object.values(PTR).some(q => q.two)) TWO = null; if (MODE && MODE.up) MODE.up(e.pointerId); return; }
     if (slashMode() && !p.slashed && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) >= 26 && MODE.slash) MODE.slash(p.sx, p.sy, e.clientX, e.clientY, e.pointerId);
     if (MODE && MODE.up) MODE.up(e.pointerId);
     delete PTR[e.pointerId];
@@ -598,12 +625,13 @@ function wireInput() {
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => bb.addEventListener(ev, () => setBlock(false)));
   $('#specialBtn').addEventListener('pointerdown', e => { e.preventDefault(); useSpecial(); });
   document.querySelectorAll('.step-btn').forEach(b => {
-    b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); AUD.init(); b.classList.add('on'); if (MODE === VsMode && VS) vsStep(VS[b.dataset.f], +b.dataset.d); });
+    b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); AUD.init(); b.classList.add('on'); stepInput(+b.dataset.d, b.dataset.f); });
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => b.addEventListener(ev, () => b.classList.remove('on')));
   });
   document.addEventListener('keydown', e => {
-    if (MODE !== VsMode || !VS || e.repeat) return;
-    if (VS.online && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) vsStep(VS.A, e.key === 'ArrowLeft' ? -1 : 1);
+    if (e.repeat || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || MODE === ExploreMode) return;
+    if (MODE === VsMode && VS && !VS.online) return;
+    stepInput(e.key === 'ArrowLeft' ? -1 : 1, 'A');
   });
   $('#viewBtn').addEventListener('click', () => {
     const tgt = MODE === FightMode ? F : MODE === TrainMode ? T : (MODE === VsMode && VS && VS.online ? VS : null);

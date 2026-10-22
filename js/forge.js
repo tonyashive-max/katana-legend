@@ -7,8 +7,8 @@ function worldForge() {
   const W = newWorld('forge'), sc = W.scene;
   sc.background = new COL('#120a08'); sc.fog = new THREE.Fog('#120a08', 6, 22);
   W.sky = makeSky({ top: '#120a08', mid: '#120a08', bot: '#120a08', sunDir: new V3(0, -1, 0), sunCol: '#000000', sunDeg: 1, haze: 0 }); sc.add(W.sky);
-  sc.add(new THREE.HemisphereLight('#ffb37a', '#1a0e0a', .35));
-  const key = new THREE.DirectionalLight('#ffd0a0', .35); key.position.set(3, 6, -2); sc.add(key);
+  sc.add(new THREE.HemisphereLight('#ffb37a', '#1a0e0a', .5));
+  const key = new THREE.DirectionalLight('#ffd0a0', .45); key.position.set(3, 6, -2); sc.add(key);
   W.fire = new THREE.PointLight('#ff7a2a', 2.2, 9, 1.6); W.fire.position.set(-1.6, 1.1, 1.5); W.fire.castShadow = false; sc.add(W.fire);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14, 14, 14).rotateX(-Math.PI / 2), toon({ color: '#3a2a20' })); floor.receiveShadow = true; sc.add(floor);
   const tiles = []; for (let x = -6; x <= 6; x += 1.2) for (let z = -6; z <= 6; z += 1.2) tiles.push({ p: [x + rnd(-.04, .04), .005, z], s: [1.12, .02, 1.12], c: shadeHex('#4a3828', rnd(-.15, .1)) });
@@ -21,7 +21,35 @@ function worldForge() {
     P(GEO.box(1.8, 1.0, 1.5), '#6a5a52', [-1.6, .5, 1.6]), P(GEO.box(1.6, .2, 1.3), '#4a3a34', [-1.6, 1.05, 1.6]),
     P(GEO.cyl(.5, .7, 1.8, 8), '#5a4a44', [-1.6, 2.0, 2.0]), P(GEO.cyl(.35, .35, 2.6, 8), '#3a2a24', [-1.6, 3.6, 2.2]),
   ]), toon({ vertexColors: true, flatShading: true })); furn.castShadow = true; sc.add(furn);
-  W.coals = new THREE.Mesh(GEO.box(1.2, .12, .9), glowify(new THREE.MeshBasicMaterial({ color: '#ff5a1a' }))); W.coals.position.set(-1.6, 1.12, 1.5); sc.add(W.coals);
+  // a bed of glowing charcoal, each lump its own heat
+  const lumps = []; const er = mulberry(5);
+  for (let i = 0; i < 46; i++) { const hot = er(); lumps.push(P(GEO.ico(.07 + er() * .06, 0), hot > .82 ? '#ffd27a' : hot > .45 ? '#ff6a1a' : hot > .2 ? '#c0280a' : '#3a0c06', [(er() - .5) * 1.1, er() * .07, (er() - .5) * .8], [er() * 3, er() * 3, 0], [1, .7, 1])); }
+  W.coals = new THREE.Mesh(merge(lumps), glowify(new THREE.MeshBasicMaterial({ vertexColors: true }))); W.coals.position.set(-1.6, 1.12, 1.5); sc.add(W.coals);
+  // licking flame tongues
+  W.tongues = [];
+  for (let i = 0; i < 6; i++) {
+    const t = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.glow, color: i % 2 ? '#ffb03a' : '#ff5a1a', transparent: true, opacity: .85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    t.userData = { x: -1.6 + (i / 5 - .5) * .9, z: 1.5 + (i % 3 - 1) * .18, ph: i * 1.9, sp: 5 + i * .7 }; sc.add(t); W.tongues.push(t);
+  }
+  // the sacred rope over the hearth, with zigzag paper streamers
+  const ropeC = new THREE.CatmullRomCurve3([new V3(-2.9, 3.05, .78), new V3(-1.6, 2.82, .72), new V3(-.3, 3.05, .78)]);
+  const ropeG = new THREE.TubeGeometry(ropeC, 60, .07, 8), rpa = ropeG.attributes.position, rcol = [];
+  for (let i = 0; i < rpa.count; i++) { const k = Math.floor(i / 9), a = (i % 9) / 8; rcol.push(...(((k + a * 3) | 0) % 2 ? [.85, .75, .54] : [.66, .54, .31])); }
+  ropeG.setAttribute('color', new THREE.Float32BufferAttribute(rcol, 3)); const rope = new THREE.Mesh(ropeG, toon({ vertexColors: true })); sc.add(rope); // twisted straw
+  const zig = new THREE.Shape(); zig.moveTo(0, 0); zig.lineTo(.09, 0); zig.lineTo(.09, -.1); zig.lineTo(.02, -.1); zig.lineTo(.02, -.2); zig.lineTo(.11, -.2); zig.lineTo(.11, -.32); zig.lineTo(.04, -.32); zig.lineTo(.04, -.42); zig.lineTo(-.04, -.42); zig.lineTo(-.04, -.3); zig.lineTo(.03, -.3); zig.lineTo(.03, -.22); zig.lineTo(-.06, -.22); zig.lineTo(-.06, -.08); zig.lineTo(0, -.08); zig.lineTo(0, 0);
+  const shideG = new THREE.ShapeGeometry(zig), shideM = new THREE.MeshBasicMaterial({ color: '#fbf6ea', side: THREE.DoubleSide });
+  W.shide = [.25, .5, .75].map(u => { const m = new THREE.Mesh(shideG, shideM); m.scale.setScalar(.6); m.position.copy(ropeC.getPoint(u, new V3())).add(new V3(0, -.05, -.06)); sc.add(m); return m; });
+  // a barred window on the back wall, and the dusty shaft of daylight it throws
+  const win = merge([P(GEO.box(1.3, 1, .12), '#1a0e08', [2.6, 3, 4.3]), ...[-.4, -.13, .13, .4].map(dx => P(GEO.box(.05, .9, .14), '#1a0e08', [2.6 + dx, 3, 4.28]))]);
+  sc.add(new THREE.Mesh(win, toon({ vertexColors: true })));
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(1.15, .85), new THREE.MeshBasicMaterial({ color: '#cfe0ff', fog: false })); sky.position.set(2.6, 3, 4.34); sky.rotation.y = Math.PI; sc.add(sky);
+  const beam = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 5.2), new THREE.MeshBasicMaterial({ map: TEX.ray, color: '#ffe6c0', transparent: true, opacity: .16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  beam.position.set(2.2, 1.6, 2.6); beam.rotation.set(-.62, Math.PI + .25, 0); sc.add(beam);
+  W.ambient.push(new Ambient({ n: 60, tex: TEX.glow, color: '#ffe6c0', size: .025, alpha: .6, blending: THREE.AdditiveBlending, cx: 2.1, cy: 1.8, cz: 2.4, ax: .6, ay: 1.4, az: .8, sway: .2, twinkle: 1.2, vel: r => [(r() - .5) * .05, (r() - .5) * .04, (r() - .5) * .05], seed: 77 }));
+  // finished blades resting on a wall rack
+  const rack = new THREE.Group(); rack.position.set(-4.82, 0, -.6); rack.rotation.y = Math.PI / 2; sc.add(rack);
+  rack.add(new THREE.Mesh(merge([P(GEO.box(1.6, .08, .1), '#4a2e1a', [0, 1.5, 0]), P(GEO.box(1.6, .08, .1), '#4a2e1a', [0, 2.1, 0]), P(GEO.box(.08, 1.1, .08), '#3a2214', [-.7, 1.8, 0]), P(GEO.box(.08, 1.1, .08), '#3a2214', [.7, 1.8, 0])]), toon({ vertexColors: true })));
+  ['iron', 'kanemitsu', 'kagaribi'].forEach((id, i) => { const b = buildSword(swordDef(id)); b.position.set(-.55, 1.62 + i * .22, .08); b.rotation.set(0, 0, -Math.PI / 2 + .04); if (b.userData.glow) b.userData.glow.visible = false; rack.add(b); });
   W.flame = halo('#ff8a3a', 2.2, .8); W.flame.position.set(-1.6, 1.4, 1.5); sc.add(W.flame);
   // bellows
   W.bellows = new THREE.Group(); W.bellows.position.set(-2.9, .45, 1.2); sc.add(W.bellows);
@@ -64,8 +92,19 @@ function startForge(opts) {
     const blade = buildSword(def); blade.userData.mat.emissive = new COL(0); blade.userData.mat.emissiveIntensity = 1;
     if (blade.userData.glow) blade.userData.glow.visible = false;
     W.scene.add(blade);
+    // tongs grip the tang while the steel is hot
+    const tongs = new THREE.Group(); [-1, 1].forEach(sd => { const bar = new THREE.Mesh(GEO.box(.018, .62, .014), toon({ color: '#2a2a30' })); bar.position.set(sd * .022, -.56, 0); bar.rotation.z = sd * .05; tongs.add(bar); });
+    const jaw = new THREE.Mesh(GEO.box(.07, .07, .03), toon({ color: '#2a2a30' })); jaw.position.y = -.24; tongs.add(jaw); blade.add(tongs);
+    const bh = halo('#ff8a1a', 1, 0); bh.scale.set(.5, 1.25, 1); bh.position.y = .42; blade.add(bh);
+    // the smith at the anvil: you, in your own armor, with a forging hammer
+    const smith = new Samurai(lookFromOutfit(outfitDef(S.outfit)), swordDef('bokken'), { noSaya: true });
+    smith.sword.visible = false; smith.root.rotation.order = 'YXZ'; smith.root.position.set(.05, 0, 1.3); smith.root.rotation.y = Math.PI;
+    const ham = new THREE.Group();
+    ham.add(new THREE.Mesh(merge([P(GEO.cyl(.022, .026, .46, 6), '#7a5230', [0, .2, 0]), P(GEO.box(.26, .12, .12), '#34343c', [0, .46, 0]), P(GEO.box(.04, .13, .13), '#4a4a54', [.13, .46, 0]), P(GEO.box(.04, .13, .13), '#4a4a54', [-.13, .46, 0])]), toon({ vertexColors: true })));
+    smith.grip.add(ham); smith.setHold('shoulder', 6); W.scene.add(smith.root);
+    W.hammer.visible = false;
     const steps = ['heat', 'hammer', 'quench'].concat(opts.kind === 'recipe' && opts.r.sharpen ? ['sharpen'] : []);
-    FG = { o: opts, W, def, blade, steps, si: -1, step: null, t: 0, clock: 0, scores: [], heat: .1, camPos: new V3(-.5, 2.6, -2.8), camLook: new V3(-1.2, 1.1, 1.4), done: false };
+    FG = { o: opts, W, def, blade, steps, si: -1, step: null, t: 0, clock: 0, scores: [], heat: .1, smith, ham, tongs, bladeHalo: bh, camPos: new V3(-.5, 2.6, -2.8), camLook: new V3(-1.2, 1.1, 1.4), done: false };
     CAM.position.copy(FG.camPos);
     showHUD('forge');
     $('#leaveBtn').textContent = 'Leave';
@@ -106,7 +145,7 @@ function nextForgeStep() {
   } else if (k === 'sharpen') {
     Object.assign(St, { good: 0, need: 6, strokes: 0, stroke: null, shine: 0, shineT: -1 });
     FG.heat = 0;
-    FG.blade.position.set(1.48, .64, -.6); FG.blade.rotation.set(-Math.PI / 2, 0, -Math.PI / 2 + .02);
+    FG.blade.position.set(1.48, .64, -.6); FG.blade.rotation.set(-Math.PI / 2, 0, -Math.PI / 2 + .02); FG.tongs.visible = false;
     banner('Sharpen the edge', 'Smooth, steady strokes along the guide');
     setForgeInfo('4 · Sharpen', 'Swipe from the handle to the tip inside the guide lane. Keep it smooth and steady.');
   }
@@ -119,8 +158,14 @@ function finishForge() {
   FG.done = true;
   const avg = FG.scores.reduce((a, b) => a + b, 0) / Math.max(1, FG.scores.length);
   const grade = avg >= .82 ? 'Masterwork' : avg >= .6 ? 'Fine' : 'Plain';
-  FG.blade.position.set(0, 1.6, .2); FG.blade.rotation.set(0, 0, 0); FG.heat = 0;
-  FX.sparks(new V3(0, 1.8, .2), '#ffe08c', 60, 5); sfx.win();
+  FG.heat = 0; FG.tongs.visible = false; FG.ham.visible = false;
+  // the smith lifts the finished blade into the light
+  const sm = FG.smith; FG.blade.scale.set(1, 1, 1); sm.grip.add(FG.blade); FG.blade.position.set(0, 0, 0); FG.blade.quaternion.identity();
+  FG.blade.userData.mat.emissive.set(0); if (FG.blade.userData.glow) FG.blade.userData.glow.visible = !!FG.def.glow;
+  sm.seq.length = 0; sm.setHold({ p: [-.04, .4, .22], d: [.1, 1, .06], e: [1, 0, 0] }, 4); sm.leanAdd = 0; $('#tInfo').innerHTML = '';
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.55, 1.1, 6, 24, 1, true), new THREE.MeshBasicMaterial({ map: TEX.ray, color: '#ffe8b0', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  shaft.position.set(.05, 3, 1.25); FG.W.scene.add(shaft); FG.shaft = shaft;
+  setTimeout(() => { if (!FG) return; const bp = FG.blade.localToWorld(new V3(0, .5, 0)); FX.sparks(bp, '#ffe08c', 70, 5); FX.glowBurst(bp, FG.def.glow || '#fff2c0', .9, .4); FX.petals && FX.petals(bp, 20, '#ffd27a', 2); sfx.win(); titleCard('鍛', grade, FG.def.name, `Forged by ${S.name || 'Shep'}`); }, 700);
   const res = FG.o.onDone ? FG.o.onDone(grade, avg) : null;
   const d = FG.def, rc = RAR[d.r];
   setTimeout(() => {
@@ -132,7 +177,7 @@ function finishForge() {
       <div class="rewards">${FG.steps.map((k, i) => `<span class="chip">${['Bellows', 'Hammer', 'Quench', 'Sharpen'][['heat', 'hammer', 'quench', 'sharpen'].indexOf(k)]} ${Math.round((FG.scores[i] || 0) * 100)}%</span>`).join('')}</div>
       <div class="actions"><button class="btn primary" data-forgeres="ok">${FG.o.kind === 'recipe' ? 'Wield it!' : 'Back to the forge'}</button></div>
     </div>`);
-  }, 900);
+  }, 3600);
 }
 
 const _fv = new V3();
@@ -147,7 +192,11 @@ const ForgeMode = {
     // fire glow follows how hard you pump
     const fireK = St && St.k === 'heat' ? FG.heat : .35;
     W.fire.intensity = 1 + fireK * 3 + Math.sin(FG.clock * 13) * .15; W.flame.scale.setScalar(1.6 + fireK * 2.2); W.flame.material.opacity = .5 + fireK * .5;
-    W.coals.material.color.copy(heatColor(.55 + fireK * .45));
+    W.coals.material.color.setScalar(.72 + fireK * .45 + Math.sin(FG.clock * 9) * .05 + Math.sin(FG.clock * 23) * .03);
+    W.tongues.forEach(t => { const u = t.userData, k = (.45 + fireK * 1.1) * (1 + .35 * Math.sin(FG.clock * u.sp + u.ph) + .15 * Math.sin(FG.clock * u.sp * 2.3 + u.ph)); t.scale.set(.32 + fireK * .2, k, 1); t.position.set(u.x + Math.sin(FG.clock * 3 + u.ph) * .04, 1.2 + k * .42, u.z); t.material.opacity = .55 + fireK * .4; });
+    W.shide.forEach((m, i) => { m.rotation.y = Math.sin(FG.clock * 1.3 + i * 2) * .25; m.rotation.z = Math.sin(FG.clock * 1.7 + i) * .05; });
+    if (FG.smith) forgeSmith(dt);
+    if (FG.bladeHalo) { const hk = clamp((FG.heat - .35) / .5, 0, 1); FG.bladeHalo.material.opacity = hk * .55; heatColor(Math.max(.6, FG.heat), FG.bladeHalo.material.color); }
     W.bellowsTop.position.y = lerp(W.bellowsTop.position.y, .4, damp(3, dt)); W.leather.scale.y = .5 + W.bellowsTop.position.y; W.leather.position.y = (W.bellowsTop.position.y - .25) / 2;
     if (St) { St.t += dt; ({ heat: heatStep, hammer: hammerStep, quench: quenchStep, sharpen: sharpenStep })[St.k](dt); }
     // blade glow
@@ -155,10 +204,10 @@ const ForgeMode = {
     if (FG.heat > .5 && Math.random() < dt * 8) { FG.blade.getWorldPosition(_fv); FX.add.emit(_fv.x + rnd(-.3, .3), _fv.y, _fv.z + rnd(-.1, .1), 0, rnd(.2, .5), 0, .6, .04, 0, '#ffb03a', 1, -.3, .3); }
     // camera per step
     let pos = new V3(-.5, 2.6, -2.8), look = new V3(-1.2, 1.1, 1.4);
-    if (St && St.k === 'hammer') { pos = new V3(-.2, 2.7, -1.0); look = new V3(-.1, 1.05, .6); }
+    if (St && St.k === 'hammer') { pos = new V3(1.25, 1.85, -.75); look = new V3(-.15, 1.2, .9); }
     if (St && St.k === 'quench') { pos = new V3(1.0, 2.0, -1.4); look = new V3(1.9, .9, 1.0); }
     if (St && St.k === 'sharpen') { pos = new V3(1.85, 1.75, -1.75); look = new V3(1.85, .62, -.6); }
-    if (FG.done) { pos = new V3(0, 1.8, -1.6); look = new V3(0, 1.6, .2); FG.blade.rotation.y += dt * 1.5; }
+    if (FG.done) { pos = new V3(1.25, 1.85, -1.15); look = new V3(.05, 2.0, 1.25); if (FG.shaft) FG.shaft.material.opacity = Math.min(.1, FG.shaft.material.opacity + dt * .5); }
     FG.camPos.lerp(pos, damp(3.5, dt)); FG.camLook.lerp(look, damp(3.5, dt));
     CAM.position.copy(FG.camPos); CAM.lookAt(FG.camLook); CAM.fov = lerp(CAM.fov, 52, damp(5, dt)); CAM.updateProjectionMatrix(); FX.setScale();
     applyShake(dt);
@@ -223,11 +272,24 @@ function hammerStep(dt) {
   if (!St.spot) { St.gap -= dt; if (St.gap <= 0) { const dur = Math.max(.62, .95 - St.done * .04); St.spot = { u: rnd(.15, .9), t: 0, dur }; } return; }
   St.spot.t += dt;
   if (St.spot.t > St.spot.dur + .22) { St.spot = null; St.done++; St.gap = .35; tPopF('Missed!', '#ff8a7a'); }
-  // hammer hovers over the spot
-  const sp = spotWorld(St.spot ? St.spot.u : .5);
-  const H = FG.W.hammer;
-  if (!St.swing) { H.position.lerp(_fv.set(sp.x - .05, sp.y + .55, sp.z - .25), damp(8, dt)); H.rotation.x = lerp(H.rotation.x, -.6, damp(8, dt)); }
-  else { St.swing -= dt; H.rotation.x = lerp(H.rotation.x, .45, damp(30, dt)); H.position.y = lerp(H.position.y, sp.y + .12, damp(30, dt)); if (St.swing <= 0) St.swing = 0; }
+  // the smith raises the hammer over the glowing spot
+  if (St.swing > 0) St.swing = Math.max(0, St.swing - dt);
+  else FG.smith.setHold(smithPose(spotWorld(St.spot ? St.spot.u : .5), false), 9);
+}
+/* hammer poses in the smith's chest space: raised high, or with the head on the steel */
+function smithPose(sp, down) {
+  const sm = FG.smith; sm.root.updateMatrixWorld(true);
+  const l = sm.chest.worldToLocal(sp.clone());
+  if (down) { const d = new V3(0, -.42, 1).normalize(); return { p: l.clone().addScaledVector(d, -.47).add(new V3(0, .04, 0)).toArray(), d: d.toArray(), e: [1, 0, 0] }; }
+  const d = new V3(0, .9, -.45).normalize(); return { p: l.clone().add(new V3(0, .44, -.34)).toArray(), d: d.toArray(), e: [1, 0, 0] };
+}
+function forgeSmith(dt) {
+  const sm = FG.smith, St = FG.step;
+  const k = St && St.k === 'hammer' ? 1 : 0;
+  sm.leanAdd = lerp(sm.leanAdd, k ? .18 : 0, damp(4, dt));
+  if (St && St.k !== 'hammer' && !FG.done && !sm._rest) { sm._rest = true; sm.setHold('shoulder', 5); }
+  if (St && St.k === 'hammer') sm._rest = false;
+  sm.update(dt);
 }
 function spotWorld(u) { FG.blade.updateMatrixWorld(true); const len = FG.blade.userData.len || .8; return FG.blade.localToWorld(new V3(0, .04 + u * (len - .04), 0)); }
 function hammerTap(x, y) {
@@ -237,11 +299,12 @@ function hammerTap(x, y) {
   const k = St.spot.t / St.spot.dur, err = Math.abs(1 - k);
   let pts, label, col;
   if (err < .12) { pts = 1; label = 'PERFECT!'; col = '#ffe08c'; } else if (err < .3) { pts = .6; label = 'Good'; col = '#d9ffb0'; } else { pts = .15; label = 'Early'; col = '#ffb38a'; }
-  St.pts += pts; St.done++; St.spot = null; St.gap = .3; St.swing = .12;
+  St.pts += pts; St.done++; St.spot = null; St.gap = .3; St.swing = .32;
+  { const sm = FG.smith; sm.seq.length = 0; sm.queue(smithPose(sp, true), .07, { ease: easeIn, arc: .05 }); sm.queue(smithPose(sp, false), .24); sm.jolt = .25; }
   ovPop(s.x, s.y - 50, label, { size: pts === 1 ? 36 : 28, color: col, stroke: '#2a0c00' });
   sfx.clang(pts === 1 ? 1.3 : .9); shake(pts === 1 ? .05 : .025); hitstop(pts === 1 ? 50 : 20);
-  FX.sparks(sp, '#ffd27a', pts === 1 ? 40 : 18, 4.5, .06);
-  FG.blade.scale.z = Math.max(.75, FG.blade.scale.z - .03);
+  FX.sparks(sp, '#ffd27a', pts === 1 ? 40 : 18, 4.5, .06); FX.sparks(sp, '#2a1a12', 10, 2.6, .05); FX.glowBurst(sp, '#ffb03a', pts === 1 ? 1.2 : .7, .2);
+  FG.heat = Math.min(1, FG.heat + .05);
 }
 
 /* --- 3: quench --- */
@@ -252,6 +315,10 @@ function quenchStep(dt) {
     St.plunge = Math.min(1, St.plunge + dt * 4);
     FG.blade.position.y = lerp(1.4, .42, easeOut(St.plunge));
     FG.heat = Math.max(0, FG.heat - dt * 1.6);
+    St.steam = (St.steam || 0) + dt;
+    if (St.steam < 2.2 && Math.random() < dt * 12) FX.puff(new V3(1.9 + rnd(-.35, .35), .55 + rnd(0, .2) + St.steam * .3, 1.0 + rnd(-.15, .15)), 1, '#c8d0d8', .3 + St.steam * .18);
+    if (St.steam < 1.6 && Math.random() < dt * 30) FX.add.emit(1.9 + rnd(-.5, .5), .48, 1.0 + rnd(-.2, .2), 0, rnd(.3, .7), 0, .4, .025, 0, '#ffffff', .9, 0, .2);
+    if (St.rings) St.rings.forEach(r => { r.userData.t += dt; const k2 = r.userData.t / 1.2; r.scale.setScalar(.2 + k2 * 1.6); r.material.opacity = Math.max(0, .7 * (1 - k2)); });
     return;
   }
   St.h = Math.max(0, St.h - dt * St.rate); FG.heat = St.h;
@@ -264,7 +331,9 @@ function doQuench() {
   const score = err <= half ? 1 - err / half * .2 : Math.max(0, .8 - (err - half) * 3);
   forgeScore(score);
   const wp = new V3(1.9, .6, 1.0);
-  for (let i = 0; i < 4; i++) setTimeout(() => FX.puff(wp.clone().add(new V3(rnd(-.4, .4), .2, rnd(-.2, .2))), 8, '#f2f2f2', 1.1), i * 90);
+  St.rings = [0, .25, .5].map(dl => { const r = new THREE.Mesh(new THREE.RingGeometry(.18, .22, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#dff4ff', transparent: true, opacity: 0, depthWrite: false })); r.position.set(1.9, .48, 1.0); r.userData.t = -dl; FG.W.scene.add(r); return r; });
+  FX.glowBurst(new V3(1.9, .6, 1.0), '#ffd8b0', .6, .25);
+  for (let i = 0; i < 4; i++) setTimeout(() => FX.puff(wp.clone().add(new V3(rnd(-.4, .4), .2 + i * .15, rnd(-.2, .2))), 4, '#d4dae0', .6), i * 90);
   AUD.noise(1.4, 6000, .5, .5, 'highpass'); AUD.noise(1.0, 2000, .6, .3, 'bandpass');
   tPopF(score > .85 ? 'Perfect quench!' : score > .55 ? 'Good quench' : St.h > QZONE[1] ? 'Too hot!' : 'Too cool!', score > .85 ? '#8fe8ff' : score > .55 ? '#d9ffb0' : '#ffb38a');
   shake(.03);

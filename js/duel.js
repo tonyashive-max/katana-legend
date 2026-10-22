@@ -84,7 +84,7 @@ function duelStats(p) {
     parryWin: Math.min(.72, .55 + (k.guard - 1) * .006),
     tele: VS_TELE * (1 - (k.speed - 1) * .006),
     regen: 30 + (k.speed - 1) * 1.2, atkCost: Math.max(14, 22 - (k.speed - 1) * .3),
-    stepCost: VS_STEP_COST * (1 - (k.iai - 1) * .012), stepCd: VS_STEP_CD * (1 - (k.iai - 1) * .01),
+    stepCost: VS_STEP_COST * (1 - (k.speed - 1) * .012), stepCd: VS_STEP_CD * (1 - (k.speed - 1) * .01),
     crit: Math.min(.4, .05 + fx.crit),
   };
 }

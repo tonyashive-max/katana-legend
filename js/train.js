@@ -17,6 +17,7 @@ function startTraining(kind) {
     TRAIN_KINDS[kind].init();
     CAM.position.set(0, 1.7, -1.5); T.camPos.copy(CAM.position); T.camLook.set(0, 1.2, 2.5);
     showHUD('train');
+    if (kind === 'dodge') { $('#hud').classList.add('footwork'); setTimeout(() => { if (T && T.kind === 'dodge' && !T.done) hint('Step with ◀ ▶ or a two-finger swipe when the gold ring locks his aim. Too early and he follows you!'); }, 1800); }
     if (kind === 'iai') $('#viewBtn').hidden = true;
     $('#viewBtn').textContent = T.view === 'fp' ? 'Behind view' : 'First person';
     OV.draw = drawTrainOverlay; OV.trailCol = hexRGB(swordDef(eqSword().id).glow || '#ffffff');
@@ -416,7 +417,78 @@ const IaiGame = {
   summary() { const avg = T.rts.length ? (T.rts.reduce((a, b) => a + b, 0) / T.rts.length).toFixed(2) : '—'; return `${T.cuts} of ${T.N} targets cut, ${T.smooth} smooth sheaths, average draw ${avg} s`; },
 };
 
-const TRAIN_KINDS = { bamboo: BambooGame, reflex: ReflexGame, parry: ParryGame, stance: StanceGame, iai: IaiGame };
+/* ---------- Footwork drill: step out of the line of attack ---------- */
+const DodgeGame = {
+  init() {
+    T.N = 16; T.i = 0; T.perfect = 0; T.good = 0; T.hits = 0; T.state = 'wait'; T.st = 0; T.gap = 1; T.plx = 0; T.ppx = 0; T.plean = 0; T.aim = 0; T.stepCd = 0; T.stepAt = -9;
+    const E = new Samurai(SENSEI_LOOK, swordDef('bokken'), {});
+    E.root.rotation.order = 'YXZ'; E.root.position.set(0, 0, DIST); E.root.rotation.y = Math.PI; E.setHold('guard', 10);
+    T.W.scene.add(E.root, E.trail.mesh); T.E = E; T.lunge = 0;
+  },
+  lockAt() { return 1 - Math.min(.55, .4 + (S.sk.speed.l - 1) * .006); },
+  windup(quick) {
+    if (T.i >= T.N) { finishTraining(); return; }
+    T.dir = pick(T.i > 5 ? ['R', 'L', 'H', 'Low'] : ['R', 'L', 'H']); T.tele = Math.max(.62, 1.3 - T.i * .045) * (quick ? .8 : 1); T.i++;
+    T.aim = T.plx; T.feint = T.i > 8 && !quick && Math.random() < .35; T.feinted = false;
+    T.E.setHold('wind' + T.dir, 4.2 / T.tele); T.state = 'windup'; T.st = 0; sfx.warn();
+  },
+  step(d) {
+    if (!T || !T.started || T.done || T.stepCd > 0) return false;
+    const nl = T.plx + d; if (Math.abs(nl) > 1) { tPop('Edge!', null, VH * .6, { size: 22, color: '#c9c2b0' }); return false; }
+    T.plx = nl; T.stepCd = fwStepCd(); T.plean = d; T.stepAt = T.state === 'windup' ? T.st : -9;
+    sfx.whoosh(); FX.puff(T.P.root.position.clone().add(new V3(0, .08, 0)), 5, '#e8dcc4', .35);
+    return true;
+  },
+  update(dt) {
+    const E = T.E; T.st += dt; T.stepCd = Math.max(0, T.stepCd - dt);
+    if (T.state === 'wait') { T.gap -= dt; if (T.gap <= 0) this.windup(); }
+    else if (T.state === 'windup') {
+      const lock = T.tele * this.lockAt();
+      if (T.st < lock) T.aim = T.plx;
+      // later on he fakes one way and re-aims: wait for the real lock
+      if (T.feint && !T.feinted && T.st > lock * .7) { T.feinted = true; const nd = pick(['R', 'L', 'H'].filter(x => x !== T.dir)); T.dir = nd; E.setHold('wind' + nd, 10); T.st = lock * .25; const sp = toScreen(E.bladePoint(.5)); tPop('FEINT!', sp.x, sp.y - 40, { size: 26, color: '#c9b6ff' }); }
+      if (T.st >= T.tele) { T.state = 'strike'; T.st = 0; T.resolved = false; E.seq.length = 0; E.queue('end' + T.dir, .17, { ease: easeIn, arc: .3 }); T.lunge = 1; sfx.slash(1.2); }
+    } else if (T.state === 'strike') {
+      if (!T.resolved && T.st > .09) {
+        T.resolved = true;
+        if (T.plx !== T.aim) {
+          const lock = T.tele * this.lockAt(), perfect = T.stepAt >= lock + (T.tele - lock) * .45;
+          if (perfect) T.perfect++; else T.good++;
+          tPop(perfect ? 'PERFECT DODGE!' : 'DODGED!', null, VH * .6, { size: perfect ? 36 : 30, color: perfect ? '#ffe08c' : '#9ff0c8', stroke: '#06261a' });
+          if (perfect) { slowmo(.45, .3); OV.flash = .2; OV.flashCol = '200,255,230'; }
+          E.setHold('stagger', 10); E.jolt = .3; T.state = 'stagger'; T.st = 0;
+        } else {
+          T.hits++; shake(.05); OV.vig = .7; OV.vigCol = '255,80,60'; sfx.hurt(); T.P.hitFlash(1);
+          tPop(T.stepAt > 0 && T.stepAt < T.tele * this.lockAt() ? 'Too early! He followed you' : 'Hit!', null, VH * .6, { size: 26, color: '#ffb38a' });
+        }
+      }
+      if (T.st > .45 && T.state === 'strike') { E.setHold('guard', 7); T.state = 'wait'; T.gap = rnd(.45, .85); }
+    } else if (T.state === 'stagger' && T.st > .55) {
+      E.setHold('guard', 7);
+      if (T.i > 10 && Math.random() < .4) this.windup(true); // a quick follow-up after a dodge
+      else { T.state = 'wait'; T.gap = rnd(.4, .8); }
+    }
+    T.lunge = Math.max(0, T.lunge - dt * 2.6);
+    const aiming = T.state === 'windup' || T.state === 'strike', tx = aiming ? fwLaneX(T.aim) : T.P.root.position.x;
+    const want = Math.atan2(tx - E.root.position.x, -E.root.position.z); let dr = want - E.root.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); E.root.rotation.y += dr * damp(12, dt);
+    E.root.position.z = DIST - easeOut(T.lunge) * .5;
+    T.ppx = lerp(T.ppx, T.plx, damp(16, dt)); T.plean = lerp(T.plean, 0, damp(6, dt));
+    T.P.root.position.x = fwLaneX(T.ppx); T.P.root.rotation.z = -T.plean * .1;
+    T.P.root.rotation.y = Math.atan2(E.root.position.x - T.P.root.position.x, E.root.position.z);
+    E.update(dt);
+    setTInfo(`${Math.min(T.i, T.N)} / ${T.N}`, `Perfect ${T.perfect} · Dodged ${T.good} · Hit ${T.hits}`);
+  },
+  draw(c) {
+    if (T.state !== 'windup') return;
+    const ring = ringInfo(T.E), w0 = T.tele * this.lockAt();
+    if (T.st >= w0) drawRing(c, ring.x, ring.y, ring.r, Math.max(0, 1 - (T.st - w0) / (T.tele - w0)), '255,214,90', 'STEP!');
+    else { c.save(); c.globalAlpha = .35; drawRing(c, ring.x, ring.y, ring.r * .8, 0, '255,255,255'); c.restore(); }
+  },
+  xp() { return T.perfect * 9 + T.good * 6 + 4; },
+  summary() { return `${T.perfect} perfect dodges, ${T.good} dodges, and ${T.hits} hits taken`; },
+};
+
+const TRAIN_KINDS = { bamboo: BambooGame, reflex: ReflexGame, parry: ParryGame, stance: StanceGame, iai: IaiGame, dodge: DodgeGame };
 
 const TrainMode = {
   name: 'train',

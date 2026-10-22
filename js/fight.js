@@ -5,6 +5,10 @@ const DIST = 2.55;
 const PARTMUL = { head: 1.3, torso: 1, armL: .9, armR: .95, legs: .9 };
 const THREAT_BLOCK = { R: 'blockL', L: 'blockR', H: 'blockH', Low: 'blockLow' };
 const THREAT_LIMB = { R: 'armL', L: 'armR', H: 'head', Low: 'legs' };
+/* footwork, shared by story fights and the footwork drill: three spots to stand in */
+const FW_LANE = .85;
+const fwLaneX = l => -l * FW_LANE; // facing the foe, a step to your left is +x
+function fwStepCd() { return Math.max(.18, .3 - (S.sk.speed.l - 1) * .004); }
 let F = null;
 
 function segDist(px, py, ax, ay, bx, by) {
@@ -106,7 +110,7 @@ function startBattle(st, ctx) {
       state: 'intro', t: 0, dur: 0, tele: 1, dir: 'R', chained: false, resolved: false, feinted: false, fury: false, counter: false,
       guardDir: 'R', guardHits: 0, over: false, outcome: null, introT: 0, endT: 0, hitTimes: [], frozenT: 0, deflects: 0,
       combo: 0, comboT: 0, parries: 0, lostLimb: false, special: null, trophy: null, atkMul: 1, legsPenalty: 1,
-      ex: 0, lunge: 0, kb: 0, returnT: 0, camPos: new V3(), camLook: new V3(), camK: 30, blockPose: null,
+      ex: 0, lunge: 0, kb: 0, returnT: 0, plx: 0, ppx: 0, plean: 0, aim: 0, stepCd: 0, dodgeT: 0, dodgeX: 0, dodges: 0, camPos: new V3(), camLook: new V3(), camK: 30, blockPose: null,
       tutorial: S.wins < 3, hintMsg: '', hintT: 0, fragile: bladeAtRisk(st), strain: 0, broken: null,
       drawn: false, drawnAt: -1, signaled: false, sigT: 0, signalAt: 0, enemyDrawAt: Infinity, enemyDrawn: false, firstStrike: false, iaiUntil: 0, iaiDone: false, leaf: null,
     };
@@ -115,7 +119,7 @@ function startBattle(st, ctx) {
     P.setHold(guardPose(), 10);
     E.setHold('guard', 10);
     CAM.position.set(Math.sin(1) * 3, 1.8, dist + Math.cos(1) * 3); F.camPos.copy(CAM.position); F.camLook.set(0, 1.3, dist);
-    showHUD('fight');
+    showHUD('fight'); $('#hud').classList.add('fightmode');
     $('#meName').innerHTML = (S.name || 'Shep').toUpperCase() + `<small>${outfitDef(S.outfit).name}</small>`;
     $('#foeName').innerHTML = st.name.toUpperCase() + `<small>${st.weak ? `Weak to ${ELEMENTS[st.weak].i} ${ELEMENTS[st.weak].n}` : st.title}</small>`;
     $('#stageLbl').textContent = ctx.kind === 'myth' ? `Spirit Warrior · ${CHAPTERS[st.ch].name}` : ctx.kind === 'beast' ? `Mythical beast · ${CHAPTERS[st.ch].name}` : `${CHAPTERS[st.ch].name} · Power ${playerPower()} vs ${st.rec}`;
@@ -142,7 +146,7 @@ function endFight(dest) {
 }
 
 /* ---------- 2-on-1: two foes share the fight and take turns stepping in ---------- */
-const FOE_KEYS = ['E', 'ehp', 'emax', 'elimb', 'elimbMax', 'state', 't', 'dur', 'tele', 'dir', 'chained', 'resolved', 'feinted', 'fury', 'counter', 'guardDir', 'guardHits', 'ex', 'lunge', 'kb', 'hitTimes'];
+const FOE_KEYS = ['E', 'ehp', 'emax', 'elimb', 'elimbMax', 'state', 't', 'dur', 'tele', 'dir', 'chained', 'resolved', 'feinted', 'fury', 'counter', 'guardDir', 'guardHits', 'ex', 'lunge', 'kb', 'hitTimes', 'aim', 'dodgeT', 'dodgeX'];
 function setupDuo(st) {
   const wdef = swordDef(st.weapon || st.sword), lm = st.hp;
   const E2 = new Samurai(st.look2 || st.look, wdef, {}); E2.root.rotation.order = 'YXZ';
@@ -210,7 +214,7 @@ function windup(chain, counter) {
   let dir = pick(['R', 'L', 'H']); if (st.low && Math.random() < st.low) dir = 'Low';
   F.fury = !chain && !counter && !!st.fury && Math.random() < st.fury;
   if (F.fury && !st.dragon) dir = 'H';
-  F.dir = dir; F.chained = !!chain; F.feinted = false; F.counter = !!counter;
+  F.dir = dir; F.chained = !!chain; F.feinted = false; F.counter = !!counter; F.aim = F.plx;
   F.tele = st.tele / 1000 * (chain ? .72 : 1) * (counter ? .6 : 1) * (F.fury ? 1.25 : 1) * (F.E.det.legs ? 1.3 : 1);
   F.E.seq.length = 0; F.E.setHold('wind' + dir, 4.2 / F.tele);
   toState('windup');
@@ -246,6 +250,7 @@ function aiUpdate(dt) {
           const s = toScreen(E.bladePoint(.5)); ovPop(s.x, s.y - 40, 'FEINT!', { size: 26, color: '#c9b6ff' });
         }
       }
+      if (F.t < F.tele * (1 - parryWindow())) F.aim = F.plx; // the aim follows you until the gold ring shows, then it's locked
       if (F.t >= F.tele) strike();
       break;
     case 'strike':
@@ -260,12 +265,15 @@ function aiUpdate(dt) {
   }
   // footwork
   const strafe = (F.state === 'idle' || F.state === 'guard') && !E.det.legs && !F.over && !st.dragon;
-  if (F.state !== 'vanish') F.ex = lerp(F.ex, strafe ? Math.sin(F.clock * .7) * .38 : F.ex * .6, damp(2.2, dt));
+  if (F.dodgeT > 0) { F.dodgeT -= dt; F.ex = lerp(F.ex, F.dodgeX, damp(14, dt)); }
+  else if (F.state !== 'vanish') F.ex = lerp(F.ex, strafe ? Math.sin(F.clock * .7) * .38 : F.ex * .6, damp(2.2, dt));
   F.lunge = Math.max(0, F.lunge - dt * 2.6);
   F.kb = Math.max(0, F.kb - dt * 1.2);
   if (!F.over || F.outcome !== 'win') {
     E.root.position.set(F.ex, 0, F.dist - easeOut(F.lunge) * .5 * (st.dragon ? 2.4 : st.scale || 1) + F.kb);
-    E.root.rotation.y = Math.atan2(F.P.root.position.x - E.root.position.x, F.P.root.position.z - E.root.position.z);
+    const aiming = F.state === 'windup' || F.state === 'strike', tx = aiming ? fwLaneX(F.aim) : F.P.root.position.x;
+    let want = Math.atan2(tx - E.root.position.x, F.P.root.position.z - E.root.position.z), dr = want - E.root.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr));
+    E.root.rotation.y += dr * damp(st.dragon ? 6 : 12, dt);
   }
   F.P.root.rotation.y = Math.atan2(E.root.position.x - F.P.root.position.x, E.root.position.z - F.P.root.position.z);
 }
@@ -275,8 +283,31 @@ function toIdle() {
 }
 
 /* ---------- enemy hits player ---------- */
+/* you stepped out of the way: the blow cuts empty air and leaves them wide open */
+function enemyWhiff() {
+  const E = F.E; F.dodges++;
+  sfx.whoosh(); E.seq.length = 0; E.setHold('stagger', 10); E.jolt = .35; F.chained = true;
+  toState('stagger', F.st.dragon ? .9 : .8);
+  ovPop(VW / 2, VH * .64, 'DODGED!', { size: 34, color: '#9ff0c8', stroke: '#06261a' });
+  F.spirit = Math.min(100, F.spirit + 10); slowmo(.55, .25);
+  if (F.dodges === 1) fightHint('Dodged! They swung at empty air. Strike while they stumble!');
+  updateFightHUD();
+}
+function fightStep(d) {
+  if (!F || !F.drawn || F.over || F.special || F.broken || F.state === 'intro' || F.state === 'standoff') return false;
+  if (F.returnT > .05 || F.stepCd > 0) return false;
+  const nl = F.plx + d;
+  if (Math.abs(nl) > 1) { ovPop(VW / 2, VH * .6, 'Edge!', { size: 22, color: '#c9c2b0' }); return false; }
+  const legs = F.P.det.legs, cost = F.ps.staCost * .6 * (legs ? 1.6 : 1);
+  if (F.sta < cost) { ovPop(VW / 2, VH * .62, 'OUT OF BREATH', { size: 24, color: '#ffd27a' }); return false; }
+  F.sta -= cost; F.staWait = .3;
+  F.plx = nl; F.stepCd = fwStepCd() * (legs ? 1.7 : 1); F.plean = d;
+  sfx.whoosh(); FX.puff(F.P.root.position.clone().add(new V3(0, .08, 0)), 5, '#e8dcc4', .35);
+  return true;
+}
 function enemyHitsPlayer() {
   if (F.over) return;
+  if (F.plx !== F.aim && !(F.fury && F.st.dragon)) { enemyWhiff(); return; }
   if (!F.drawn) setTimeout(() => { if (F && !F.drawn && !F.over) { playerDraw(true); } }, 350);
   const st = F.st, P = F.P, E = F.E;
   const limb = F.fury && st.dragon ? pick(['armL', 'armR', 'head']) : THREAT_LIMB[F.dir];
@@ -433,7 +464,10 @@ function fightSlash(x0, y0, x1, y1) {
   if (F.state === 'idle') {
     F.hitTimes = F.hitTimes.filter(t => F.clock - t < 1.6);
     const spam = F.hitTimes.length * .12;
-    if (Math.random() < (F.st.react || 0) + spam + (tired ? .25 : 0)) { deflect(); return; }
+    if (Math.random() < (F.st.react || 0) + spam + (tired ? .25 : 0)) {
+      if (!F.st.dragon && !F.E.det.legs && Math.random() < .45) { enemySidestep(); return; }
+      deflect(); return;
+    }
   }
   let dmg = F.ps.atk * F.atkMul * rnd(.9, 1.1) * (1 + Math.min(.5, F.combo * .05)) * PARTMUL[hit.part] * elemMul(hit);
   let crit = false;
@@ -458,6 +492,15 @@ function elemMul(hit) {
     else if (m < 1) { F.elPop = F.clock + 2.5; ovPop(hit.sx, hit.sy - 70, 'RESISTED', { size: 24, color: '#c9c2b0' }); }
   }
   return m;
+}
+/* a ready foe slides out of the way of a careless swing */
+function enemySidestep() {
+  F.dodgeX = (F.ex > 0 ? -1 : 1) * rnd(.8, 1.05); F.dodgeT = .55;
+  FX.puff(F.E.root.position.clone().add(new V3(0, .08, 0)), 6, '#e8dcc4', .4); sfx.whoosh();
+  const s = toScreen(F.E.chest.getWorldPosition(new V3())); ovPop(s.x, s.y - 50, 'MISS!', { size: 30, color: '#cfd8ff', stroke: '#0a1a3a' });
+  F.cdUntil = F.clock + .55; F.P.jolt = .35; F.returnT = .5;
+  fightHint('They stepped aside! Strike when they are open: after a parry, a dodge, or when they stumble.');
+  if (Math.random() < .35 + (F.st.react || 0)) setTimeout(() => { if (F && F.state === 'idle' && !F.over) windup(false, true); }, 380);
 }
 function deflect() {
   const bp = F.E.bladePoint(.5);
@@ -687,6 +730,9 @@ const FightMode = {
       }
     }
     if (F.comboT > 0) { F.comboT -= dt; if (F.comboT <= 0) F.combo = 0; }
+    F.stepCd = Math.max(0, F.stepCd - dt);
+    F.ppx = lerp(F.ppx, F.plx, damp(P.det.legs ? 9 : 16, dt)); F.plean = lerp(F.plean, 0, damp(6, dt));
+    if (!F.over || F.outcome !== 'lose') { P.root.position.x = fwLaneX(F.ppx); P.root.rotation.z = -F.plean * .1; }
     P.update(dt); E.update(dt);
     auraFX(P, dt); auraFX(E, dt);
     if (F.duo) duoUpdate(dt);
@@ -700,7 +746,7 @@ const FightMode = {
       if (F.spirit >= 100) hint('Spirit is full! Tap SPIRIT STRIKE!');
       else if (F.state === 'windup' && F.fury) hint('Red ring! It cannot be parried. Hold BLOCK!');
       else if (F.tutorial) {
-        if (F.state === 'windup') hint('Gold ring! Swipe through it to PARRY, or hold BLOCK.');
+        if (F.state === 'windup') hint('Gold ring! Swipe through it to PARRY, hold BLOCK, or STEP aside (two-finger swipe).');
         else if (F.state === 'guard') hint('Blue shield is blocking that side. Hit the other side or the legs!');
         else if (F.state === 'stagger' || F.state === 'recover') hint('They are open! Strike now!');
         else hint('Wait for an opening: parry their attack, then strike. Each slash uses stamina.');
