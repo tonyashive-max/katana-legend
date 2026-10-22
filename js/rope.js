@@ -38,7 +38,7 @@ const BIOMES = [
     sky: { top: '#030616', mid: '#1a2a5a', bot: '#4a3a7a', sunDir: [.35, .38, 1], sunCol: '#fff8e0', sunDeg: 4, haze: .45, stars: 1 },
     fog: '#1e2448', fogNear: 22, fogFar: 125,
     hemi: ['#a8b8ff', '#1a1a2a', .55], key: ['#e8eeff', .62, [-.4, 1, .6]], rim: ['#ffd27a', .6, [.3, .4, -1]],
-    g: { a: '#2a3a2a', b: '#22321e', path: '#b8b4a8', bead: '#c8c4b8', rock: '#3a3a44', rockAmt: .55, wall: 2.4, slope: .3, tiles: 1 } },
+    g: { a: '#2a3a2a', b: '#22321e', path: '#8e8a80', bead: '#9a968a', rock: '#3a3a44', rockAmt: .55, wall: 2.4, slope: .3, tiles: 1 } },
 ];
 
 /* ---------- layout (deterministic) ---------- */
@@ -474,7 +474,7 @@ function getRopeWorld() {
         const k = rr(), h = 20 + k * k * 70, wd = 6 + rr() * 9;
         const dp = wd * (.7 + rr() * .6), ry = rr() * 3;
         cityT.push({ p: [x, -1, z], r: [0, ry, 0], s: [wd, h, dp], c: pick(['#1a2034', '#222a44', '#161c2e', '#2a2a40']) });
-        for (let w = 0; w < 3 + k * 7; w++) cityW.push({ p: [x, rnd(3, h - 2), z], r: [0, ry, 0], s: [wd * 1.02, .45, dp * 1.02], c: pick(['#ffe8b0', '#bfe0ff', '#ffd27a', '#ffffff']) });
+        for (let w = 0; w < 3 + k * 7; w++) cityW.push({ p: [x, rnd(3, h - 2), z], r: [0, ry, 0], s: [wd * 1.02, .32, dp * 1.02], c: pick(['#a8925e', '#6e88a8', '#b08a48', '#8a8a92']) });
         made++;
       }
       W.city = new THREE.Group(); scene.add(W.city);
@@ -537,7 +537,7 @@ function getRopeWorld() {
     const deck = new THREE.BoxGeometry(4.2, .16, 6.8, 1, 1, 14), pa = deck.attributes.position;
     for (let i = 0; i < pa.count; i++) { const zz = pa.getZ(i); pa.setY(i, pa.getY(i) + .1 + .42 * (1 - (zz / 3.4) ** 2) - .08); }
     deck.computeVertexNormals();
-    const wood = lava ? '#4a3a36' : c.ch === 6 ? '#b8b4a8' : c.kind === 'moat' ? '#3a2a22' : '#8a5a34';
+    const wood = lava ? '#4a3a36' : c.ch === 6 ? '#7e7a72' : c.kind === 'moat' ? '#3a2a22' : '#8a5a34';
     const bridge = new THREE.Group(); bridge.position.set(c.x, 0, c.z); bridge.rotation.y = Math.atan2(c.tx, c.tz); g.add(bridge);
     const dm = new THREE.Mesh(deck, toon({ color: wood })); dm.castShadow = true; dm.receiveShadow = true; bridge.add(dm);
     dm.add(new THREE.Mesh(deck, outlineMat(.02)));

@@ -101,6 +101,36 @@ function buildClub(def) {
   g.add(mesh); g.userData.len = .95; g.userData.mat = mat;
   return g;
 }
+/* The hamon: a wavy temper line along the blade, traced from the blade's real outline.
+   Each sword gets its own pattern from its name, like a smith's signature. */
+function hamonGeo(def, L, w, c, depth, off, hwid) {
+  let h = 0; for (const ch of def.id) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  const f1 = 5 + (Math.abs(h) % 5), f2 = 13 + (Math.abs(h >> 4) % 9), ph = (Math.abs(h >> 8) % 628) / 100;
+  const bz = (a, b, cc, t) => (1 - t) * (1 - t) * a + 2 * t * (1 - t) * b + t * t * cc;
+  // sample both outline curves (see bladeShape) into y -> x tables
+  const edge = [], spine = [];
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40;
+    edge.push([bz(0, L * .6, L, t), bz(w / 2, w / 2 - c * .3, -c + w * .18, t)]);
+    spine.push([bz(L * .94, L * .55, 0, t), bz(-c - w * .32, -w / 2 - c * .35, -w / 2, t)]);
+  }
+  spine.reverse();
+  const at = (tab, y) => { for (let i = 1; i < tab.length; i++) if (tab[i][0] >= y) { const [y0, x0] = tab[i - 1], [y1, x1] = tab[i]; return x0 + (x1 - x0) * ((y - y0) / Math.max(1e-6, y1 - y0)); } return tab[tab.length - 1][1]; };
+  const N = 56, hw = hwid || .00085, face = depth / 2 + .0021 + (off ? .0002 : 0), pos = [], nrm = [], idx = [];
+  for (const sd of [1, -1]) {
+    const base = pos.length / 3;
+    for (let i = 0; i <= N; i++) {
+      const y = L * (.05 + .8 * i / N), u = y / L;
+      const thr = .62 + .075 * Math.sin(u * Math.PI * 2 * f1 + ph) + .028 * Math.sin(u * Math.PI * 2 * f2 + ph * 1.7);
+      const xs = at(spine, y), xe = at(edge, y), x = xs + (xe - xs) * thr * (1 - Math.max(0, u - .7) * .6) + (off || 0);
+      for (const k of [-1, 1]) { pos.push(sd * face, y + .035, x + k * hw); nrm.push(sd, 0, 0); }
+      if (i) { const a0 = base + (i - 1) * 2; idx.push(a0, a0 + 1, a0 + 2, a0 + 1, a0 + 3, a0 + 2); }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setIndex(idx);
+  return g;
+}
 function buildSword(def, opt) {
   opt = opt || {};
   if (def.club) return buildClub(def);
@@ -134,6 +164,12 @@ function buildSword(def, opt) {
   const mesh = new THREE.Mesh(geo, mat); mesh.castShadow = true;
   mesh.add(new THREE.Mesh(geo, outlineMat(opt.outline || .0035)));
   g.add(mesh);
+  if (!def.wood) { // the temper line, unlit and pale so it shimmers on any steel
+    const dark = shadeHex(def.blade, -.5), pale = new COL(def.edge).lerp(new COL('#ffffff'), .6);
+    const hm = new THREE.Mesh(hamonGeo(def, L, w, c, depth, 0, .00055), new THREE.MeshBasicMaterial({ color: dark, transparent: true, opacity: .7, depthWrite: false, side: THREE.DoubleSide }));
+    const hf = new THREE.Mesh(hamonGeo(def, L, w, c, depth, .0014, .0009), new THREE.MeshBasicMaterial({ color: pale, transparent: true, opacity: .9, depthWrite: false, side: THREE.DoubleSide }));
+    hm.renderOrder = hf.renderOrder = 2; g.add(hm, hf); g.userData.hamon = hm;
+  }
   g.userData.len = L + .035; g.userData.mat = mat;
   if (def.glow) {
     const gg = new THREE.ExtrudeGeometry(bladeShape(L, w, c), { depth: .004, bevelEnabled: false, curveSegments: 10 });
@@ -202,6 +238,15 @@ class Samurai {
       hi.push(P(GEO.box(.16, .25, .028, 1, 7, 1), ar, [Math.sin(a) * .22, -.16, Math.cos(a) * .16], [-.24, a, 0, 'YXZ'], null, lam(.125, -.125, .036, arC, arD, -.1)));
     }
     this.hipsMesh = this.mk(merge(hi), this.hips);
+    // silk lacing (odoshi) running down every skirt plate
+    const lace = '#' + new COL(ar).lerp(new COL(tr), .5).getHexString(), laceD = shadeHex(lace, -.3);
+    const cord = (h, dx, dz) => GEO.box(.008, h, .005).translate(dx, 0, dz);
+    const hl = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+      for (const dx of [-.038, .038]) hl.push(P(cord(.24, dx, .0175), lace, [Math.sin(a) * .22, -.16, Math.cos(a) * .16], [-.24, a, 0, 'YXZ'], null, (x, y) => (Math.floor((y + .12) / .036) % 2 ? new COL(lace) : laceD)));
+    }
+    this.hipsMesh.add(new THREE.Mesh(merge(hl), this.mat));
     /* chest */
     this.chest = new THREE.Group(); this.chest.position.y = .22; this.hips.add(this.chest);
     const ci = [
@@ -213,6 +258,14 @@ class Samurai {
     if (L.crestCol || L.crest) ci.push(P(GEO.cyl(.04, .04, .012, 18), L.crestCol || tr, [0, .22, .152], [Math.PI / 2, 0, 0]));
     if (L.banner) ci.push(P(GEO.cyl(.012, .012, 1.15, 6), '#2a1d12', [0, .62, -.17]));
     this.chestMesh = this.mk(merge(ci), this.chest);
+    // lacing columns around the cuirass, leaning with its taper
+    const cl2 = [];
+    for (let k = -2; k <= 2; k++) for (const back of [0, 1]) {
+      if (back && Math.abs(k) > 1) continue;
+      const th = k * .27 + (back ? Math.PI : 0), r = .226;
+      cl2.push(P(GEO.box(.008, .4, .005), lace, [Math.sin(th) * (r + .004), .18, Math.cos(th) * (r + .004) * .64], [.08 * Math.cos(th), th, 0, 'YXZ'], null, (x, y) => (Math.floor((y + .2) / .052) % 2 ? new COL(lace) : laceD)));
+    }
+    this.chestMesh.add(new THREE.Mesh(merge(cl2), this.mat));
     /* shoulder plates */
     this.sode = {};
     for (const s of ['L', 'R']) {
@@ -222,6 +275,8 @@ class Samurai {
         P(GEO.box(.18, .23, .05, 1, 6, 1), ar, [sg * .035, -.11, 0], [0, 0, sg * .2], null, lam(.115, -.115, .038, arC, arD, -.09)),
         P(GEO.box(.12, .04, .1), tr, [0, .0, 0]),
       ]), grp);
+      const sl = []; for (const dz of [.028, -.028]) for (const dx of [-.04, .04]) sl.push(P(GEO.box(.008, .21, .005).translate(dx, 0, dz), lace, [sg * .035, -.11, 0], [0, 0, sg * .2], null, (x, y) => (Math.floor((y + .105) / .038) % 2 ? new COL(lace) : laceD)));
+      m.add(new THREE.Mesh(merge(sl), this.mat));
       this.sode[s] = grp; grp.userData.mesh = m;
     }
     /* head */

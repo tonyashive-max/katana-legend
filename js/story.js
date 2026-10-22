@@ -137,7 +137,7 @@ function playCutscene(which, onDone) {
       rib.position.set(0, .06, .3); rib.rotation.x = Math.PI / 2; rib.visible = false; W.scene.add(rib); C.actors.ribbon = rib;
     }
     C.cam = new V3(); C.look = new V3(); C.snap = true;
-    $('#storyBox').hidden = false; $('#storySkip').hidden = false;
+    $('#storyBox').hidden = false; $('#storySkip').hidden = false; document.body.classList.add('cine');
     MUSIC.start(which === 'rescue' ? 'hub' : 'fight');
     setMode(StoryMode);
     cutNext();
@@ -155,7 +155,7 @@ function cutNext() {
 function cutEnd() {
   const C = STORYCUT; if (!C) return;
   STORYCUT = null;
-  $('#storyBox').hidden = true; $('#storySkip').hidden = true; $('#storyTint').style.opacity = 0;
+  $('#storyBox').hidden = true; $('#storySkip').hidden = true; $('#storyTint').style.opacity = 0; document.body.classList.remove('cine');
   if (C.which === 'prologue') { S.story.pro = true; save(); }
   const done = C.onDone;
   if (C.which === 'rescue') { storyEnding(done); return; }

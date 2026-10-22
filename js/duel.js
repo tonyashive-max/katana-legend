@@ -218,7 +218,7 @@ function receivePose(rig, saya) {
 function cereStart() {
   const C = VS.cere = { t: 0, honor: VS.honor, iWon: VS.winner === VS.A, steps: {} };
   VS.phase = 'cere'; closeOverlay();
-  $('#hud').classList.add('vs-cere');
+  $('#hud').classList.add('vs-cere'); document.body.classList.add('cine');
   transition(() => {
     vsSpawn(); // both samurai healed and whole again (fresh objects: decide roles from C.iWon, not VS.winner)
     const { A, B } = VS, W = C.iWon ? A : B, L = W === A ? B : A;
@@ -275,8 +275,9 @@ function cereUpdate(dt) {
   VS.camPos.lerp(eye, damp(14, dt)); VS.camLook.lerp(look, damp(6, dt));
   CAM.position.copy(VS.camPos); CAM.lookAt(VS.camLook); CAM.fov = lerp(CAM.fov, 62, damp(6, dt)); CAM.updateProjectionMatrix(); FX.setScale();
 }
-function cereEnd() { $('#hud').classList.remove('vs-cere'); }
+function cereEnd() { $('#hud').classList.remove('vs-cere'); document.body.classList.remove('cine'); }
 function cereResult() {
+  document.body.classList.remove('cine');
   const C = VS.cere, iWon = C.iWon, d = C.blade, them = VS.B.name;
   const body = C.honor ? `<p class="muted">An honor duel, fought with bokkens. You bowed to each other and parted with respect.</p>`
     : iWon ? `<p class="muted">By the code of the duel, ${esc(them)} has surrendered their blade. Find it among your <b>trophy blades</b> in the Swords tab. You can wield it in battle, or wager it in your next challenge.</p>`

@@ -554,8 +554,11 @@ function worldDojo() {
   });
   // hanging lanterns
   for (const [x, z] of [[-3, -2], [3, -2], [-3, 4], [3, 4]]) {
-    const l = new THREE.Mesh(GEO.sph(.28, 12, 10), glowify(new THREE.MeshBasicMaterial({ color: '#ffd9a0', fog: false }))); l.scale.set(1, 1.3, 1); l.position.set(x, 3.4, z); W.scene.add(l);
-    const h = halo('#ffc070', 2.4, .6); h.position.copy(l.position); W.scene.add(h);
+    // a ribbed paper chochin with lacquered caps, warm rather than white-hot
+    const lg = merge([P(GEO.sph(.28, 14, 16), '#f0b060', [0, 0, 0], null, [1, 1.3, 1], (px, py) => (Math.abs(Math.sin(py * 34)) < .18 ? new COL('#8a4a1a') : new COL('#f4b868'))),
+      P(GEO.cyl(.13, .15, .07, 12), '#1a1210', [0, .37, 0]), P(GEO.cyl(.15, .13, .07, 12), '#1a1210', [0, -.37, 0]), P(GEO.cyl(.012, .012, .5, 4), '#1a1210', [0, .65, 0])]);
+    const l = new THREE.Mesh(lg, glowify(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }))); l.position.set(x, 3.4, z); W.scene.add(l);
+    const h = halo('#ffb050', 1.7, .45); h.position.copy(l.position); W.scene.add(h);
   }
   // weapon rack
   const rack = [P(GEO.box(.12, 1.6, .12), woodD, [-.9, .8, 0]), P(GEO.box(.12, 1.6, .12), woodD, [.9, .8, 0]), P(GEO.box(2, .1, .14), woodD, [0, .9, 0]), P(GEO.box(2, .1, .14), woodD, [0, 1.4, 0])];
@@ -683,7 +686,7 @@ function worldPalace() {
   addSky(W, { top: '#030616', mid: '#1a2a5a', bot: '#4a3a7a', sunDir: new V3(.35, .38, 1), sunCol: '#fff8e0', sunDeg: 4, fog: '#1e2448', fogNear: 22, fogFar: 160, stars: true, haze: .45 });
   addLights(W, { sky: '#a8b8ff', ground: '#1a1a2a', hemi: .78, key: '#e8eeff', keyI: .8, keyDir: new V3(-.4, 1, .6), rim: '#ffd27a', rimI: 1, rimDir: new V3(.3, .4, -1) });
   addGround(W, { a: '#2a3a2a', b: '#22321e', c: '#c8c4b8', clear: 9, hill: 1.2, flat: true });
-  addArena(W, { a: '#d8d4c8', b: '#b0aca0', rings: 12, stone: '#9a9690', glowRing: '#ffd84a', crest: '#ffb03a' });
+  addArena(W, { a: '#aaa69a', b: '#8c887e', rings: 12, stone: '#7e7a74', glowRing: '#ffd84a', crest: '#ffb03a' }); // moonlit sand, not floodlit
   // the moat and its double stone bridge
   const moat = new THREE.Mesh(ribbon([new V3(-90, .02, 24), new V3(0, .02, 24), new V3(90, .02, 24)], 9), waterMat('#0a1430', '#4a6aa8')); W.scene.add(moat);
   W.updaters.push((dt, t) => { moat.material.uniforms.time.value = t; });
@@ -713,7 +716,7 @@ function worldPalace() {
   W.scene.add(inst(pine, toon({ vertexColors: true }), [[-8, 10, .3], [8.5, 12, .7], [-11, 2, .1], [11, -3, .5], [-9, -9, .8], [10, -10, .2], [-6, 18, .6], [7, 19, .4]].filter(([x, z]) => clearOK(x, z)).map(([x, z, k]) => { obs(W, x, z, .5); return { p: [x, W.hAt(x, z), z], r: [0, k * 6, 0], s: 1 + k * .5 }; }), true));
   // Tokyo's towers glowing behind the palace, and a red-and-white lattice tower
   const tw = [], tl = [];
-  for (let i = 0; i < 70; i++) { const a = rnd(-1.2, 1.2), r = rnd(95, 190), x = Math.sin(a) * r, z = Math.cos(a) * r, h = 20 + Math.random() ** 2 * 80, wd = 6 + Math.random() * 10, dp = wd * (.7 + Math.random() * .6), ry = Math.random() * 3; tw.push({ p: [x, -1, z], r: [0, ry, 0], s: [wd, h, dp], c: pick(['#1a2034', '#222a44', '#161c2e', '#2a2a40']) }); for (let k = 0; k < 3 + h / 14; k++) tl.push({ p: [x, rnd(3, h - 2), z], r: [0, ry, 0], s: [wd * 1.02, .45, dp * 1.02], c: pick(['#ffe8b0', '#bfe0ff', '#ffd27a', '#ffffff']) }); }
+  for (let i = 0; i < 70; i++) { const a = rnd(-1.2, 1.2), r = rnd(95, 190), x = Math.sin(a) * r, z = Math.cos(a) * r, h = 20 + Math.random() ** 2 * 80, wd = 6 + Math.random() * 10, dp = wd * (.7 + Math.random() * .6), ry = Math.random() * 3; tw.push({ p: [x, -1, z], r: [0, ry, 0], s: [wd, h, dp], c: pick(['#1a2034', '#222a44', '#161c2e', '#2a2a40']) }); for (let k = 0; k < 3 + h / 14; k++) tl.push({ p: [x, rnd(3, h - 2), z], r: [0, ry, 0], s: [wd * 1.02, .32, dp * 1.02], c: pick(['#a8925e', '#6e88a8', '#b08a48', '#8a8a92']) }); }
   W.scene.add(inst(merge([P(GEO.box(1, 1, 1), '#1a2034', [0, .5, 0])]), toon({ vertexColors: true }), tw, false));
   W.scene.add(inst(GEO.box(1, 1, 1), glowify(new THREE.MeshBasicMaterial({ color: '#ffffff', fog: false })), tl, false));
   const lat = []; for (let k = 0; k < 14; k++) { const w = 9 * (1 - k / 15) + .6, yy = k * 6; lat.push(P(GEO.cyl(w * .55, (w + .7) * .55, 6, 4, 1, true), k % 2 ? '#ffffff' : '#e8401a', [0, yy + 3, 0], [0, Math.PI / 4, 0])); }
@@ -725,7 +728,7 @@ function worldPalace() {
   W.updaters.push((dt, t) => {
     if (Math.random() > dt * .6) return;
     const fp = new V3(rnd(-70, 70), rnd(40, 65), rnd(80, 140)), col = pick(['#ff6a9a', '#ffd84a', '#7ad8ff', '#b88aff', '#7affb0']);
-    FX.glowBurst(fp, col, 26, .5); FX.sparks(fp, col, 110, 18, .55); setTimeout(() => FX.sparks(fp, '#ffffff', 34, 10, .4), 120);
+    FX.glowBurst(fp, col, 12, .45); FX.sparks(fp, col, 90, 16, .42); setTimeout(() => FX.sparks(fp, '#ffffff', 26, 9, .3), 120);
   });
   W.ambient.push(new Ambient({ n: 160, tex: TEX.glow, color: '#ffe08c', color2: '#fff4d0', size: .06, alpha: 1, blending: THREE.AdditiveBlending, cx: 0, cy: 3, cz: 2, ax: 10, ay: 3, az: 10, sway: .5, twinkle: 2, vel: r => [(r() - .5) * .2, .1 + r() * .2, (r() - .5) * .2], seed: 61 }));
   return W;

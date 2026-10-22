@@ -470,6 +470,44 @@ button.card{width:100%;}
 .skill-go:hover,.skill-go:active{background:rgba(79,214,170,.1);border-color:rgba(79,214,170,.35)}
 .skill-go .lvl{display:grid;justify-items:end;gap:3px}.skill-go .go2{display:none;font-size:11px;font-weight:900;color:#2a1200;background:var(--jade);padding:2px 8px;border-radius:8px;white-space:nowrap}
 .skill-go.armed{background:rgba(79,214,170,.16);border-color:var(--jade);box-shadow:0 0 16px rgba(79,214,170,.35)}.skill-go.armed .go{display:none}.skill-go.armed .go2{display:inline-block}.skill-go .go{font-size:11px;font-weight:900;color:var(--jade);letter-spacing:.04em;white-space:nowrap}
+.train-ask-glyph{justify-self:center;width:72px;height:72px;border-radius:18px;display:grid;place-items:center;font-size:40px;font-family:serif;font-weight:700;background:radial-gradient(circle at 40% 35%,rgba(79,214,170,.4),rgba(20,60,50,.8));border:2px solid var(--jade);color:#fff}
+
+/* ===================== polish pass: craft details layered on top ===================== */
+:root{--grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 .92  0 0 0 0 .78  0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");}
+.panel{background:radial-gradient(130% 90% at 0% 0%,rgba(255,214,140,.07),transparent 55%),linear-gradient(180deg,rgba(22,26,48,.9),rgba(11,13,26,.92));
+  border-color:rgba(240,195,90,.26);box-shadow:0 12px 32px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,236,190,.08);}
+.panel{isolation:isolate;}
+.panel::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;background-image:var(--grain);background-size:160px;opacity:.07;mix-blend-mode:overlay;}
+.panel>h2,.panel>.row>h2{padding-bottom:6px;background:linear-gradient(90deg,rgba(240,195,90,.75),rgba(240,195,90,0)) left bottom/72px 2px no-repeat;}
+.panel h3{letter-spacing:.015em;}
+.modal{position:relative;background:radial-gradient(120% 70% at 50% 0%,rgba(255,214,140,.08),transparent 60%),linear-gradient(180deg,#1b2140,#0e1222);
+  border-color:rgba(240,195,90,.34);box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,236,190,.1);}
+.modal{isolation:isolate;}
+.modal::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;background-image:var(--grain);background-size:160px;opacity:.06;mix-blend-mode:overlay;}
+.btn{background:linear-gradient(180deg,#36406a,#1e2443);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 1px rgba(240,195,90,.2),0 4px 0 #0a0c18,0 6px 14px rgba(0,0,0,.25);}
+.btn.primary{background:linear-gradient(180deg,#ffe08c 0%,#f2b23e 55%,#dc9420 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.65),inset 0 0 0 1px rgba(255,255,255,.3),0 4px 0 #8a5a10,0 0 24px rgba(255,190,80,.35);text-shadow:0 1px 0 rgba(255,240,200,.6);}
+.btn:disabled{filter:saturate(.4) brightness(.8);}
+.tabs{border-top:1px solid transparent;border-image:linear-gradient(90deg,transparent,rgba(240,195,90,.45),transparent) 1;}
+.tab[aria-current="true"]{box-shadow:inset 0 0 0 1px var(--line),inset 0 2px 0 rgba(255,214,120,.55);}
+#toast{background:linear-gradient(180deg,rgba(26,22,30,.97),rgba(10,10,20,.97));border-color:rgba(240,195,90,.45);box-shadow:0 10px 30px rgba(0,0,0,.5);}
+/* HUD bars: framed, glossy, with segment ticks */
+.hp{height:17px;border:1px solid rgba(255,226,160,.6);box-shadow:0 0 0 2px rgba(0,0,0,.55),inset 0 2px 5px rgba(0,0,0,.7);}
+.hp::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,0) 55%),repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),rgba(0,0,0,.35) calc(10% - 1px) 10%);}
+.hp i{background:linear-gradient(180deg,#a8ffca,#2cc276 60%,#1a8a50);}
+.foe .hp i{background:linear-gradient(180deg,#ffb39a,#e0402c 60%,#a0180e);}
+.spirit{border-color:rgba(200,220,255,.35);box-shadow:0 0 0 2px rgba(0,0,0,.5);}
+/* big banners sit on a soft ink wash so they read over bright scenes */
+#banner{background:radial-gradient(ellipse 34% 58% at 50% 52%,rgba(12,6,4,.62),rgba(12,6,4,0) 72%);padding:18px 0 22px;}
+/* transitions: an ink wash with the sword seal instead of plain black */
+#fade{background:radial-gradient(circle at 50% 48%,#1c0d12 0%,#0a0710 45%,#040409 80%);display:grid;place-items:center;}
+#fade::after{content:"刀";width:84px;height:84px;border-radius:50%;display:grid;place-items:center;font-family:'Yuji Syuku',serif;font-size:48px;color:#fff1e0;
+  background:radial-gradient(circle at 38% 32%,#ff5a4a,#a3121c 60%,#5a0610);box-shadow:0 0 0 3px rgba(255,210,120,.3),0 0 50px rgba(255,80,40,.45);
+  opacity:0;transform:scale(.8) rotate(-8deg);transition:opacity .3s ease,transform .45s cubic-bezier(.2,1.3,.4,1);}
+#fade.on::after{opacity:.95;transform:none;}
+/* cinematic letterbox for cutscenes and the blade ceremony */
+body::before,body::after{content:"";position:fixed;left:0;right:0;height:0;background:#000;z-index:5;pointer-events:none;transition:height .7s cubic-bezier(.4,0,.2,1);}
+body::before{top:0}body::after{bottom:0}
+body.cine::before,body.cine::after{height:9vh;}
 </style>
 
 </head><body>
@@ -557,20 +595,20 @@ button.card{width:100%;}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="js/data.js?v=1792687550"></script>
-<script src="js/engine.js?v=1792687550"></script>
-<script src="js/rig.js?v=1792687550"></script>
-<script src="js/worlds.js?v=1792687550"></script>
-<script src="js/rope.js?v=1792687550"></script>
-<script src="js/fight.js?v=1792687550"></script>
-<script src="js/train.js?v=1792687550"></script>
-<script src="js/dragon.js?v=1792687550"></script>
-<script src="js/explore.js?v=1792687550"></script>
-<script src="js/puzzles.js?v=1792687550"></script>
-<script src="js/forge.js?v=1792687550"></script>
-<script src="js/duel.js?v=1792687550"></script>
-<script src="js/versus.js?v=1792687550"></script>
-<script src="js/story.js?v=1792687550"></script>
-<script src="js/ui.js?v=1792687550"></script>
+<script src="js/data.js?v=1792691372"></script>
+<script src="js/engine.js?v=1792691372"></script>
+<script src="js/rig.js?v=1792691372"></script>
+<script src="js/worlds.js?v=1792691372"></script>
+<script src="js/rope.js?v=1792691372"></script>
+<script src="js/fight.js?v=1792691372"></script>
+<script src="js/train.js?v=1792691372"></script>
+<script src="js/dragon.js?v=1792691372"></script>
+<script src="js/explore.js?v=1792691372"></script>
+<script src="js/puzzles.js?v=1792691372"></script>
+<script src="js/forge.js?v=1792691372"></script>
+<script src="js/duel.js?v=1792691372"></script>
+<script src="js/versus.js?v=1792691372"></script>
+<script src="js/story.js?v=1792691372"></script>
+<script src="js/ui.js?v=1792691372"></script>
 
 </body></html>

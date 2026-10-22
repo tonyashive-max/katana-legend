@@ -35,6 +35,18 @@ function renderTop() { $('#gold').textContent = fmt(S.gold); $('#steel').textCon
 
 let _svgId = 0;
 const BLADE_PATH = 'M78 25 C 140 24, 200 19, 252 6 C 254 9, 251 12, 246 13 C 196 26, 140 31, 78 31 Z';
+/* the hamon on blade art: a wavy temper line unique to each sword */
+function hamonPath(def) {
+  let h = 0; for (const ch of def.id) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  const f1 = 5 + (Math.abs(h) % 5), f2 = 13 + (Math.abs(h >> 4) % 9), ph = (Math.abs(h >> 8) % 628) / 100;
+  let d = '';
+  for (let x = 84; x <= 244; x += 3) {
+    const u = (x - 84) / 160, base = 27.4 - Math.pow(u, 1.9) * 17.2;
+    const y = base - 1.15 * Math.sin(u * Math.PI * 2 * f1 * .5 + ph) - .45 * Math.sin(u * Math.PI * 2 * f2 * .5 + ph * 1.7);
+    d += (d ? ' L' : 'M') + x + ' ' + y.toFixed(2);
+  }
+  return d;
+}
 function bladeSVG(def, o) {
   o = o || {}; const id = 'bs' + (++_svgId), sil = !!o.sil;
   const blade = sil ? '#2b3150' : def.blade, edge = sil ? '#394066' : def.edge, wrap = sil ? '#232842' : def.wrap, ts = sil ? '#2b3150' : def.tsuba;
@@ -50,7 +62,7 @@ function bladeSVG(def, o) {
     <rect x="3" y="22.5" width="8" height="11" rx="2" fill="${ts}"/>
     <ellipse cx="73" cy="28" rx="4.5" ry="11" fill="${ts}" stroke="rgba(255,255,255,.25)"/>
     <path d="${BLADE_PATH}" fill="url(#${id}g)"/>
-    ${!sil && !def.wood ? `<path d="M82 27.5 C 140 26, 200 21, 249 8" stroke="${edge}" stroke-width="1.3" fill="none" opacity=".9"/>` : ''}
+    ${!sil && !def.wood ? `<path d="${hamonPath(def)}" stroke="${edge}" stroke-width="1.15" fill="none" opacity=".95" stroke-linecap="round"/><path d="M84 29.3 C 140 28.5, 200 23.5, 247 10.5" stroke="#fff" stroke-width=".6" fill="none" opacity=".35"/>` : ''}
   </svg>`;
 }
 const rarTag = d => `<span class="rar ${d.r}" style="color:${RAR[d.r].c}">${RAR[d.r].n}</span>`;
@@ -68,11 +80,11 @@ function showTab(name) {
   el.scrollTop = 0;
   renderTop();
 }
-/* a skill row in the Dojo: tap once to pick it, tap again to confirm and go into that skill's drill */
+/* a skill row in the Dojo: tap it, confirm "Train Speed?", and go straight into that skill's drill */
 function skillRow(k) {
   const s = S.sk[k], need = skillNeed(s.l), pct = s.l >= 30 ? 100 : Math.round(s.x / need * 100);
   const drill = Object.keys(TRAININGS).find(t => TRAININGS[t].skill === k);
-  return `<button class="skill skill-go" ${drill ? `data-skill-arm="${drill}"` : 'disabled'} aria-label="Train ${SKILLS[k].n}"><div class="glyph">${SKILLS[k].g}</div><div><div class="nm">${SKILLS[k].n}<small>${SKILLS[k].d}</small></div><div class="bar"><i style="width:${pct}%"></i></div></div><div class="lvl">Lv ${s.l}<span class="go">Train ▶</span><span class="go2">Tap again to start</span></div></button>`;
+  return `<button class="skill skill-go" ${drill ? `data-skill-arm="${drill}"` : 'disabled'} aria-label="Train ${SKILLS[k].n}"><div class="glyph">${SKILLS[k].g}</div><div><div class="nm">${SKILLS[k].n}<small>${SKILLS[k].d}</small></div><div class="bar"><i style="width:${pct}%"></i></div></div><div class="lvl">Lv ${s.l}<span class="go">Train ▶</span></div></button>`;
 }
 function screenDojo() {
   const st = stats(), w = eqSword(), d = swordDef(w.id), o = outfitDef(S.outfit);
@@ -110,7 +122,7 @@ function screenDojo() {
       <div class="row" style="margin-top:10px"><button class="btn small" data-tab="forge">Forge it stronger</button><button class="btn small" data-tab="swords">Change blade</button></div>
       <p class="muted" style="margin-top:10px;font-size:13px">Rarest blade owned: <b style="color:${RAR[best.r].c}">${best.name}</b> · ${S.seen.length} of ${SWORDS.length} discovered</p>
     </section>
-    <section class="panel stack"><div class="row between"><h3>Skills</h3><span class="muted" style="font-size:13px">Tap a skill, then tap again to train</span></div>${Object.keys(SKILLS).map(skillRow).join('')}</section>
+    <section class="panel stack"><div class="row between"><h3>Skills</h3><span class="muted" style="font-size:13px">Tap a skill to train it</span></div>${Object.keys(SKILLS).map(skillRow).join('')}</section>
   </div>`;
 }
 function check(ok, text) { return `<li class="${ok ? 'ok' : ''}"><span>${ok ? '✓' : '○'}</span>${text}</li>`; }
@@ -614,11 +626,13 @@ function wireInput() {
     else if (b.id === 'actBtn') exploreAct();
     else if (d.train) { startTraining(d.train); }
     else if (d.skillArm) {
-      if (b.classList.contains('armed')) { startTraining(d.skillArm); return; }
-      document.querySelectorAll('.skill-go.armed').forEach(x => x.classList.remove('armed'));
-      b.classList.add('armed'); sfx.ui();
-      clearTimeout(b._disarm); b._disarm = setTimeout(() => b.classList.remove('armed'), 3500);
+      const t = TRAININGS[d.skillArm], k = t.skill; sfx.ui();
+      openOverlay(`<div class="modal"><div class="train-ask-glyph">${SKILLS[k].g}</div>
+        <h2>Train ${SKILLS[k].n}?</h2>
+        <p class="muted">${t.name}: ${t.desc}</p>
+        <div class="actions"><button class="btn" data-close="1">Not now</button><button class="btn primary" data-train-yes="${d.skillArm}">Yes</button></div></div>`);
     }
+    else if (d.trainYes) { closeOverlay(); startTraining(d.trainYes); }
     else if (d.upgrade) doUpgrade();
     else if (d.recipe) doRecipe(d.recipe);
     else if (d.infuse) doInfuse(d.infuse);
