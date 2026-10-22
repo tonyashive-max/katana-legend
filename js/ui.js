@@ -552,6 +552,14 @@ function wireInput() {
   bb.addEventListener('pointerdown', e => { e.preventDefault(); AUD.init(); try { bb.setPointerCapture(e.pointerId); } catch (er) { /* */ } setBlock(true); });
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => bb.addEventListener(ev, () => setBlock(false)));
   $('#specialBtn').addEventListener('pointerdown', e => { e.preventDefault(); useSpecial(); });
+  document.querySelectorAll('.step-btn').forEach(b => {
+    b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); AUD.init(); b.classList.add('on'); if (MODE === VsMode && VS) vsStep(VS[b.dataset.f], +b.dataset.d); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => b.addEventListener(ev, () => b.classList.remove('on')));
+  });
+  document.addEventListener('keydown', e => {
+    if (MODE !== VsMode || !VS || e.repeat) return;
+    if (VS.online && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) vsStep(VS.A, e.key === 'ArrowLeft' ? -1 : 1);
+  });
   $('#viewBtn').addEventListener('click', () => {
     const tgt = MODE === FightMode ? F : MODE === TrainMode ? T : (MODE === VsMode && VS && VS.online ? VS : null);
     if (!tgt) return;
@@ -601,6 +609,7 @@ function wireInput() {
     else if (d.vs === 'host') vsHost();
     else if (d.vs === 'join') joinPad();
     else if (d.vs === 'cancel') cancelLobby();
+    else if (d.vs === 'share') vsShare();
     else if (d.key && JOINPAD) JOINPAD(d.key);
     else if (d.set) {
       const k = d.set; let v = d.val; if (v === 'true') v = true; else if (v === 'false') v = false;
@@ -661,6 +670,7 @@ function boot() {
     enterHub(true);
     renderTop();
     requestAnimationFrame(frame); setTimeout(() => { $('#loading').hidden = true; }, 400);
+    setTimeout(vsBootLinks, 900);
   } catch (e) {
     console.error(e);
     bootError('This device could not start 3D graphics (' + e.message + '). Try a newer browser.');

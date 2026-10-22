@@ -220,6 +220,20 @@ button.card{width:100%;}
 #hud.train .hud-mid{grid-column:3;justify-self:end;}
 #hud.train .fighter,#hud.train #blockBtn,#hud.train #specialBtn,#hud.train #stageLbl{display:none;}
 #hud.vs-local #blockBtn,#hud.vs-local #specialBtn,#hud.vs-online #specialBtn{display:none;}
+.step-btn{position:absolute;display:none;place-items:center;align-content:center;gap:2px;border-radius:50%;touch-action:none;font-size:30px;line-height:1;font-weight:900;
+  color:#f4fff8;border:3px solid rgba(150,240,200,.65);background:radial-gradient(circle at 40% 35%,rgba(70,170,130,.75),rgba(10,50,40,.82));
+  box-shadow:0 0 0 5px rgba(0,0,0,.22),0 0 18px rgba(110,230,180,.3);-webkit-user-select:none;user-select:none;}
+.step-btn small{font-size:11px;letter-spacing:.08em;}
+.step-btn.on{transform:scale(.92);background:radial-gradient(circle at 40% 35%,rgba(150,250,210,.95),rgba(30,120,90,.9));}
+.step-btn.on1{width:clamp(78px,10vw,98px);height:clamp(78px,10vw,98px);bottom:calc(env(safe-area-inset-bottom,0px) + 26px);}
+.step-btn.sr{right:calc(max(16px,env(safe-area-inset-right,0px)) + 8px);}
+.step-btn.sl{right:calc(max(16px,env(safe-area-inset-right,0px)) + 8px + clamp(78px,10vw,98px) + 14px);}
+.step-btn.lp{width:clamp(64px,8.5vw,80px);height:clamp(64px,8.5vw,80px);font-size:26px;}
+.step-btn.p1u,.step-btn.p1d{left:calc(max(12px,env(safe-area-inset-left,0px)) + 4px);}
+.step-btn.p2u,.step-btn.p2d{right:calc(max(12px,env(safe-area-inset-right,0px)) + 4px);}
+.step-btn.p1u,.step-btn.p2u{top:38%;} .step-btn.p1d,.step-btn.p2d{top:calc(38% + clamp(64px,8.5vw,80px) + 14px);}
+#hud.vs-online .step-btn.on1,#hud.vs-local .step-btn.lp{display:grid;}
+
 
 /* ---------- overlays ---------- */
 #overlay{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(4,5,12,.6);
@@ -405,6 +419,12 @@ button.card{width:100%;}
   <div id="hint"></div>
   <button class="big-btn" id="blockBtn">BLOCK</button>
   <button class="big-btn" id="specialBtn">SPIRIT<br>STRIKE</button>
+  <button class="step-btn on1 sl" data-f="A" data-d="-1" aria-label="Step left">◀<small>STEP</small></button>
+  <button class="step-btn on1 sr" data-f="A" data-d="1" aria-label="Step right">▶<small>STEP</small></button>
+  <button class="step-btn lp p1u" data-f="A" data-d="-1" aria-label="Left player step back">▲</button>
+  <button class="step-btn lp p1d" data-f="A" data-d="1" aria-label="Left player step forward">▼</button>
+  <button class="step-btn lp p2u" data-f="B" data-d="1" aria-label="Right player step back">▲</button>
+  <button class="step-btn lp p2d" data-f="B" data-d="-1" aria-label="Right player step forward">▼</button>
   <button class="act-btn" id="actBtn" hidden>Interact</button>
   <button class="big-btn" id="hiltBtn" hidden aria-label="Draw your sword"><svg viewBox="0 0 64 64" aria-hidden="true"><g transform="rotate(-40 32 32)"><rect x="27" y="4" width="10" height="34" rx="4" fill="#2a1d16"/><path d="M28 8l4 4 4-4M28 15l4 4 4-4M28 22l4 4 4-4M28 29l4 4 4-4" stroke="#f2e6c8" stroke-width="2.4" fill="none"/><ellipse cx="32" cy="41" rx="13" ry="4.5" fill="#d9b25a" stroke="#6a4a12" stroke-width="1.5"/><rect x="28.5" y="44" width="7" height="16" rx="2" fill="#17121c"/></g></svg><span>DRAW</span></button>
 </div>
@@ -421,18 +441,18 @@ button.card{width:100%;}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="js/data.js?v=1792543967"></script>
-<script src="js/engine.js?v=1792543967"></script>
-<script src="js/rig.js?v=1792543967"></script>
-<script src="js/worlds.js?v=1792543967"></script>
-<script src="js/rope.js?v=1792543967"></script>
-<script src="js/fight.js?v=1792543967"></script>
-<script src="js/train.js?v=1792543967"></script>
-<script src="js/dragon.js?v=1792543967"></script>
-<script src="js/explore.js?v=1792543967"></script>
-<script src="js/puzzles.js?v=1792543967"></script>
-<script src="js/forge.js?v=1792543967"></script>
-<script src="js/versus.js?v=1792543967"></script>
-<script src="js/ui.js?v=1792543967"></script>
+<script src="js/data.js?v=1792676774"></script>
+<script src="js/engine.js?v=1792676774"></script>
+<script src="js/rig.js?v=1792676774"></script>
+<script src="js/worlds.js?v=1792676774"></script>
+<script src="js/rope.js?v=1792676774"></script>
+<script src="js/fight.js?v=1792676774"></script>
+<script src="js/train.js?v=1792676774"></script>
+<script src="js/dragon.js?v=1792676774"></script>
+<script src="js/explore.js?v=1792676774"></script>
+<script src="js/puzzles.js?v=1792676774"></script>
+<script src="js/forge.js?v=1792676774"></script>
+<script src="js/versus.js?v=1792676774"></script>
+<script src="js/ui.js?v=1792676774"></script>
 
 </body></html>

@@ -12,7 +12,7 @@ function makeFighter(o) {
   rig.root.rotation.order = 'YXZ';
   return { rig, name: o.name, outfit: o.outfit, sword: o.sword, lvl: o.lvl || 0, hp: VS_HP, max: VS_HP, limbs: { armL: 80, armR: 80, legs: 80, head: 70 },
     state: 'ready', t: 0, dir: 'R', tele: VS_TELE, blocking: false, atkId: 0, dmg: vsDmg(o.sword, o.lvl), dmgMul: 1, legsPen: 1, lunge: 0, kb: 0, resolved: false, pendingRes: null,
-    sta: 100, staWait: 0, bad: [], tired: false };
+    sta: 100, staWait: 0, bad: [], tired: false, lx: 0, px: 0, aim: 0, stepCd: 0, lean: 0 };
 }
 function swipeDir(ux, uy) {
   if (Math.abs(uy) > Math.abs(ux) * 1.2) return uy > 0 ? 'H' : 'Low';
@@ -38,7 +38,7 @@ class MqttLink {
         const id = 'sk' + Math.random().toString(36).slice(2, 12);
         ws.send(MqttLink.pkt(0x10, [...MqttLink.str('MQTT'), 4, 0x02, 0, 30, ...MqttLink.str(id)]));
       };
-      ws.onmessage = e => this.feed(new Uint8Array(e.data));
+      ws.onmessage = e => { this.lastRx = performance.now(); this.feed(new Uint8Array(e.data)); };
       ws.onerror = () => {};
       ws.onclose = () => {
         clearTimeout(t); clearInterval(this.ping);
@@ -75,6 +75,14 @@ class MqttLink {
       try { this.onMsg(new TextDecoder().decode(body.subarray(2 + tl))); } catch (e) { /* */ }
     }
   }
+  /* after switching apps the socket can be silently dead: poke it, and redial if nothing comes back */
+  check() {
+    if (this.dead) return;
+    if (!this.ready) { if (!this.waitOpen) { this.tries = 0; this.open().catch(() => {}); } return; }
+    const t0 = this.lastRx || 0;
+    try { this.ws.send(new Uint8Array([0xC0, 0])); } catch (e) { /* */ }
+    setTimeout(() => { if (!this.dead && this.ready && (this.lastRx || 0) === t0) { try { this.ws.close(); } catch (e) { /* */ } } }, 2500);
+  }
   pub(txt) {
     if (!this.ready) return;
     try { this.ws.send(MqttLink.pkt(0x30, [...MqttLink.str(this.topic), ...new TextEncoder().encode(txt)])); } catch (e) { /* */ }
@@ -97,6 +105,7 @@ const NET = {
      Both devices dial OUT to the relay, so home routers / phone networks can't block it.
      We connect to every relay that answers and send on all of them; duplicates are dropped. */
   links: [], me: '', seq: 0, seen: null, lastHeard: 0,
+  wake() { if (this.kind === 'relay') this.links.forEach(l => l.check()); },
   async openRelay(code) {
     this.kind = 'relay'; this.me = Math.random().toString(36).slice(2, 10); this.seq = 0; this.seen = new Map(); this.lastHeard = 0;
     this.topic = 'shepkatana/v2/' + code.toLowerCase();
@@ -138,13 +147,32 @@ function myVsProfile() { const w = eqSword(); return { name: (S.name || 'Shep').
 
 /* ---------- lobby (online) ---------- */
 let LOBBY = null;
-async function vsHost() {
-  const code = newCode();
+function ssGet(k) { try { return JSON.parse(sessionStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+function ssSet(k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* */ } }
+function vsInviteURL(code) { return location.origin + location.pathname + '?join=' + code; }
+async function vsShare() {
+  if (!LOBBY) return;
+  const url = vsInviteURL(LOBBY.code), text = `Duel me in Shep's Katana Legend! Tap the link, or open the game → Versus → Join → code ${LOBBY.code}`;
+  try { if (navigator.share) { await navigator.share({ title: "Katana duel", text, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(text + '\n' + url); toast('Invite copied! Paste it in a text.'); } catch (e) { toast('Tell your friend the code: ' + LOBBY.code); }
+}
+/* tapping an invite link joins straight away; a host whose page got reloaded picks the same code back up */
+function vsBootLinks() {
+  try {
+    const q = new URLSearchParams(location.search), j = (q.get('join') || '').toUpperCase();
+    if (j) { history.replaceState(null, '', location.pathname); if (/^[A-Z2-9]{4}$/.test(j) && !IN_CLAUDE) { vsJoin(j); return; } }
+    const h = ssGet('vsHost');
+    if (h && h.code && Date.now() - h.t < 15 * 60e3 && !IN_CLAUDE) vsHost(h.code);
+  } catch (e) { /* */ }
+}
+async function vsHost(resume) {
+  const code = resume || newCode();
+  if (!IN_CLAUDE) ssSet('vsHost', { code, t: Date.now() });
   LOBBY = { code, host: true, other: null, status: 'Opening a game…' };
   renderLobby();
   try {
     if (IN_CLAUDE) await NET.openRoom(code); else await NET.openRelay(code);
-    LOBBY.status = 'Waiting for your friend to join…'; renderLobby();
+    LOBBY.status = resume ? 'Back! Still waiting for your friend…' : 'Waiting for your friend to join…'; renderLobby();
     lobbyWire();
   } catch (e) { LOBBY.status = e.message; LOBBY.error = true; renderLobby(); }
 }
@@ -183,8 +211,8 @@ function renderLobby() {
     <h2>${LOBBY.host ? 'Your game code' : 'Joining game'}</h2>
     <div class="code">${LOBBY.code}</div>
     <p class="${LOBBY.error ? '' : 'muted'}" style="${LOBBY.error ? 'color:#ffb4a8' : ''}">${LOBBY.status}</p>
-    ${LOBBY.host && !LOBBY.error ? `<p class="muted" style="font-size:14px">On the other ${IN_CLAUDE ? 'device, open this same game in Claude' : 'device, open this same game website'}, tap Versus → Join, and type <b>${LOBBY.code}</b>.</p>` : ''}
-    <div class="actions"><button class="btn" data-vs="cancel">Cancel</button></div>
+    ${LOBBY.host && !LOBBY.error ? `<p class="muted" style="font-size:14px">${IN_CLAUDE ? 'On the other device, open this same game in Claude' : 'Tap <b>Share invite</b> to text a link, or on the other device open this game website'}, tap Versus → Join, and type <b>${LOBBY.code}</b>.</p>` : ''}
+    <div class="actions"><button class="btn" data-vs="cancel">Cancel</button>${LOBBY.host && !IN_CLAUDE ? '<button class="btn primary" data-vs="share">Share invite</button>' : ''}</div>
   </div>`);
 }
 function joinPad() {
@@ -205,6 +233,7 @@ function joinPad() {
 }
 let JOINPAD = null;
 function cancelLobby() {
+  ssSet('vsHost', null);
   if (LOBBY && LOBBY.hiTimer) clearInterval(LOBBY.hiTimer);
   LOBBY = null; JOINPAD = null; NET.close(); closeOverlay();
 }
@@ -231,6 +260,7 @@ function startVersusLocal(p2) {
   });
 }
 function startVersusOnline(code, host, me, other) {
+  ssSet('vsHost', null);
   if (LOBBY && LOBBY.hiTimer) clearInterval(LOBBY.hiTimer);
   closeOverlay();
   transition(() => {
@@ -282,13 +312,32 @@ function endVersus() {
 function vsOpp(f) { return f === VS.A ? VS.B : VS.A; }
 const VS_ATK_COST = 22, VS_PARRY_COST = 10;
 function vsSpend(f, n) { f.sta = Math.max(0, f.sta - n); f.staWait = .55; }
-function vsPop(f, text, col) { const s = toScreen(f.rig.partCenter('head')); ovPop(s.x, s.y - 50, text, { size: 26, color: col || '#ffd27a' }); }
+function vsPop(f, text, col) { const s = f === VS.A && VS.online ? { x: VW / 2, y: VH * .58 } : toScreen(f.rig.partCenter('head')); ovPop(s.x, s.y - 50, text, { size: 26, color: col || '#ffd27a' }); }
+/* ---------- footwork: three spots to stand in, step late and they miss ---------- */
+const VS_LANE = .85, VS_STEP_COST = 12, VS_STEP_CD = .3, VS_TRACK = .45;
+function vsLaneX(f, lanes) { return (f === VS.A ? -1 : 1) * lanes * VS_LANE; }
+function vsStep(f, d) {
+  if (!VS || VS.over || VS.intro > 0 || !f) return false;
+  if (f.state !== 'ready' && f.state !== 'recover') return false;
+  if (f.stepCd > 0) return false;
+  const nl = f.lx + d;
+  if (Math.abs(nl) > 1) { vsPop(f, 'Edge!', '#c9c2b0'); return false; }
+  const cost = VS_STEP_COST * (f.rig.det.legs ? 1.6 : 1);
+  if (f.sta < cost) { vsPop(f, 'Out of breath!'); return false; }
+  vsSpend(f, cost); f.staWait = .3;
+  f.lx = nl; f.stepCd = VS_STEP_CD * (f.rig.det.legs ? 1.7 : 1); f.lean = d;
+  sfx.whoosh(); FX.puff(f.rig.root.position.clone().add(new V3(0, .08, 0)), 5, '#e8dcc4', .35);
+  if (VS.online && f === VS.A) NET.send('step', { lx: nl });
+  return true;
+}
+/* swinging at empty air leaves you wide open */
+function vsWhiff(att) { if (VS.over) return; vsStagger(att, .55); att.rig.jolt = .2; vsPop(att, 'MISS!', '#cfd8ff'); }
 /* swinging wildly throws you off balance: a short stagger that leaves you open */
 function vsOffBalance(f) { vsStagger(f, .6); f.bad.length = 0; vsPop(f, 'OFF BALANCE!', '#ff9a7a'); }
 /* hitting a held block knocks the attacker back, open for a counter */
 function vsBounce(att) { if (VS.over) return; vsStagger(att, .65); vsSpend(att, 12); vsPop(att, 'BOUNCED!', '#bfe2ff'); }
 function vsStartAttack(f, dir, id, tired) {
-  f.state = 'windup'; f.t = 0; f.dir = dir; f.tired = !!tired; f.tele = VS_TELE * (f.rig.det.legs ? 1.25 : 1) * (tired ? 1.6 : 1); f.resolved = false; f.atkId = id || 0;
+  f.state = 'windup'; f.t = 0; f.dir = dir; f.aim = vsOpp(f).lx; f.tired = !!tired; f.tele = VS_TELE * (f.rig.det.legs ? 1.25 : 1) * (tired ? 1.6 : 1); f.resolved = false; f.atkId = id || 0;
   f.rig.seq.length = 0; f.rig.setHold('wind' + dir, 4.2 / f.tele); sfx.warn();
 }
 function vsStrikeAnim(f) { f.state = 'strike'; f.t = 0; f.rig.seq.length = 0; f.rig.queue('end' + dir2(f), .16, { ease: easeIn, arc: .3 }); f.lunge = 1; sfx.slash(1.2); }
@@ -304,6 +353,7 @@ function vsParryFX(att) {
 /* resolve an attack landing on def; returns result for the network */
 function vsResolve(att, def) {
   const limb = THREAT_LIMB[att.dir], key = limb === 'head' ? 'helm' : limb;
+  if (def.lx !== att.aim) return { r: 'miss', dmg: 0, limb, lost: null, hp: def.hp };
   let dmg = att.dmg * att.dmgMul * rnd(.9, 1.1) * (att.tired ? .4 : 1);
   if (def.state === 'stagger') dmg *= 1.5;
   if (limb === 'head' && def.rig.det.helm) dmg *= 1.3;
@@ -316,7 +366,8 @@ function vsResolve(att, def) {
   return { r, dmg: Math.round(dmg), limb, lost, hp: def.hp };
 }
 function vsApplyResult(def, res, local) {
-  const pt = def.rig.partCenter(res.limb === 'head' ? 'head' : res.limb), s = toScreen(pt);
+  const pt = def.rig.partCenter(res.limb === 'head' ? 'head' : res.limb), s = def === VS.A && VS.online ? { x: VW / 2, y: VH * .66 } : toScreen(pt);
+  if (res.r === 'miss') { sfx.whoosh(); ovPop(s.x, s.y - 30, 'DODGED!', { size: 30, color: '#9ff0c8', stroke: '#06261a' }); return; }
   if (res.r === 'block') { sfx.clang(); FX.sparks(def.rig.bladePoint(.45), '#d9eeff', 20, 4); ovPop(s.x, s.y - 30, 'BLOCKED', { size: 24, color: '#bfe2ff', stroke: '#0a1a3a' }); }
   else { sfx.hit(); def.rig.hitFlash(1); FX.sparks(pt, '#ffffff', 16, 4); shake(.05); ovPop(s.x, s.y - 20, String(res.dmg), { size: 32 }); if (def === VS.A && VS.online) { OV.vig = .8; OV.vigCol = '255,40,30'; } }
   def.hp = res.hp;
@@ -383,12 +434,13 @@ function vsNetMessage(d) {
   if (d.type === 'atk' && !VS.over) { if (['R', 'L', 'H', 'Low'].includes(d.dir)) vsStartAttack(B, d.dir, d.id | 0, !!d.tired); }
   else if (d.type === 'res') {
     if (d.r === 'parry') { if (A.atkId === (d.id | 0) && (A.state === 'windup' || A.state === 'strike')) { vsParryFX(A); vsStagger(A, 1.0); banner('PARRIED!'); } }
-    else if (['hit', 'block'].includes(d.r)) {
+    else if (['hit', 'block', 'miss'].includes(d.r)) {
       if (d.limbs && typeof d.limbs === 'object') for (const k of ['armL', 'armR', 'legs', 'head']) if (typeof d.limbs[k] === 'number') B.limbs[k] = clamp(d.limbs[k], 0, 80);
       vsApplyResult(B, { r: d.r, dmg: clamp(d.dmg | 0, 0, 200), limb: ['armL', 'armR', 'legs', 'head'].includes(d.limb) ? d.limb : 'head', lost: ['armL', 'armR', 'legs', 'head'].includes(d.lost) ? d.lost : null, hp: clamp(+d.hp, 0, VS_HP) }, false);
-      if (d.r === 'block') vsBounce(A);
+      if (d.r === 'block') vsBounce(A); else if (d.r === 'miss') vsWhiff(A);
     }
-  } else if (d.type === 'blk') { B.blocking = !!d.on; if (B.state === 'ready') B.rig.setHold(B.blocking ? 'blockMid' : 'guard', 14); }
+  } else if (d.type === 'step') { const l = d.lx | 0; if (l >= -1 && l <= 1 && l !== B.lx) { B.lean = Math.sign(l - B.lx); B.lx = l; FX.puff(B.rig.root.position.clone().add(new V3(0, .08, 0)), 5, '#e8dcc4', .35); } }
+  else if (d.type === 'blk') { B.blocking = !!d.on; if (B.state === 'ready') B.rig.setHold(B.blocking ? 'blockMid' : 'guard', 14); }
   else if (d.type === 'again') { VS.again.them = true; vsMaybeRematch(); }
   else if (d.type === 'bye') { toast('Your friend left the duel.'); }
 }
@@ -400,11 +452,14 @@ function vsMaybeRematch() {
 function vsFighterUpdate(f, dt) {
   f.t += dt;
   const o = vsOpp(f);
+  if (f.state === 'windup' && f.t < f.tele * VS_TRACK) f.aim = o.lx; // aim follows you until the gold ring shows, then it's locked
+  f.stepCd = Math.max(0, f.stepCd - dt);
+  f.px = lerp(f.px, f.lx, damp(f.rig.det.legs ? 9 : 16, dt)); f.lean = lerp(f.lean, 0, damp(6, dt));
   if (f.state === 'windup' && f.t >= f.tele) vsStrikeAnim(f);
   else if (f.state === 'strike') {
     if (!f.resolved && f.t >= .08) {
       f.resolved = true;
-      if (!VS.online) { const res = vsResolve(f, o); vsApplyResult(o, res, true); if (res.r === 'block') vsBounce(f); }
+      if (!VS.online) { const res = vsResolve(f, o); vsApplyResult(o, res, true); if (res.r === 'block') vsBounce(f); else if (res.r === 'miss') vsWhiff(f); }
     }
     if (f.t > .35) { f.state = 'recover'; f.t = 0; f.rig.setHold(f === VS.A && VS.online && VS.view === 'fp' ? 'fpGuard' : 'guard', 8); }
   } else if (f.state === 'recover' && f.t > .3) f.state = 'ready';
@@ -426,7 +481,7 @@ function vsRemoteStrikeCheck() {
     const res = vsResolve(B, A);
     NET.send('res', Object.assign({ id: B.atkId, limbs: A.limbs }, res));
     vsApplyResult(A, res, true);
-    if (res.r === 'block') vsBounce(B);
+    if (res.r === 'block') vsBounce(B); else if (res.r === 'miss') vsWhiff(B);
   }
 }
 
@@ -445,8 +500,16 @@ const VsMode = {
       VS.endT += dt;
       if (!VS.shown && VS.endT > 2.2) { VS.shown = true; vsResult(); }
     }
-    A.rig.root.position.set(0, 0, easeOut(A.lunge) * .5 - A.kb);
-    B.rig.root.position.set(0, 0, DIST - easeOut(B.lunge) * .5 + B.kb);
+    A.rig.root.position.set(vsLaneX(A, A.px), 0, easeOut(A.lunge) * .5 - A.kb);
+    B.rig.root.position.set(vsLaneX(B, B.px), 0, DIST - easeOut(B.lunge) * .5 + B.kb);
+    for (const f of [A, B]) {
+      const o = vsOpp(f), busy = f.state === 'windup' || f.state === 'strike';
+      const tx = busy ? vsLaneX(o, f.aim) : o.rig.root.position.x, tz = o === B ? DIST : 0;
+      const want = Math.atan2(tx - f.rig.root.position.x, tz - f.rig.root.position.z);
+      let dr = want - f.rig.root.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr));
+      f.rig.root.rotation.y += dr * damp(14, dt);
+      f.rig.root.rotation.z = -f.lean * .12 * (f === A ? 1 : -1);
+    }
     A.rig.update(dt); B.rig.update(dt);
     // camera
     let pos, look, fov;
@@ -459,14 +522,14 @@ const VsMode = {
     } else {
       const asp = VW / VH, d = 4.4 * Math.max(1, 1.3 / asp);
       const a = VS.over ? -Math.PI / 2 + Math.sin(VS.endT * .4) * .5 : -Math.PI / 2;
-      pos = new V3(Math.sin(a) * -d * -1, 1.85, DIST / 2 + Math.cos(a) * d); look = new V3(0, 1.15, DIST / 2); fov = 50;
+      pos = new V3(Math.sin(a) * -d * -1, 2.7, DIST / 2 + Math.cos(a) * d); look = new V3(.2, 1.0, DIST / 2); fov = 50;
       if (VS.online && VS.over) { pos = new V3(-3.5, 1.9, DIST / 2 + Math.sin(VS.endT * .4)); }
     }
     VS.camPos.lerp(pos, damp(VS.clock < .1 ? 60 : 12, dt)); VS.camLook.lerp(look, damp(VS.clock < .1 ? 60 : 12, dt));
     CAM.position.copy(VS.camPos); CAM.lookAt(VS.camLook);
     CAM.fov = lerp(CAM.fov, fov, damp(8, dt)); CAM.updateProjectionMatrix(); FX.setScale();
     applyShake(dt);
-    hint(VS.intro > 0 || VS.over ? '' : VS.online ? 'One swipe per touch · Swipe through the gold ring to parry · Hold BLOCK: blocks bounce attackers!' : 'Left player: left half · Right player: right half · One swipe per touch · Hold still to block: blocks bounce attackers!');
+    hint(VS.intro > 0 || VS.over ? '' : VS.online ? 'Gold ring = their aim is locked: swipe through it to parry, or STEP aside to make them miss!' : 'Swipe on your half · Hold still to block · ▲▼ to step: step when the gold ring shows and they miss!');
   },
   slash(x0, y0, x1, y1, id) {
     if (!VS) return;
@@ -536,3 +599,6 @@ function vsResultAction(act) {
   }
   closeOverlay(); endVersus();
 }
+
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { NET.wake(); if (LOBBY && !LOBBY.other && LOBBY.hiTimer) NET.send('hi', myVsProfile()); } });
+window.addEventListener('pageshow', () => NET.wake());
