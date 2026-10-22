@@ -117,6 +117,7 @@ function screenDojo() {
     </section>
     ${storyOn() && !fresh && !S.story.pro ? `<section class="panel story-new"><div class="row" style="gap:14px;align-items:center">${keepSVG('ribbon', 64)}<div><div class="eyebrow">New story</div><h3>The Rescue of Princess Hana</h3><p class="muted" style="margin:4px 0 0">Find out why you set out on the road.</p></div></div>
       <div class="row" style="margin-top:10px"><button class="btn primary" data-story-play="prologue">▶ Watch the story</button></div></section>` : ''}
+    ${backupNudge()}
     ${S.captured.length ? `<section class="panel thief">
       <div class="eyebrow" style="color:#ffb4a8">Ghost thief</div>
       <h3>${S.captured.map(c => swordDef((S.swords.find(w => w.u === c.u) || {}).id).name).join(', ')} ${S.captured.length > 1 ? 'were' : 'was'} captured!</h3>
@@ -534,6 +535,7 @@ function openSettings() {
     <div class="row between"><h2>Settings</h2><button class="btn small" data-close="1">Done</button></div>
     <div class="toggle"><span>Your wax seal<br><small class="muted">${SEAL_KANJI[S.seal.k][1]} · code <b style="color:var(--gold-2)">${fmtPid(S.pid)}</b></small></span><span class="row" style="gap:10px">${sealSVG({ name: S.name, seal: S.seal }, 54)}<button class="btn small" data-seal-pick="1">Change</button></span></div>
     <label class="toggle"><span>Player name</span><input id="nameInput" value="${(S.name || 'Shep').replace(/"/g, '')}" maxlength="14" style="font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:inherit;width:150px"></label>
+    <div class="toggle"><span>Back up your legend<br><small class="muted">${S.lastBackup ? 'Last backup ' + new Date(S.lastBackup).toLocaleDateString() : 'Never backed up'}</small></span><button class="btn small primary" data-bk-open="1">Backup &amp; restore</button></div>
     <div class="toggle"><span>Sound effects</span>${seg('sound', [[true, 'On'], [false, 'Off']])}</div>
     <div class="toggle"><span>Music</span>${seg('music', [[true, 'On'], [false, 'Off']])}</div>
     <div class="toggle"><span>Battle camera</span>${seg('view', [['fp', 'First person'], ['tp', 'Behind']])}</div>
@@ -655,6 +657,8 @@ function wireInput() {
     const b = e.target.closest('button'); if (!b) return;
     AUD.init();
     const d = b.dataset;
+    if (d.bk) { sfx.ui(); backupClick(d); return; }
+    if (d.bkOpen) { sfx.ui(); openBackup(); return; }
     if (storyClick(d) || loadoutClick(d) || chalClick(d, b)) return;
     if (d.tab) { sfx.ui(); showTab(d.tab); }
     else if (d.fight != null) { sfx.taiko(.7); startFight(+d.fight); }

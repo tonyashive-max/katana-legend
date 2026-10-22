@@ -531,6 +531,12 @@ body.cine::before,body.cine::after{height:9vh;}
 #hud.fightmode .step-btn.on1{bottom:calc(env(safe-area-inset-bottom,0px) + 34px + clamp(96px,13vw,128px));}
 #hud.fightmode .step-btn.on1.sr{right:calc(max(16px,env(safe-area-inset-right,0px)) + 8px);}
 #hud.ended .step-btn{opacity:0;pointer-events:none;transition:opacity .4s}
+.modal.backup{max-width:min(600px,94vw)}
+.bk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.bk-last{font-size:14px;margin:0}.bk-msg{margin:0;padding:8px 12px;border-radius:10px;background:rgba(79,214,170,.12);border:1px solid rgba(79,214,170,.35);font-weight:700}
+.bk-code{width:100%;min-height:120px;font:12px ui-monospace,monospace;padding:10px;border-radius:10px;border:1px solid var(--line);background:#0c1020;color:inherit;word-break:break-all}
+.bk-sum{display:flex;gap:12px;align-items:center}.bk-sum small{display:block;color:var(--muted)}
+.bk-nudge{background:linear-gradient(160deg,rgba(40,70,60,.55),var(--panel));border-color:rgba(79,214,170,.4)}
 </style>
 
 </head><body>
@@ -619,20 +625,21 @@ body.cine::before,body.cine::after{height:9vh;}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="js/data.js?v=1792694232"></script>
-<script src="js/engine.js?v=1792694232"></script>
-<script src="js/rig.js?v=1792694232"></script>
-<script src="js/worlds.js?v=1792694232"></script>
-<script src="js/rope.js?v=1792694232"></script>
-<script src="js/fight.js?v=1792694232"></script>
-<script src="js/train.js?v=1792694232"></script>
-<script src="js/dragon.js?v=1792694232"></script>
-<script src="js/explore.js?v=1792694232"></script>
-<script src="js/puzzles.js?v=1792694232"></script>
-<script src="js/forge.js?v=1792694232"></script>
-<script src="js/duel.js?v=1792694232"></script>
-<script src="js/versus.js?v=1792694232"></script>
-<script src="js/story.js?v=1792694232"></script>
-<script src="js/ui.js?v=1792694232"></script>
+<script src="js/data.js?v=1792694529"></script>
+<script src="js/engine.js?v=1792694529"></script>
+<script src="js/rig.js?v=1792694529"></script>
+<script src="js/worlds.js?v=1792694529"></script>
+<script src="js/rope.js?v=1792694529"></script>
+<script src="js/fight.js?v=1792694529"></script>
+<script src="js/train.js?v=1792694529"></script>
+<script src="js/dragon.js?v=1792694529"></script>
+<script src="js/explore.js?v=1792694529"></script>
+<script src="js/puzzles.js?v=1792694529"></script>
+<script src="js/forge.js?v=1792694529"></script>
+<script src="js/duel.js?v=1792694529"></script>
+<script src="js/versus.js?v=1792694529"></script>
+<script src="js/story.js?v=1792694529"></script>
+<script src="js/backup.js?v=1792694529"></script>
+<script src="js/ui.js?v=1792694529"></script>
 
 </body></html>
