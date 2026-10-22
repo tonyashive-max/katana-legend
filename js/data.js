@@ -315,7 +315,11 @@ const SAVE_KEY = 'shep-katana-legend-3d-v2';
 /* ---------- player identity: a dueling code and a wax seal, made once per player ---------- */
 const PID_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function newPid() { let s = ''; for (let i = 0; i < 8; i++) s += PID_ABC[(Math.random() * PID_ABC.length) | 0]; return s; }
-function newSealStyle() { return { c: (Math.random() * 7) | 0, m: (Math.random() * 4) | 0, s: (Math.random() * 1e6) | 0 }; }
+/* seal symbols, like the ones on the menu tabs: one is stamped into each player's wax */
+const SEAL_KANJI = [['龍', 'Dragon'], ['虎', 'Tiger'], ['鷹', 'Hawk'], ['狼', 'Wolf'], ['狐', 'Fox'], ['鶴', 'Crane'], ['風', 'Wind'], ['雷', 'Thunder'],
+  ['炎', 'Flame'], ['水', 'Water'], ['月', 'Moon'], ['星', 'Star'], ['山', 'Mountain'], ['桜', 'Cherry blossom'], ['雪', 'Snow'], ['光', 'Light'],
+  ['影', 'Shadow'], ['剣', 'Sword'], ['武', 'Warrior'], ['勇', 'Courage'], ['誠', 'Honor'], ['忍', 'Patience'], ['魂', 'Spirit'], ['心', 'Heart']];
+function newSealStyle() { return { c: (Math.random() * 7) | 0, m: (Math.random() * 4) | 0, s: (Math.random() * 1e6) | 0, k: (Math.random() * SEAL_KANJI.length) | 0 }; }
 function fmtPid(p) { return p ? p.slice(0, 4) + '-' + p.slice(4) : ''; }
 function freshSave() {
   return {
@@ -356,6 +360,7 @@ function loadSave() {
       // duel identity for players from before challenges existed
       if (!o.pid) merged.pid = newPid();
       if (!o.seal || typeof o.seal !== 'object') merged.seal = newSealStyle();
+      if (merged.seal.k == null) merged.seal.k = Math.abs(merged.seal.s | 0) % SEAL_KANJI.length;
       if (!Array.isArray(merged.rivals)) merged.rivals = [];
       if (!merged.chal || typeof merged.chal !== 'object') merged.chal = {};
       if (!merged.duels) merged.duels = { w: 0, l: 0 };

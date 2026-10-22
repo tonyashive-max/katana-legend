@@ -811,7 +811,7 @@ function grantWin() {
   const st = F.st, ctx = F.ctx, myth = ctx.kind === 'myth';
   const first = myth ? !S.journey[ctx.ch].myth : !S.beaten[ctx.idx];
   const r = { first, myth, gold: Math.round(st.gold * (first ? 1 : .5)), steel: Math.round(st.steel * (first ? 1 : .5)), sword: st.sword, newSword: false, smelt: 0, outfit: null, newStars: 0, stars: 0, swordU: null, chapterDone: false };
-  if (myth) { if (first) { S.journey[ctx.ch].myth = true; r.chapterDone = true; } }
+  if (myth) { if (first) { S.journey[ctx.ch].myth = true; r.chapterDone = true; storyChapterDone(ctx.ch); } }
   else { S.beaten[ctx.idx] = true; S.cleared = Math.max(S.cleared, Object.keys(S.beaten).length); }
   const dropChance = first ? 1 : .35;
   if (!ownsSword(st.sword) && Math.random() < dropChance) { const w = addSword(st.sword); r.newSword = true; r.swordU = w.u; }
@@ -848,7 +848,7 @@ function showFightResult() {
       </div></div>`);
   } else if (F.outcome === 'win') {
     const r = grantWin(), d = swordDef(r.sword), rc = RAR[d.r];
-    const nextCh = r.chapterDone && F.ctx.ch < 3 ? F.ctx.ch + 1 : null;
+    const nextCh = r.chapterDone && F.ctx.ch < NL - 1 ? F.ctx.ch + 1 : null;
     openOverlay(`<div class="modal win">
       <div class="kicker">${r.myth ? 'Legendary!' : 'Victory!'}</div>
       <p><b>${F.st.spirit ? 'The Spirit of ' + F.st.name : F.st.name}</b> is defeated. ${starRow(r.stars)}</p>

@@ -74,14 +74,17 @@ function skillRow(k) {
 }
 function screenDojo() {
   const st = stats(), w = eqSword(), d = swordDef(w.id), o = outfitDef(S.outfit);
-  const ch = currentChapter(), done = S.journey[NL - 1].myth, best = swordDef(bestSword().id);
+  const ch = currentChapter(), done = S.journey[NL - 1].myth, best = swordDef(bestSword().id), fresh = !S.tutDone && !Object.keys(S.beaten).length;
   return `<div class="stack">
     <section class="panel hero">
       <div class="eyebrow">${done ? 'Every land conquered' : `Chapter ${ch + 1} · ${CHAPTERS[ch].name}`}</div>
-      <h2>${done ? 'Legend of the land' : 'Continue your journey'}</h2>
-      <p class="muted" style="margin:6px 0 12px">${done ? 'Return to any land to rematch warriors and beasts for stars, gold and rare blades.' : journeyObjective(ch) + '.'}</p>
-      <div class="row"><button class="btn primary" data-explore="resume">🗺 Continue journey</button><button class="btn" data-tab="quest">Journey map</button></div>
+      <h2>${done ? 'Legend of the land' : fresh ? 'Begin your journey' : 'Continue your journey'}</h2>
+      ${storyOn() && !done ? `<p class="hana-line">🌸 ${fresh ? 'Princess Hana needs you.' : `Princess Hana's trail leads through ${CHAPTERS[ch].name}.`}</p>` : ''}
+      <p class="muted" style="margin:6px 0 12px">${done ? 'Return to any land to rematch warriors and beasts for stars, gold and rare blades.' : fresh ? 'Learn the ways of the sword at the training grounds, then set out on the road.' : journeyObjective(ch) + '.'}</p>
+      <div class="row">${fresh ? '<button class="btn primary" data-story-begin="1">⚔ Begin journey</button>' : '<button class="btn primary" data-explore="resume">🗺 Continue journey</button>'}<button class="btn" data-tab="quest">Journey map</button></div>
     </section>
+    ${storyOn() && !fresh && !S.story.pro ? `<section class="panel story-new"><div class="row" style="gap:14px;align-items:center">${keepSVG('ribbon', 64)}<div><div class="eyebrow">New story</div><h3>The Rescue of Princess Hana</h3><p class="muted" style="margin:4px 0 0">Find out why you set out on the road.</p></div></div>
+      <div class="row" style="margin-top:10px"><button class="btn primary" data-story-play="prologue">▶ Watch the story</button></div></section>` : ''}
     ${S.captured.length ? `<section class="panel thief">
       <div class="eyebrow" style="color:#ffb4a8">Ghost thief</div>
       <h3>${S.captured.map(c => swordDef((S.swords.find(w => w.u === c.u) || {}).id).name).join(', ')} ${S.captured.length > 1 ? 'were' : 'was'} captured!</h3>
@@ -112,6 +115,7 @@ function check(ok, text) { return `<li class="${ok ? 'ok' : ''}"><span>${ok ? '�
 function screenQuest() {
   const pw = playerPower();
   return `<div class="stack">
+    ${storyPanel()}
     <section class="panel"><h2>Your journey</h2><p class="muted" style="margin-top:6px">In each land: find 3 spirit orbs, solve the shrine puzzle and defeat the 4 warriors (the 修 trial warrior only duels samurai who have trained). A mythical beast roams the road: beat it for the Spirit Key, then open the spirit gate and face its Spirit Warrior. Your power: <b>${pw}</b>.</p></section>
     ${CHAPTERS.map((c, ci) => {
       const open = chapterUnlocked(ci), j = S.journey[ci], m = MYTHS[ci], wb = warriorsBeaten(ci), of = orbsFound(ci);
@@ -496,11 +500,12 @@ function openSettings() {
   const seg = (key, opts) => `<div class="seg">${opts.map(([v, l]) => `<button data-set="${key}" data-val="${v}" aria-pressed="${S[key] === v}">${l}</button>`).join('')}</div>`;
   openOverlay(`<div class="modal" style="text-align:left">
     <div class="row between"><h2>Settings</h2><button class="btn small" data-close="1">Done</button></div>
-    <div class="toggle"><span>Your wax seal</span><span class="row" style="gap:10px">${sealSVG({ name: S.name, seal: S.seal }, 54)}<small class="muted">Dueling code<br><b style="color:var(--gold-2)">${fmtPid(S.pid)}</b></small></span></div>
+    <div class="toggle"><span>Your wax seal<br><small class="muted">${SEAL_KANJI[S.seal.k][1]} · code <b style="color:var(--gold-2)">${fmtPid(S.pid)}</b></small></span><span class="row" style="gap:10px">${sealSVG({ name: S.name, seal: S.seal }, 54)}<button class="btn small" data-seal-pick="1">Change</button></span></div>
     <label class="toggle"><span>Player name</span><input id="nameInput" value="${(S.name || 'Shep').replace(/"/g, '')}" maxlength="14" style="font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:inherit;width:150px"></label>
     <div class="toggle"><span>Sound effects</span>${seg('sound', [[true, 'On'], [false, 'Off']])}</div>
     <div class="toggle"><span>Music</span>${seg('music', [[true, 'On'], [false, 'Off']])}</div>
     <div class="toggle"><span>Battle camera</span>${seg('view', [['fp', 'First person'], ['tp', 'Behind']])}</div>
+    <div class="toggle"><span>Princess story</span>${seg('storyOff', [[false, 'On'], [true, 'Off']])}</div>
     <div class="toggle"><span>Graphics</span>${seg('quality', [['auto', 'Auto'], ['high', 'High'], ['balanced', 'Balanced'], ['fast', 'Fast']])}</div>
     <p class="muted" style="font-size:13px">If the game feels slow on an older tablet, pick Fast.</p>
     <div class="toggle" style="border:0"><span>Start over</span><button class="btn small red" id="resetBtn">Reset progress</button></div>
@@ -597,7 +602,7 @@ function wireInput() {
     const b = e.target.closest('button'); if (!b) return;
     AUD.init();
     const d = b.dataset;
-    if (loadoutClick(d) || chalClick(d, b)) return;
+    if (storyClick(d) || loadoutClick(d) || chalClick(d, b)) return;
     if (d.tab) { sfx.ui(); showTab(d.tab); }
     else if (d.fight != null) { sfx.taiko(.7); startFight(+d.fight); }
     else if (d.explore != null) { sfx.ui(); startExplore(d.explore === 'resume' ? null : +d.explore); }
@@ -622,7 +627,7 @@ function wireInput() {
     else if (d.local) localDuelSetup();
     else if (d.local2 && LOCAL_P1) {
       const name = ($('#p2name').value || 'Player 2').slice(0, 14), w = S.swords.find(x => x.u === +$('#p2sword').value) || eqSword();
-      const p2 = cleanProfile({ pid: 'guest', name, seal: { c: (name.length * 3) % 7, m: name.length % 4, s: name.length * 977 }, outfit: $('#p2outfit').value, sk: LOCAL_P1.sk, sword: swordPack(w) });
+      const p2 = cleanProfile({ pid: 'guest', name, seal: { c: (name.length * 3) % 7, m: name.length % 4, s: name.length * 977, k: (name.charCodeAt(0) || 0) % SEAL_KANJI.length }, outfit: $('#p2outfit').value, sk: LOCAL_P1.sk, sword: swordPack(w) });
       const p1 = LOCAL_P1; LOCAL_P1 = null; closeOverlay(); startVersusLocal(p1, p2);
     }
     else if (d.vs === 'host') vsHost();
@@ -636,8 +641,16 @@ function wireInput() {
       if (k === 'sound') AUD.setSound(v);
       if (k === 'music') AUD.setMusic(v);
       if (k === 'quality') applyQuality();
+      if (k === 'storyOff' && !$('#ui').hidden) showTab(curTab);
       openSettings();
     }
+    else if (d.sealPick) {
+      openOverlay(`<div class="modal"><div class="eyebrow">Your wax seal</div><h2>Choose your symbol</h2><p class="muted">Rivals see it on every scroll you send.</p>
+        <div class="seal-pick">${SEAL_KANJI.map(([k, n], i) => `<button class="${S.seal.k === i ? 'sel' : ''}" data-seal-k="${i}">${sealSVG({ seal: Object.assign({}, S.seal, { k: i }) }, 58)}<small>${n}</small></button>`).join('')}</div>
+        <div class="actions"><button class="btn" data-seal-done="1">Done</button></div></div>`);
+    }
+    else if (d.sealK != null) { S.seal.k = +d.sealK; save(); sfx.ui(); document.querySelectorAll('[data-seal-k]').forEach(x => x.classList.toggle('sel', +x.dataset.sealK === S.seal.k)); }
+    else if (d.sealDone) openSettings();
     else if (b.id === 'resetBtn') {
       if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Tap again: erase everything'; return; }
       S = freshSave(); save(); closeOverlay(); toast('Progress reset. A new legend begins!'); curTab = 'dojo'; enterHub();
@@ -690,7 +703,9 @@ function boot() {
     renderTop();
     requestAnimationFrame(frame); setTimeout(() => { $('#loading').hidden = true; }, 400);
     setTimeout(vsBootLinks, 900);
+    showTitle();
     setTimeout(() => { MAIL.open(); updateScrollBadge(); }, 1200);
+    setInterval(storyTick, 900);
     setInterval(() => { maybeShowScroll(); }, 2500);
   } catch (e) {
     console.error(e);

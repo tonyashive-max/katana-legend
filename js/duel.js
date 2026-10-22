@@ -9,7 +9,7 @@ function seededRng(seed) { let a = (seed | 0) || 1; return () => { a |= 0; a = a
 function sealSVG(p, size) {
   const st = (p && p.seal) || { c: 0, m: 0, s: 1 }, rng = seededRng(st.s + 7), id = 'sl' + (++_sealN);
   const [hi, lo] = SEAL_WAX[st.c % SEAL_WAX.length];
-  const letter = (String((p && p.name) || '?').trim()[0] || '?').toUpperCase().replace(/[<>&"]/g, '');
+  const kj = SEAL_KANJI[Math.abs(st.k == null ? st.s : st.k) % SEAL_KANJI.length], letter = kj[0];
   // a lumpy wax blob with a couple of runs at the edge
   const N = 30, bulge = [0, 1, 2].map(() => ({ a: rng() * Math.PI * 2, s: 3 + rng() * 5 }));
   const pts = [];
@@ -30,7 +30,7 @@ function sealSVG(p, size) {
   else if (m === 2) for (let i = 0; i < 16; i++) { const a = i / 16 * 360; motif += `<path d="M-3 -35 Q0 -39 3 -35" fill="none" stroke-width="1.6" transform="rotate(${a})"/>`; }
   else for (let i = 0; i < 8; i++) { const a = i / 8 * 360 + 22.5; motif += `<path d="M0 -40 L2.6 -36.5 L0 -33 L-2.6 -36.5Z" transform="rotate(${a})"/>`; }
   const sz = size || 64;
-  return `<svg class="wseal" width="${sz}" height="${sz}" viewBox="-52 -52 104 104" role="img" aria-label="${letter} seal">
+  return `<svg class="wseal" width="${sz}" height="${sz}" viewBox="-52 -52 104 104" role="img" aria-label="${kj[1]} seal">
     <defs><radialGradient id="${id}w" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="${hi}"/><stop offset=".7" stop-color="${lo}"/><stop offset="1" stop-color="${lo}"/></radialGradient>
     <radialGradient id="${id}p" cx="60%" cy="65%" r="70%"><stop offset="0" stop-color="${hi}" stop-opacity=".85"/><stop offset="1" stop-color="${lo}"/></radialGradient></defs>
     <path d="${path}" fill="url(#${id}w)" transform="translate(1.5 2.5)" opacity=".35" style="fill:#000"/>
@@ -38,8 +38,8 @@ function sealSVG(p, size) {
     <circle r="31.5" fill="url(#${id}p)" stroke="${lo}" stroke-width="2.4"/>
     <circle r="31.5" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="1" transform="translate(-.8 -.8)"/>
     <g fill="${lo}" stroke="${lo}" opacity=".9">${motif}</g>
-    <text y="12" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="36" fill="#fff" fill-opacity=".3" transform="translate(-1 -1)">${letter}</text>
-    <text y="12" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="36" fill="${lo}">${letter}</text>
+    <text y="13" text-anchor="middle" font-family="'Yuji Syuku','Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif" font-weight="700" font-size="38" fill="#fff" fill-opacity=".3" transform="translate(-1 -1)">${letter}</text>
+    <text y="13" text-anchor="middle" font-family="'Yuji Syuku','Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif" font-weight="700" font-size="38" fill="${lo}">${letter}</text>
     <ellipse cx="-16" cy="-24" rx="13" ry="6" fill="#fff" opacity=".18" transform="rotate(-30 -16 -24)"/>
   </svg>`;
 }
@@ -57,7 +57,7 @@ function myDuelProfile(outfit, swordU, bokken) {
   const sk = {}; SK_KEYS.forEach(k => { sk[k] = S.sk[k].l; });
   return Object.assign(myIdent(), { outfit: S.outfits.includes(outfit) ? outfit : S.outfit, sk, sword: swordPack(w), v: VS_BUILD });
 }
-function cleanSeal(o) { return o && typeof o === 'object' ? { c: clamp(o.c | 0, 0, 6), m: clamp(o.m | 0, 0, 3), s: o.s | 0 } : { c: 0, m: 0, s: 1 }; }
+function cleanSeal(o) { return o && typeof o === 'object' ? { c: clamp(o.c | 0, 0, 6), m: clamp(o.m | 0, 0, 3), s: o.s | 0, k: clamp(o.k == null ? Math.abs(o.s | 0) % SEAL_KANJI.length : o.k | 0, 0, SEAL_KANJI.length - 1) } : { c: 0, m: 0, s: 1, k: 0 }; }
 function cleanWho(o) { return o && typeof o === 'object' ? { n: String(o.n || '').slice(0, 14), pid: String(o.pid || '').slice(0, 8), seal: cleanSeal(o.seal) } : null; }
 /* never trust what comes over the wire */
 function cleanProfile(p) {

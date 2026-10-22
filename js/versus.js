@@ -162,7 +162,7 @@ async function vsShare() {
 function vsBootLinks() {
   try {
     const q = new URLSearchParams(location.search), j = (q.get('join') || '').toUpperCase();
-    if (j) { history.replaceState(null, '', location.pathname); if (/^[A-Z2-9]{4}$/.test(j) && !IN_CLAUDE) { vsJoin(j); return; } }
+    if (j) { history.replaceState(null, '', location.pathname); hideTitle(); if (/^[A-Z2-9]{4}$/.test(j) && !IN_CLAUDE) { vsJoin(j); return; } }
     const h = ssGet('vsHost');
     if (h && h.code && Date.now() - h.t < 15 * 60e3 && !IN_CLAUDE) vsHost(h.code, h.opts);
   } catch (e) { /* */ }

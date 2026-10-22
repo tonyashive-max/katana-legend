@@ -616,7 +616,7 @@ function banishGhost(hit) {
   banner(e.iai ? 'IAI STRIKE!' : 'Ghost banished!', `+${gold} gold${ups ? ' · Iai level up!' : ''}`);
   if (ups) sfx.up();
   if (e.o.tut) {
-    S.tutDone = true; addMat('ironsand', 2); save(); X.limit = limitS();
+    S.tutDone = true; addMat('ironsand', 2); save(); X.limit = limitS(); storyArrive(0);
     const tg = X.pois.find(p => p.kind === 'tgate'); if (tg) { X.poi.remove(tg.grp); X.poi.remove(tg.lab); X.pois = X.pois.filter(p => p !== tg); }
     setTimeout(() => { if (X) banner('Training complete!', 'The road to Bamboo Village is open'); }, 1300);
     e.ghost.root.visible = false; return;
@@ -737,6 +737,7 @@ const ExploreMode = {
   slash(x0, y0, x1, y1) { ghostSlash(x0, y0, x1, y1); },
   update(dt) {
     const x = X; if (!x) return;
+    if (x.paused) { x.P.update(dt); return; } // a story scroll is open
     x.clock += dt;
     const R = rope();
     let ix = 0, iy = 0;
@@ -771,7 +772,7 @@ const ExploreMode = {
     // where on the road are we?
     const sq = ropeQuery(x.pos.x, x.pos.z); x.s = sq.s;
     const land = landOf(x.s);
-    if (land !== x.land) { const first = x.land >= 0; x.land = land; updateObjective(); if (first) banner(CHAPTERS[land].name, CHAPTERS[land].jp); }
+    if (land !== x.land) { const first = x.land >= 0; x.land = land; updateObjective(); if (first) banner(CHAPTERS[land].name, CHAPTERS[land].jp); storyArrive(land); }
     updateRopeWorld(x.W, x.pos.x, x.pos.z, x.s);
     // walk animation
     const P = x.P;
