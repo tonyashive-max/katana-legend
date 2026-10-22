@@ -97,7 +97,7 @@ function startForge(opts) {
     const jaw = new THREE.Mesh(GEO.box(.07, .07, .03), toon({ color: '#2a2a30' })); jaw.position.y = -.24; tongs.add(jaw); blade.add(tongs);
     const bh = halo('#ff8a1a', 1, 0); bh.scale.set(.5, 1.25, 1); bh.position.y = .42; blade.add(bh);
     // the smith at the anvil: you, in your own armor, with a forging hammer
-    const smith = new Samurai(lookFromOutfit(outfitDef(S.outfit)), swordDef('bokken'), { noSaya: true });
+    const smith = new Samurai(Object.assign(lookFromOutfit(outfitDef(S.outfit)), { helm: 'band', helmCol: '#f4efe4', crest: null, banner: null }), swordDef('bokken'), { noSaya: true }); // a smith's white headband instead of a helmet
     smith.sword.visible = false; smith.root.rotation.order = 'YXZ'; smith.root.position.set(.05, 0, 1.3); smith.root.rotation.y = Math.PI;
     const ham = new THREE.Group();
     ham.add(new THREE.Mesh(merge([P(GEO.cyl(.022, .026, .46, 6), '#7a5230', [0, .2, 0]), P(GEO.box(.26, .12, .12), '#34343c', [0, .46, 0]), P(GEO.box(.04, .13, .13), '#4a4a54', [.13, .46, 0]), P(GEO.box(.04, .13, .13), '#4a4a54', [-.13, .46, 0])]), toon({ vertexColors: true })));
