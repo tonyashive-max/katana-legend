@@ -167,8 +167,9 @@ function finishForge() {
   shaft.position.set(.05, 3, 1.25); FG.W.scene.add(shaft); FG.shaft = shaft;
   setTimeout(() => { if (!FG) return; const bp = FG.blade.localToWorld(new V3(0, .5, 0)); FX.sparks(bp, '#ffe08c', 70, 5); FX.glowBurst(bp, FG.def.glow || '#fff2c0', .9, .4); FX.petals && FX.petals(bp, 20, '#ffd27a', 2); sfx.win(); titleCard('鍛', grade, FG.def.name, `Forged by ${S.name || 'Shep'}`); }, 700);
   const res = FG.o.onDone ? FG.o.onDone(grade, avg) : null;
-  const d = FG.def, rc = RAR[d.r];
+  const d = FG.def, rc = RAR[d.r], myFG = FG;
   setTimeout(() => {
+    if (FG !== myFG) return;
     openOverlay(`<div class="modal win">
       <div class="kicker">${grade}!</div>
       <div class="reveal" style="--rc:${rc.c}44;--glow:${d.glow || rc.c}"><div class="rays"></div>${bladeSVG(d)}</div>

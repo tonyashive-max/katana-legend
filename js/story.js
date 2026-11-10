@@ -64,7 +64,7 @@ function landEmblem(ch, size) {
 }
 
 /* ---------- saved story progress ---------- */
-(function storyInit() {
+function storyInit() {
   if (!S.story || typeof S.story !== 'object') {
     // players from before the story: what they've already done counts as already read
     const st = { pro: false, seen: {}, q: [] }, cur = currentChapter();
@@ -73,7 +73,8 @@ function landEmblem(ch, size) {
   }
   if (!Array.isArray(S.story.q)) S.story.q = [];
   if (S.storyOff == null) S.storyOff = false;
-})();
+}
+storyInit();
 function storyQueue(key) { if (!storyOn() || S.story.seen[key] || S.story.q.includes(key)) return; S.story.q.push(key); save(); }
 function storyArrive(ch) { if (S.tutDone) storyQueue('a' + ch); }
 function storyChapterDone(ch) { storyQueue('c' + ch); }

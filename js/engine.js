@@ -612,6 +612,7 @@ let CURWORLD = null;
 function disposeWorld(w) {
   if (!w || w.keep) return;
   w.scene.traverse(o => {
+    if (o.isLight && o.shadow && o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; } // free the old world's shadow map
     if (o.geometry) o.geometry.dispose();
     if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map && !Object.values(TEX).includes(m.map)) m.map.dispose(); if (!Object.values(_olCache).includes(m)) m.dispose(); }); }
   });

@@ -546,7 +546,7 @@ function objectiveTarget() {
   if (warriorsBeaten(ch) < warriorCount(ch)) return near(X.pois.filter(p => p.kind === 'warrior' && p.ch === ch && !p.done));
   if (!j.key) { const b = (X.beasts || []).find(v => v.ch === ch); return b ? { x: b.pos.x, z: b.pos.z } : null; }
   if (!j.myth) return X.pois.find(p => p.kind === 'gate' && p.ch === ch);
-  if (ch < 3) { const b = R.landBeads(ch + 1)[0]; return { x: b.x, z: b.z }; }
+  if (ch < NL - 1) { const b = R.landBeads(ch + 1)[0]; return { x: b.x, z: b.z }; }
   return X.pois.find(p => p.kind === 'summit') || null;
 }
 
@@ -577,7 +577,7 @@ function startEncounter(o) {
   const gy = ropeWalkHeight(gx, gz);
   ghost.root.position.set(gx, gy + .3, gz); ghost.setHold('guard', 8); ghost.mat.opacity = 0;
   X.poi.add(ghost.root, ghost.trail.mesh);
-  const win = o.tut ? 3.6 : ([1.6, 1.35, 1.15, .95][ch] + stats().drawBonus) * (o.thief ? .85 : 1);
+  const win = o.tut ? 3.6 : ([1.6, 1.35, 1.15, .95][Math.min(ch, 3)] + stats().drawBonus) * (o.thief ? .85 : 1); // lands 5-7 keep land 4's timing
   X.enc = { ghost, ch, phase: 'appear', t: 0, t0: 0, win: geisha ? win * 1.1 : win, o, def, sx: gx, sz: gz, gy, drawnAt: -1, op: 0, iai: false, geisha, col: geisha ? '#ffb0e0' : '#9fe8ff' };
   X.joy = null; X.look = null; $('#actBtn').hidden = true; X.near = null;
   if (o.thief) { o.thief.icon.visible = false; o.thief.beam.visible = false; o.thief.lab.visible = false; }
@@ -737,7 +737,7 @@ const ExploreMode = {
   slash(x0, y0, x1, y1) { ghostSlash(x0, y0, x1, y1); },
   update(dt) {
     const x = X; if (!x) return;
-    if (x.paused) { x.P.update(dt); return; } // a story scroll is open
+    if (x.paused || puzzleOpen()) { x.P.update(dt); return; } // a story scroll or a shrine puzzle is open: beasts and ghosts wait
     x.clock += dt;
     const R = rope();
     let ix = 0, iy = 0;
