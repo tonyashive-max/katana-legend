@@ -555,7 +555,7 @@ function wireInput() {
   const gl = $('#gl');
   const slashMode = () => MODE && (MODE.slashActive ? MODE.slashActive() : (MODE.name !== 'hub' && MODE.name !== 'explore'));
   gl.addEventListener('pointerdown', e => {
-    AUD.init(); MUSIC.start(MODE ? (MODE.name === 'hub' ? 'hub' : MODE.name === 'train' ? 'train' : 'fight') : 'hub');
+    AUD.init(); MUSIC.start(MUSIC.want || 'hub'); // first touch unlocks audio; keep whatever music this scene asked for
     try { gl.setPointerCapture(e.pointerId); } catch (er) { /* */ }
     PTR[e.pointerId] = { sx: e.clientX, sy: e.clientY, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY };
     const ids = Object.keys(PTR);
@@ -646,6 +646,7 @@ function wireInput() {
   $('#leaveBtn').addEventListener('click', () => {
     const b = $('#leaveBtn');
     if (MODE === ExploreMode) { endExplore(); return; }
+    if (MODE === FightMode && F && F.over) { if (!F.resultShown) { F.resultShown = true; showFightResult(); } return; }
     if (b.dataset.armed !== '1') { const fo = MODE === VsMode && vsLeaveNeedsForfeit(); b.dataset.armed = '1'; b.textContent = fo ? 'Tap again: forfeit your blade' : 'Tap again to leave'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Leave'; }, fo ? 3200 : 2200); return; }
     if (MODE === VsMode && vsLeaveNeedsForfeit()) { vsForfeit(); return; }
     if (MODE === FightMode) endFight(F && F.ctx.from === 'explore' ? 'journey' : 'home'); else if (MODE === TrainMode) endTraining(); else if (MODE === VsMode) endVersus(); else if (MODE === ExploreMode) endExplore(); else if (MODE === ForgeMode) { endForge(); setTimeout(() => showTab('forge'), 450); }
@@ -718,7 +719,7 @@ function wireInput() {
     else if (d.sealDone) openSettings();
     else if (b.id === 'resetBtn') {
       if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Tap again: erase everything'; return; }
-      S = freshSave(); save(); closeOverlay(); toast('Progress reset. A new legend begins!'); curTab = 'dojo'; enterHub();
+      S = freshSave(); storyInit(); save(); closeOverlay(); toast('Progress reset. A new legend begins!'); curTab = 'dojo'; enterHub();
     }
     else if (d.close) { closeOverlay(); }
   });

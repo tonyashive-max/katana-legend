@@ -568,7 +568,7 @@ function doParry() {
   updateFightHUD();
 }
 function useSpecial() {
-  if (!F || F.spirit < 100 || F.over || F.state === 'intro' || F.special || F.state === 'vanish') return;
+  if (!F || F.spirit < 100 || F.over || F.broken || F.state === 'intro' || F.special || F.state === 'vanish') return;
   F.spirit = 0; F.special = { t: 0, hits: 0 };
   const glow = swordDef(eqSword().id).glow || '#ffe08c';
   slowmo(.42, 1.4); sfx.special(); OV.flash = .55; OV.flashCol = hexRGB(glow); SHAKE.fov = 10;
@@ -917,7 +917,7 @@ function showFightResult() {
       </div></div>`);
   } else {
     const B = F.broken;
-    if (F.ctx.kind === 'beast') { S.beastNap[F.ctx.ch] = Date.now(); save(); if (fromJourney) EXPLORE_RETURN = landEntry(F.ctx.ch); }
+    if (F.ctx.kind === 'beast') { S.beastNap[F.ctx.ch] = Date.now(); save(); }
     if (B) openOverlay(`<div class="modal">
       <div class="kicker lose">Blade broken!</div>
       <div class="reveal broken" style="--rc:#ff3b3b22;--glow:rgba(255,80,60,.3)">${bladeSVG(swordDef(B.id))}</div>
@@ -950,7 +950,7 @@ function fightResultAction(act, el) {
   }
   if (act === 'retry' && ctx) { F = null; startBattle(fightSpec(ctx), ctx); return; }
   if (act === 'nextland') { F = null; OV.draw = null; hideHUD(); startExplore(+el.dataset.ch); return; }
-  if (act === 'journey') { endFight('journey'); return; }
+  if (act === 'journey') { if (ctx && ctx.kind === 'beast' && ctx.from === 'explore' && F && F.outcome === 'lose') EXPLORE_RETURN = landEntry(ctx.ch); endFight('journey'); return; }
   if (act === 'forge') { endFight(); setTimeout(() => showTab('forge'), 450); return; }
   if (act === 'train') { endFight(); setTimeout(() => showTab('train'), 450); return; }
   endFight();

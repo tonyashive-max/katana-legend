@@ -2,8 +2,10 @@
 /* ===== Shrine puzzles (one per chapter) ===== */
 
 let PZ = null;
+function puzzleOpen() { const o = $('#overlay'); return !o.hidden && !!o.querySelector('.puzzle'); }
 function openPuzzle(ch, onSolve) {
   PZ = { ch, onSolve, kind: PUZZLES[ch] };
+  if (typeof X !== 'undefined' && X) { X.joy = null; X.look = null; } // the road holds still while the puzzle is open (see ExploreMode.update)
   ({ lanterns: pzLanterns, seals: pzSeals, moonpath: pzMoon, scales: pzScales })[PZ.kind]();
 }
 function pzShell(title, intro, body, extra) {
@@ -36,18 +38,19 @@ function pzLanterns() {
     return `<button class="lantern" data-pz="lamp" data-i="${i}" style="--c:${c};left:calc(50% + ${Math.cos(a) * 38}% - 32px);top:calc(50% + ${Math.sin(a) * 38}% - 40px)" aria-label="Lantern ${i + 1}"></button>`;
   }).join('')}<div class="ring-center" id="pzRound">Round 1 / 4</div></div>`;
   pzShell(PUZZLE_NAMES[PZ.ch], 'Watch the lanterns light up, then tap them in the same order.', body, '<button class="btn primary" data-pz="start">Play the song</button>');
-  const st = { seq: [], round: 0, input: 0, busy: false, lens: PZ.ch >= 4 ? [4, 5, 6, 7] : [3, 4, 5, 6] };
+  const st = { seq: [], round: 0, input: 0, busy: false, lens: PZ.ch >= 4 ? [4, 5, 6, 7] : [3, 4, 5, 6] }, me = PZ;
   const flash = (i, t) => {
     const b = document.querySelector(`.lantern[data-i="${i}"]`); if (!b) return;
     b.classList.add('lit'); AUD.tone(notes[i], .5, .14, 'triangle'); setTimeout(() => b.classList.remove('lit'), t || 380);
   };
   const play = () => {
+    if (PZ !== me) return;
     st.busy = true; st.input = 0;
     while (st.seq.length < st.lens[st.round]) st.seq.push((Math.random() * 6) | 0);
     $('#pzRound').textContent = `Round ${st.round + 1} / 4`;
     pzMsg('Watch closely…');
-    st.seq.forEach((i, k) => setTimeout(() => flash(i), 600 + k * 620));
-    setTimeout(() => { st.busy = false; pzMsg('Your turn! Tap the lanterns in order.'); }, 600 + st.seq.length * 620);
+    st.seq.forEach((i, k) => setTimeout(() => { if (PZ === me) flash(i); }, 600 + k * 620));
+    setTimeout(() => { if (PZ !== me) return; st.busy = false; pzMsg('Your turn! Tap the lanterns in order.'); }, 600 + st.seq.length * 620);
   };
   PZ.handle = (act, el) => {
     if (act === 'start') { if (!st.busy) play(); return; }
