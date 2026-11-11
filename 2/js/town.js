@@ -5,7 +5,7 @@
 let TOWN = null;
 const TOWN_R = 92, GATE_Z = 60;
 function townRoadX(z) { return Math.sin(z * .045) * 7 + Math.sin(z * .017 + 1) * 4; }
-const ROAD_OPEN = 3; // how many towns are finished and open to play; the rest are being built one at a time
+const ROAD_OPEN = 4; // how many towns are finished and open to play; the rest are being built one at a time
 let TCFG = null;
 function townCfg() { return TOWNS[S.cur] || TOWNS[0]; }
 function townH(x, z) {
@@ -173,7 +173,7 @@ function townJobs() {
     { t: `${c.a.n}: deal with ${c.a.foe.n}, ${c.a.foe.title}`, done: T.jobs.a === 2 },
     { t: `${c.b.n}: find the three ${c.b.thing} (${T.ema.length}/3)`, done: T.jobs.b === 2 },
     { t: `Duel ${c.keeper.n} ${c.keeper.where || 'at the gate'}${c.keeper.dawn ? ', at sunrise' : ''}`, done: !!T.pass },
-    { t: `Optional: face ${c.myth.n}, ${c.myth.title}`, done: !!T.myth },
+    { t: c.myth.after && !T.pass ? 'Optional: something is not what it seems…' : `Optional: face ${c.myth.n}, ${c.myth.title}`, done: !!T.myth },
     { t: `Optional: complete the ${SETS[c.set].n} armor set (${own}/7)`, done: own === 7 },
     { t: c.last ? 'Carry the letter through the palace gate' : `Pass the ${gatePlace()}, on toward ${TOWNS[c.i + 1].n}`, done: !!T.done },
   ].filter(Boolean);
@@ -182,7 +182,7 @@ function townObjective() {
   const T = S.town, c = townCfg();
   if (T.track && !ownPiece(T.track)) return `Looking for the ${PIECES[T.track].n}: ${pieceHint(T.track).t}.`;
   if (!T.guard) return `Follow the road north to the ${gatePlace()}.`;
-  if (T.pass) return T.done ? `${c.n} is complete. Roam freely, finish the ${SETS[c.set].n} set, or travel on from the Map.` : `The ${gatePlace()} is open. Walk ${c.gate ? 'across' : 'through'} it.`;
+  if (T.pass) return T.done ? `${c.n} is complete. Roam freely, finish the ${SETS[c.set].n} set, or travel on from the Map.` : `The ${gatePlace()} is open. Walk ${c.gate ? c.gate.verb || 'across' : 'through'} it.`;
   if (!keeperReady()) return c.keeper.need ? `${c.keeper.n} only duels samurai dressed for the road. Find 3 pieces of armor: the armorer sells some, and the townsfolk need help.` : c.keeper.also && S.town.jobs.a === 2 ? c.keeper.alsoMsg : `${c.keeper.n} will only face someone this town trusts. Help ${c.a.n} first.`;
   if (c.keeper.dawn && !isDawn()) return `${c.keeper.n} duels only at sunrise. Speak with her ${c.keeper.where} to wait for dawn.`;
   return `Challenge ${c.keeper.n} ${c.keeper.where || 'at the gate'}.`;
@@ -244,12 +244,14 @@ function townPeople() {
   else if (al('a')) npc('friend:a', 'friendA', [townRoadX(6) - 8.5 * fl, 9.5], c.a.foe.look, 'bokken', c.a.foe.n, 'Friend · ' + c.a.foe.job.toLowerCase(), { ry: Math.PI / 2 * fl, unarmed: true, col: GRN });
   const thing = (id, kind, x, z, col, geo, r) => { const y = townH(x, z), m = new THREE.Mesh(geo, toon({ color: col, emissive: new COL(col), emissiveIntensity: .25 })); m.position.set(x, y + .5, z); m.castShadow = true; const h = halo(col, 2.4, .55); h.position.y = .2; m.add(h); T.grp.add(m); const p = { id, kind, x, z, r: r || (kind === 'ema' ? 1.6 : 2.6), m }; T.pois.push(p); return p; };
   const mcol = SETS[c.set].aura || '#ffb03a', [MX, MZ] = at('myth', [62 * fl, 50]);
-  if (!J.myth) { if (c.myth.dragon) { const p = thing('myth', 'mark', MX, MZ, mcol, GEO.oct(.7), 4); p.map = c.myth.n; p.col = mcol; const lab = labelSprite(c.myth.n, mcol, c.myth.title); lab.position.set(MX, townH(MX, MZ) + 3.4, MZ); T.grp.add(lab); }
+  if (c.myth.after && !J.pass) { /* this one shows itself later */ }
+  else if (!J.myth) { if (c.myth.dragon) { const p = thing('myth', 'mark', MX, MZ, mcol, GEO.oct(.7), 4); p.map = c.myth.n; p.col = mcol; const lab = labelSprite(c.myth.n, mcol, c.myth.title); lab.position.set(MX, townH(MX, MZ) + 3.4, MZ); T.grp.add(lab); }
     else npc('myth', 'myth', [MX, MZ], c.myth.look, c.myth.weapon === 'club' ? 'ogre' : c.myth.sword, c.myth.n, c.myth.title, { ry: -2.2 * fl, scale: c.myth.scale, boss: true, map: c.myth.n, mapCol: mcol, col: mcol }); }
   else if (al('myth') && !c.myth.dragon) npc('friend:myth', 'myth', [MX, MZ], c.myth.look, c.myth.weapon === 'club' ? 'ogre' : c.myth.sword, c.myth.n, 'Friend', { ry: -2.2 * fl, scale: c.myth.scale, col: GRN });
   L.ema.forEach(([x, z], k) => { if (!J.ema.includes(k)) thing('ema' + k, 'ema', x * fl, z, L.emaCol || '#ffd98a', L.emaGeo ? L.emaGeo() : GEO.box(.5, .38, .06)); });
   [['c0', 'haidate'], ['c1', 'suneate']].forEach(([id, slot], k) => { if (!J.chests.includes(id)) { const p = thing(id, 'chest', L.chest[k][0] * fl, L.chest[k][1], '#b8843a', GEO.box(.9, .6, .6)); p.piece = c.set + '-' + slot; } });
   { const s = labelSprite('Tokaido Road', '#fff6d8', `North: ${c.n} ${G.place || 'gate'}` + (c.last ? '' : ' · ' + TOWNS[c.i + 1].n)); s.position.set(townRoadX(-66) + 3.4, townH(townRoadX(-66) + 3.4, -66) + 3, -66); T.grp.add(s); }
+  if (c.people) c.people(T, npc);
   for (let i = 0; i < 5; i++) {
     const rig = new Samurai(TOWN_LOOKS.walker[i % 3], swordDef('bokken'), { noSaya: true }); rig.sword.visible = false; rig.root.rotation.order = 'YXZ'; rig.setHold('rest', 6); T.grp.add(rig.root);
     T.walkers.push({ rig, z: -80 + i * 31, dir: i % 2 ? 1 : -1, side: i % 2 ? 1.3 : -1.3, spd: 1.1 + (i % 3) * .25, ph: i * 2 });
@@ -270,6 +272,7 @@ function townAct() {
   const T = TOWN; if (!T || !T.near || T.paused) return;
   const p = T.near, J = S.town, c = townCfg();
   S.town.at = { x: T.pos.x, z: T.pos.z, yaw: T.face }; save();
+  if (p.act) return p.act(p);
   if (p.kind === 'chest') { J.chests.push(p.id); save(); T.grp.remove(p.m); T.pois = T.pois.filter(q => q !== p); FX.sparks(p.m.position, '#ffe08c', 40, 5); townGive([p.piece]); return; }
   if (p.id.startsWith('friend:')) {
     const r = p.id.slice(7), left = SLOTS.map(s => c.set + '-' + s.id).filter(id => !ownPiece(id)), tip = left.length ? `<br><br>Still hunting the ${SETS[c.set].n} armor? ${pieceHint(left[0]).t}.` : '';
@@ -305,6 +308,7 @@ function townClick(d) {
   if (d.town == null && d.title2 == null) return false;
   if (d.title2 != null) return title2Click(d.title2);
   const a = d.town, J = S.town, c = townCfg();
+  if (c.click && c.click(a)) return true;
   if (a === 'truth' || a === 'lie') {
     J.guard = true; J.note = true; save();
     const next = keeperReady() ? `${c.keeper.n} waits ${c.keeper.where || 'by the gate'}.` : c.keeper.need ? `You need ${c.keeper.n}'s stamp, and he only duels samurai dressed for the road: three pieces of armor at least.` : c.keeper.first || `${c.keeper.n} decides who passes, and will only face someone this town trusts. Help ${c.a.n} first.`;
@@ -317,7 +321,7 @@ function townClick(d) {
   if (a === 'spare' || a === 'finish') { townAfterFight(a); return true; }
   if (a === 'retry') { const ctx = F.ctx; closeOverlay(); F = null; startBattle(townFoe(ctx.idx), ctx); return true; }
   if (a === 'back') { closeOverlay(); endFight(); return true; }
-  if (a === 'dawn') { townCloseTalk(); if (TOWN) { TOWN.lapse = ((1 - TOWN.day) % 1) + .012; TOWN.joy = null; hint('The night passes…'); } return true; }
+  if (a === 'dawn') { townCloseTalk(); if (TOWN) { TOWN.lapse = ((1 - TOWN.day) % 1) + .012; TOWN.joy = null; hint('The night passes…'); TOWN.lapseThen = () => { const k = TOWN.pois.find(p => p.id === 'keeper'); if (k) { TOWN.near = k; townAct(); } }; } return true; }
   if (a === 'next') { closeOverlay(); townTravel(c.i + 1); return true; }
   townCloseTalk(); return true;
 }
@@ -363,7 +367,7 @@ const TownMode = {
     if (T.W.tick) T.W.tick(dt, T);
     if (T.lapse) { // the night passes in a few seconds while the samurai waits
       const st = Math.min(T.lapse, dt * .28); T.day = (T.day + st) % 1; T.lapse -= st; T.joy = null; T.speed = 0; T.camYaw += dt * .12;
-      if (T.lapse <= 1e-4) { T.lapse = 0; hint(''); sfx.taiko(1); S.town.day = T.day; save(); const k = T.pois.find(p => p.id === 'keeper'); if (k) { T.near = k; townAct(); } }
+      if (T.lapse <= 1e-4) { T.lapse = 0; hint(''); sfx.taiko(1); S.town.day = T.day; save(); const f = T.lapseThen; T.lapseThen = null; if (f) f(); }
     }
     T.clock += dt; T.day = (T.day + dt / 300) % 1;
     let ix = 0, iy = 0;
@@ -381,7 +385,7 @@ const TownMode = {
     // the palisade, the lake, the peaks and the edge of the map
     const h = townH(T.pos.x, T.pos.z), gx = townRoadX(GATE_Z), wall = T.lastGood.z < GATE_Z - .5 && T.pos.z > GATE_Z - .9 && !(S.town.pass && Math.abs(T.pos.x - gx) < 2.6);
     const wallBack = T.lastGood.z > GATE_Z + .5 && T.pos.z < GATE_Z + .9 && !(Math.abs(T.pos.x - gx) < 2.6);
-    if (h < (T.W.minH == null ? -.35 : T.W.minH) || h > 15.5 || Math.abs(T.pos.x) > TOWN_R || Math.abs(T.pos.z) > TOWN_R - 2 || wall || wallBack) T.pos.copy(T.lastGood); else T.lastGood.copy(T.pos);
+    if ((T.W.canWalk ? !T.W.canWalk(T.pos.x, T.pos.z, h, T) : h < (T.W.minH == null ? -.35 : T.W.minH)) || h > 15.5 || Math.abs(T.pos.x) > TOWN_R || Math.abs(T.pos.z) > TOWN_R - 2 || wall || wallBack) T.pos.copy(T.lastGood); else T.lastGood.copy(T.pos);
     T.pos.y = townH(T.pos.x, T.pos.z);
     if (S.town.pass && !S.town.done && T.pos.z > (townCfg().doneZ || GATE_Z + 5)) { S.town.done = true; S.far = Math.min(ROAD_OPEN - 1, Math.max(S.far || 0, S.cur + 1)); save(); virtue('chugi', 1, 'the letter moves on'); townDone(); }
     // walk animation
@@ -409,7 +413,7 @@ const TownMode = {
       if (p.kind === 'ema' && d < p.r) { S.town.ema.push(+p.id.slice(3)); save(); T.grp.remove(p.m); T.pois = T.pois.filter(q => q !== p); FX.sparks(p.m.position, '#ffd98a', 30, 4); sfx.coin(); banner('Found!', `${townCfg().b.thing}: ${S.town.ema.length} of 3`); continue; }
       if (p.kind !== 'ema' && d < p.r && d < nd) { near = p; nd = d; }
     }
-    if (near !== T.near) { T.near = near; const b = $('#actBtn'); if (near) { b.hidden = false; b.classList.remove('locked'); b.textContent = near.kind === 'chest' ? 'Open the chest' : near.kind === 'mark' ? 'Face ' + townCfg().myth.n : 'Talk to ' + ((c => ({ guard: 'the ' + gateGuard().toLowerCase().replace('gate ', ''), keeper: c.keeper.n, a: c.a.n, smith: 'the armorer', b: c.b.n, foe: c.a.foe.n, myth: c.myth.n, 'friend:a': c.a.foe.n, 'friend:myth': c.myth.n, 'friend:keeper': c.keeper.n }[near.id] || ''))(townCfg())); } else b.hidden = true; }
+    if (near !== T.near) { T.near = near; const b = $('#actBtn'); if (near) { b.hidden = false; b.classList.remove('locked'); b.textContent = near.label ? near.label : near.kind === 'chest' ? 'Open the chest' : near.kind === 'mark' ? 'Face ' + townCfg().myth.n : 'Talk to ' + ((c => ({ guard: 'the ' + gateGuard().toLowerCase().replace('gate ', ''), keeper: c.keeper.n, a: c.a.n, smith: 'the armorer', b: c.b.n, foe: c.a.foe.n, myth: c.myth.n, 'friend:a': c.a.foe.n, 'friend:myth': c.myth.n, 'friend:keeper': c.keeper.n }[near.id] || ''))(townCfg())); } else b.hidden = true; }
     T.saveT += dt; if (T.saveT > 3) { T.saveT = 0; S.town.at = { x: T.pos.x, z: T.pos.z, yaw: T.face }; S.town.day = T.day; save(); }
     townSkyAndLight(dt); if (T.W.post) T.W.post(dt, T);
     $('#tInfo').innerHTML = `<b>${townCfg().n} · ${townClock()}</b>${esc(townObjective())}`;
@@ -476,7 +480,7 @@ function showTitle2() {
   const t = $('#title');
   t.innerHTML = `<div class="ttl-inner"><div class="ttl-mark">道</div><h1>Katana Legend II</h1><div class="ttl-sub">The Tokaido Road · Hakone to Kyoto</div>
     ${S.started ? `<button class="btn primary ttl-go" data-title2="go">Continue as ${nm()}</button>` : `<button class="btn primary ttl-go" data-title2="${firstGameSave() ? 'bring' : 'import'}">${firstGameSave() ? 'Continue the legend of ' + esc(String(firstGameSave().name || 'Shep').slice(0, 14)) : 'Bring my legend from the first game'}</button><button class="btn ttl-go" data-title2="new" style="margin-top:10px">Start as a new ronin</button>`}
-    <div class="ttl-who" style="margin-top:14px"><span><small>Early build: Hakone, Hara and Shimada are open, the road beyond is being built. A legend imagined by Shep.</small></span></div></div>`;
+    <div class="ttl-who" style="margin-top:14px"><span><small>${ROAD_OPEN >= TOWNS.length ? 'The whole road is open, from Hakone to Kyoto.' : 'Early build: the road is open as far as ' + TOWNS[ROAD_OPEN - 1].n + '. The rest is being built.'} A legend imagined by Shep.</small></span></div></div>`;
   t.hidden = false; t.classList.remove('out');
 }
 function title2Click(a) {
