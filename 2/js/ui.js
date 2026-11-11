@@ -371,6 +371,7 @@ let LOCAL_P1 = null;
 
 /* ---------- hub showcase ---------- */
 function enterHub(first) {
+  if (typeof startTown === 'function' && S.started) { $('#ui').hidden = true; startTown(true); return; } // the sequel has no hub: every road leads back to town
   const build = () => {
     clearSceneActors();
     const ch = currentChapter();

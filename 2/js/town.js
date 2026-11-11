@@ -145,6 +145,7 @@ const TOWN_LOOKS = {
   captain: { cloth: '#1a2a4a', armor: '#2f4a7a', trim: '#f0d27a', helm: 'kabuto', helmCol: '#1a2a4a', crest: 'moon', crestCol: '#f0d27a', eye: '#ffe6a0', banner: '#2f4a7a' },
   bandit: { cloth: '#3a2a22', armor: '#5a4030', trim: '#8a3324', helm: 'hood', helmCol: '#2a1c16', crest: null, eye: '#ffcf8a', scarf: '#8a3324' },
   tea: { geisha: true, cloth: '#7a9a6a', armor: '#7a9a6a', trim: '#f2dc8a', hem: '#3a4a2a', mask: '#ffe6da', eye: '#3a2020', lips: '#d0405a', pins: '#ffd27a', bloom: '#ffb0c8', inner: '#ffffff' },
+  sensei: { cloth: '#f2f2ee', armor: '#2a2a32', trim: '#c9a35a', helm: 'band', helmCol: '#c4302a', crest: null, eye: '#ffe6a0' },
   smith: { cloth: '#3a2a22', armor: '#6a4a32', trim: '#f4efe4', helm: 'band', helmCol: '#f4efe4', crest: null, eye: '#ffd890' },
   priest: { cloth: '#f2f2ee', armor: '#f2f2ee', trim: '#b8322a', helm: 'band', helmCol: '#1c1c22', crest: null, eye: '#ffe6a0' },
   walker: [{ cloth: '#5a4a6a', armor: '#6a5a7a', trim: '#d6b878', helm: 'kasa', helmCol: '#c9a35a', crest: null, eye: '#ffe6a0' }, { cloth: '#3f5a4a', armor: '#4f6a5a', trim: '#e8dcc0', helm: 'kasa', helmCol: '#b8944a', crest: null, eye: '#ffe6a0' }, { cloth: '#6a3a2a', armor: '#7a4a3a', trim: '#e8dcc0', helm: 'band', helmCol: '#e8dcc0', crest: null, eye: '#ffe6a0' }],
@@ -241,6 +242,7 @@ function townPeople() {
   npc('a', 'a', [townRoadX(6) - 10.5 * fl, 6], c.a.look, 'iron', c.a.n, c.a.sub, { ry: Math.PI / 2 * fl, unarmed: true, map: c.a.sub });
   npc('smith', 'smith', [townRoadX(13) + 13 * fl, 13.5], TOWN_LOOKS.smith, 'bokken', 'The Armorer', 'Armor for sale', { ry: -Math.PI / 2 * fl, unarmed: true, map: 'Armorer' });
   npc('b', 'b', [40.5 * fl, 19], c.b.look || (c.b.n === 'Princess Hana' ? PRINCESS_LOOK : TOWN_LOOKS.priest), 'bokken', c.b.n, c.b.sub, { ry: -Math.PI / 2 * fl, unarmed: true, map: c.b.sub });
+  { const sp = at('smith', [townRoadX(13) + 13 * fl, 13.5]), sd = Math.sign(sp[0] - townRoadX(sp[1])) || 1; const q = townNPC('sensei', sp[0] - sd * .4, sp[1] + 3.8, TOWN_LOOKS.sensei, 'bokken', 'Sensei', 'Road dojo: training', { ry: sp[2] != null ? sp[2] : -Math.PI / 2 * fl, map: 'Dojo' }); q.act = townDojo; q.label = 'Train with the sensei'; }
   if (J.jobs.a !== 2) npc('foe', 'foe', [-36 * fl, -30], c.a.foe.look, c.a.foe.sword, c.a.foe.n, c.a.foe.title, { ry: fl, map: c.a.foe.n, mapCol: '#ff9a7a', col: '#ffb38a' });
   else if (al('a')) npc('friend:a', 'friendA', [townRoadX(6) - 8.5 * fl, 9.5], c.a.foe.look, 'bokken', c.a.foe.n, 'Friend · ' + c.a.foe.job.toLowerCase(), { ry: Math.PI / 2 * fl, unarmed: true, col: GRN });
   const thing = (id, kind, x, z, col, geo, r) => { const y = townH(x, z), m = new THREE.Mesh(geo, toon({ color: col, emissive: new COL(col), emissiveIntensity: .25 })); m.position.set(x, y + .5, z); m.castShadow = true; const h = halo(col, 2.4, .55); h.position.y = .2; m.add(h); T.grp.add(m); const p = { id, kind, x, z, r: r || (kind === 'ema' ? 1.6 : 2.6), m }; T.pois.push(p); return p; };
@@ -302,7 +304,7 @@ function townAct() {
   }
   if (p.id === 'smith') {
     const stock = ['do', 'kabuto', 'kote', 'sode', 'haidate', 'suneate', 'menpo'].map(x => 'ashigaru-' + x).filter(id => !ownPiece(id));
-    return townSay('The Armorer', `Foot-soldier armor, plain and honest. 60 gold a piece. You have <b>${fmt(S.gold)}</b> gold.` + (stock.length ? '' : '<br>You have bought everything I make.'), stock.slice(0, 4).map(id => ['buy:' + id, `${PIECES[id].n.replace('Foot Soldier ', '')} · 60`, S.gold >= 60 ? 'primary' : '']).concat([['', 'Done']]));
+    return townSay('The Armorer', `Foot-soldier armor, plain and honest. 60 gold a piece. You have <b>${fmt(S.gold)}</b> gold.` + (stock.length ? '' : '<br>You have bought everything I make.') + '<br><span class="muted">I keep a forge out back, too, if your blade needs work.</span>', stock.slice(0, 3).map(id => ['buy:' + id, `${PIECES[id].n.replace('Foot Soldier ', '')} · 60`, S.gold >= 60 ? 'primary' : '']).concat([['smithy', '🔨 Forge my blade'], ['', 'Done']]));
   }
 }
 function townClick(d) {
@@ -322,11 +324,29 @@ function townClick(d) {
   if (a === 'spare' || a === 'finish') { townAfterFight(a); return true; }
   if (a === 'retry') { const ctx = F.ctx; closeOverlay(); F = null; startBattle(townFoe(ctx.idx), ctx); return true; }
   if (a === 'back') { closeOverlay(); endFight(); return true; }
+  if (a === 'smithy') { townSmithy(); return true; }
+  if (a === 'forge') { const w = eqSword(), cst = forgeCost(w); if ((w.lvl || 0) >= 10 || !canPay(cst) || !isArmed()) return true; closeOverlay(); if (TOWN) TOWN.paused = false; $('#leaveBtn').textContent = 'Leave'; doUpgrade(); return true; }
+  if (a.startsWith('train:')) { closeOverlay(); if (TOWN) TOWN.paused = false; $('#leaveBtn').textContent = 'Leave'; startTraining(a.slice(6)); return true; }
   if (a === 'dawn') { townCloseTalk(); if (TOWN) { TOWN.lapse = ((1 - TOWN.day) % 1) + .012; TOWN.joy = null; hint('The night passes…'); TOWN.lapseThen = () => { const k = TOWN.pois.find(p => p.id === 'keeper'); if (k) { TOWN.near = k; townAct(); } }; } return true; }
   if (a === 'next') { closeOverlay(); townTravel(c.i + 1); return true; }
   townCloseTalk(); return true;
 }
 /* a town fight ends with a choice */
+function townSmithy() {
+  const w = eqSword(), d = swordDef(w.id), cst = forgeCost(w), max = (w.lvl || 0) >= 10, next = Math.round(swordDmg(Object.assign({}, w, { lvl: (w.lvl || 0) + 1 })));
+  if (TOWN) { TOWN.paused = true; TOWN.joy = null; }
+  openOverlay(`<div class="modal" style="text-align:left"><div class="eyebrow">The armorer's forge</div><div class="row between" style="margin-top:6px"><h2 style="color:${RAR[d.r].c}">${d.name}${w.lvl ? ' +' + w.lvl : ''}</h2><span class="muted">Forge level ${w.lvl || 0}/10</span></div>
+    <div class="stats" style="margin:12px 0;grid-template-columns:repeat(2,minmax(0,1fr))"><div class="stat"><b>${Math.round(swordDmg(w))}</b><span>Damage now</span></div><div class="stat"><b>${max ? 'MAX' : next}</b><span>After forging</span></div></div>
+    <p class="muted" style="font-size:13px">Forging is hands-on: pump the bellows, hammer the steel and quench it. A Masterwork adds bonus damage. You earn steel by winning duels.</p>
+    <p>You have <b>${fmt(S.gold)}</b> gold and <b>${fmt(S.steel)}</b> steel.</p>
+    <div class="actions"><button class="btn" data-town="">Not now</button>${max ? '<span class="tag new">Fully forged</span>' : `<button class="btn primary" data-town="forge" ${canPay(cst) ? '' : 'disabled'}>🔨 Forge +${(w.lvl || 0) + 1} · ${cst.gold} gold, ${cst.steel} steel</button>`}</div></div>`);
+}
+function townDojo() {
+  if (TOWN) { TOWN.paused = true; TOWN.joy = null; }
+  openOverlay(`<div class="modal" style="text-align:left"><div class="eyebrow">Sensei · road dojo</div><h2>What will you practise?</h2><p class="muted" style="margin:6px 0 10px">Each drill grows one skill, and skills make you stronger in every duel on the road.</p>
+    <div class="grid2">${Object.entries(TRAININGS).map(([k, t]) => { const s = S.sk[t.skill], need = skillNeed(s.l); return `<div class="card" style="gap:6px"><div class="row between"><b>${t.g} ${t.name}</b><small class="muted">${SKILLS[t.skill].n} Lv ${s.l}</small></div><div class="bar"><i style="width:${s.l >= 30 ? 100 : Math.round(s.x / need * 100)}%"></i></div><button class="btn small jade" data-town="train:${k}">Start drill</button></div>`; }).join('')}</div>
+    <div class="actions"><button class="btn" data-town="">Back to the road</button></div></div>`);
+}
 function townFightResult() {
   hint('');
   const st = F.st;
@@ -343,7 +363,8 @@ function townAfterFight(choice) {
   if (choice === 'spare') { virtue('jin', 1, `you spared ${st.name}`); if (!allies().includes(key)) allies().push(key); } else gold += Math.round(st.gold * .5);
   let blade = null; if (!ownsSword(st.sword)) { const w = addSword(st.sword); blade = swordDef(st.sword); if (swordDmg(w) > swordDmg(eqSword())) S.eq = w.u; }
   if (bowed && clean) virtue('meiyo', 1, 'a clean, honorable win');
-  S.gold += gold; S.wins++;
+  const steel = ({ a: 3, keeper: 5, myth: 8 }[id] || 3) + c.i; S.steel = (S.steel || 0) + steel;
+  S.gold += gold; S.wins++; coopEvent('win', { foe: st.name });
   const gifts = [];
   if (id === 'a') { J.jobs.a = 2; gifts.push(c.set + '-kote'); virtue('gi', 1, `you helped ${c.a.n}`); }
   if (id === 'keeper') { J.pass = true; gifts.push(c.set + '-do'); }
@@ -352,7 +373,7 @@ function townAfterFight(choice) {
   const got = gifts.filter(g => givePiece(g, true));
   const line = id === 'keeper' ? c.keeper.win : id === 'a' ? (choice === 'spare' ? `${st.name} swears to do better. You will find them near ${c.a.n}: ${c.a.foe.job.toLowerCase()}.` : `${st.name} runs, empty-handed.`) : (choice === 'spare' ? `${st.name} bows its head. It will remember your mercy.` : `${st.name} fades back into the wild.`);
   openOverlay(`<div class="modal win"><div class="kicker">${choice === 'spare' ? 'Mercy' : 'Victory'}</div><p>${line}</p>
-    <div class="rewards"><span class="chip gold"><i></i>+${gold}</span>${blade ? `<span class="chip" style="color:${RAR[blade.r].c}">刀 ${blade.name}</span>` : ''}${got.map(g => `<span class="chip" style="color:${RAR[SETS[PIECES[g].set].r].c}">${PIECES[g].n}</span>`).join('')}</div>
+    <div class="rewards"><span class="chip gold"><i></i>+${gold}</span><span class="chip steel"><i></i>+${steel} steel</span>${blade ? `<span class="chip" style="color:${RAR[blade.r].c}">刀 ${blade.name}</span>` : ''}${got.map(g => `<span class="chip" style="color:${RAR[SETS[PIECES[g].set].r].c}">${PIECES[g].n}</span>`).join('')}</div>
     ${blade ? `<p class="muted">You won their blade, the <b>${blade.name}</b>. Your blades are in the Pack: tap the 刀 card.</p>` : ''}${got.length ? '<p class="muted">New armor went straight on. Open your Pack to see it.</p>' : ''}${choice === 'spare' ? `<p style="color:var(--jade)">${st.name} is now a friend. You will start every duel with ${Math.min(100, allies().length * 25)}% Spirit.</p>` : ''}${fullSet() ? `<p><span class="tag new">Full set</span> ${SETS[fullSet()].bonus}</p>` : ''}
     <div class="actions"><button class="btn primary" data-town="back">Back to town</button></div></div>`);
 }
@@ -363,6 +384,7 @@ const TownMode = {
   update(dt) {
     const T = TOWN; if (!T) return;
     TOWN_WIND.value += dt;
+    coopTick(dt, T);
     if (T.paused) { T.P.update(dt); return; }
     if (T.W.doors) T.W.doors.visible = !S.town.pass;
     if (T.W.tick) T.W.tick(dt, T);
@@ -417,7 +439,7 @@ const TownMode = {
     if (near !== T.near) { T.near = near; const b = $('#actBtn'); if (near) { b.hidden = false; b.classList.remove('locked'); b.textContent = near.label ? near.label : near.kind === 'chest' ? 'Open the chest' : near.kind === 'mark' ? 'Face ' + townCfg().myth.n : 'Talk to ' + ((c => ({ guard: 'the ' + gateGuard().toLowerCase().replace('gate ', ''), keeper: c.keeper.n, a: c.a.n, smith: 'the armorer', b: c.b.n, foe: c.a.foe.n, myth: c.myth.n, 'friend:a': c.a.foe.n, 'friend:myth': c.myth.n, 'friend:keeper': c.keeper.n }[near.id] || ''))(townCfg())); } else b.hidden = true; }
     T.saveT += dt; if (T.saveT > 3) { T.saveT = 0; S.town.at = { x: T.pos.x, z: T.pos.z, yaw: T.face }; S.town.day = T.day; save(); }
     townSkyAndLight(dt); if (T.W.post) T.W.post(dt, T);
-    $('#tInfo').innerHTML = `<b>${townCfg().n} · ${townClock()}</b>${esc(townObjective())}`;
+    $('#tInfo').innerHTML = `<b>${townCfg().n} · ${townClock()}</b>${esc(townObjective())}${coopLine()}`;
     // camera
     const tgt = T.pos.clone().add(new V3(0, 1.5, 0)), dist = VH > VW ? 6.2 : 5.2;
     let pos = tgt.clone().addScaledVector(fwd, -dist * Math.cos(T.camPitch)).add(new V3(0, dist * Math.sin(T.camPitch) + .4, 0));

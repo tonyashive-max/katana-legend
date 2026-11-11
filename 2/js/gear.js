@@ -162,8 +162,8 @@ let PACK_TAB = 'sam', PACK_SLOT = null;
 function openPack(tab) {
   if (tab) PACK_TAB = tab;
   if (TOWN) { TOWN.paused = true; TOWN.joy = null; TOWN.look = null; }
-  const tabs = [['map', 'Map', '図'], ['sam', 'Samurai', '侍'], ['jour', 'Journal', '記']];
-  const body = PACK_TAB === 'map' ? packMap() : PACK_TAB === 'jour' ? packJournal() : packSamurai();
+  const tabs = [['map', 'Map', '図'], ['sam', 'Samurai', '侍'], ['jour', 'Journal', '記'], ['co', 'Together', '友']];
+  const body = PACK_TAB === 'map' ? packMap() : PACK_TAB === 'jour' ? packJournal() : PACK_TAB === 'co' ? packCoop() : packSamurai();
   openOverlay(`<div class="modal pack" style="text-align:left">
     <div class="pack-tabs">${tabs.map(([k, n, g]) => `<button class="pack-tab ${PACK_TAB === k ? 'on' : ''}" data-pack="${k}"><b>${g}</b>${n}</button>`).join('')}<button class="btn small" data-pack="close" style="margin-left:auto">Back to the road</button></div>
     ${body}</div>`);
@@ -222,6 +222,7 @@ function packMap() {
       <line x1="${sx(-30)}" y1="${sy(60)}" x2="${sx(30)}" y2="${sy(60)}" stroke="#5a3a26" stroke-width="3"/>`}
       ${dots}
       ${tg ? `<circle cx="${sx(tg.x)}" cy="${sy(tg.z)}" r="9" fill="none" stroke="#ff7a5a" stroke-width="2"/>` : ''}
+      ${TOWN ? coopHere().map(p => `<circle cx="${sx(p.x)}" cy="${sy(p.z)}" r="5" fill="#9ff0c8" stroke="#0b0d18"/><text x="${sx(p.x) + 8}" y="${sy(p.z) + 4}" font-size="10" fill="#9ff0c8">${esc(p.n)}</text>`).join('') : ''}
       ${TOWN ? `<path d="M0 -8 L6 7 L0 3 L-6 7 Z" fill="#fff" transform="translate(${sx(TOWN.pos.x)} ${sy(TOWN.pos.z)}) rotate(${-TOWN.face * 180 / Math.PI + 180})"/>` : ''}
     </svg>
     <p class="muted" style="font-size:13px;margin-top:8px">White arrow: you. Red ring: where to go next.</p>
@@ -229,6 +230,7 @@ function packMap() {
     <div class="stack" style="gap:6px">${TOWNS.map((t, i) => { const open = i <= (S.far || 0), J = S.towns[t.id] || {}, own = S.armor.owned.filter(id => PIECES[id].set === t.set).length; return `<div class="row between" style="gap:8px;opacity:${open ? 1 : .5}"><span><b>${t.jp} ${t.n}</b> <small class="muted">· ${SETS[t.set].n} set ${own}/7${J.done ? ' · ✓ passed' : ''}</small></span>${i === S.cur ? '<span class="tag new">You are here</span>' : open ? `<button class="btn small" data-travel="${i}">Travel</button>` : `<small class="muted">${i >= ROAD_OPEN ? 'Being built' : 'Not reached yet'}</small>`}</div>`; }).join('')}</div>`;
 }
 function packClick(d) {
+  if (d.coop) return coopClick(d.coop);
   if (d.pack) { if (d.pack === 'close') closePack(); else { PACK_SLOT = null; openPack(d.pack); } return true; }
   if (d.packSlot != null) { PACK_SLOT = d.packSlot || null; openPack('sam'); return true; }
   if (d.wearPiece) { if (d.wearPiece === 'none') delete S.armor.eq[PACK_SLOT]; else { const p = PIECES[d.wearPiece]; if (p && ownPiece(p.id)) S.armor.eq[p.slot] = p.id; } save(); sfx.up(); PACK_SLOT = null; openPack('sam'); return true; }
