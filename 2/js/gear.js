@@ -141,6 +141,7 @@ function importLegendSave(o) {
 }
 
 /* ---------- where every piece comes from ---------- */
+function mythHint(tw, J) { return tw.myth.after && !J.pass ? `Something in ${tw.n} is not what it seems. Win your duel with ${tw.keeper.n} first` : `Beat ${tw.myth.n}, ${tw.myth.title}`; }
 function pieceHint(id) {
   const p = PIECES[id], poi = k => TOWN && TOWN.pois.find(q => q.id === k);
   if (p.set === 'ashigaru') return { t: 'The armorer in any town sells it for 60 gold', at: () => poi('smith') };
@@ -150,7 +151,7 @@ function pieceHint(id) {
     kote: { t: !J.jobs.a ? `${tw.a.n} needs help` : `Beat ${tw.a.foe.n}, ${tw.a.foe.title}`, at: () => !J.jobs.a ? poi('a') : poi('foe') },
     sode: { t: J.ema.length >= 3 ? `Bring the ${tw.b.thing} to ${tw.b.n}` : !J.jobs.b ? `${tw.b.n} needs help` : `Find the glowing ${tw.b.thing} (${J.ema.length}/3)`, at: () => J.ema.length >= 3 || !J.jobs.b ? poi('b') : TOWN && TOWN.pois.filter(q => q.kind === 'ema').sort((x, y) => Math.hypot(x.x - TOWN.pos.x, x.z - TOWN.pos.z) - Math.hypot(y.x - TOWN.pos.x, y.z - TOWN.pos.z))[0] },
     do: { t: `Win your duel with ${tw.keeper.n} ${tw.keeper.where || 'at the gate'}`, at: () => poi('keeper') },
-    kabuto: { t: `Beat ${tw.myth.n}, ${tw.myth.title}`, at: () => poi('myth') }, menpo: { t: `Beat ${tw.myth.n}, ${tw.myth.title}`, at: () => poi('myth') },
+    kabuto: { t: mythHint(tw, J), at: () => poi('myth') || poi('keeper') }, menpo: { t: mythHint(tw, J), at: () => poi('myth') || poi('keeper') },
     haidate: { t: (tw.lay || LAY0).chestHint[0], at: () => poi('c0') }, suneate: { t: (tw.lay || LAY0).chestHint[1], at: () => poi('c1') },
   }[p.slot];
 }

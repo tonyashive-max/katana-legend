@@ -5,7 +5,7 @@
 let TOWN = null;
 const TOWN_R = 92, GATE_Z = 60;
 function townRoadX(z) { return Math.sin(z * .045) * 7 + Math.sin(z * .017 + 1) * 4; }
-const ROAD_OPEN = 4; // how many towns are finished and open to play; the rest are being built one at a time
+const ROAD_OPEN = 5; // how many towns are finished and open to play; the rest are being built one at a time
 let TCFG = null;
 function townCfg() { return TOWNS[S.cur] || TOWNS[0]; }
 function townH(x, z) {
