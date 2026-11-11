@@ -576,30 +576,30 @@ function doParry() {
 }
 function useSpecial() {
   if (!F || F.spirit < 100 || F.over || F.broken || F.state === 'intro' || F.special || F.state === 'vanish') return;
-  F.spirit = 0; F.special = { t: 0, hits: 0 };
+  F.spirit = 0; F.special = { t: 0, hits: 0, kind: typeof S !== 'undefined' && S.dual && F.st.town ? (F.sw === 2 ? 'cross' : 'flow') : null };
   const glow = swordDef(eqSword().id).glow || '#ffe08c';
   slowmo(.42, 1.4); sfx.special(); OV.flash = .55; OV.flashCol = hexRGB(glow); SHAKE.fov = 10;
-  banner('SPIRIT STRIKE!', swordDef(eqSword().id).name);
+  banner(F.special.kind === 'cross' ? 'CROSS OF TWO HEAVENS!' : F.special.kind === 'flow' ? 'FLOWING CHANGE!' : 'SPIRIT STRIKE!', F.special.kind === 'cross' ? 'Six cuts, both blades' : F.special.kind === 'flow' ? 'Three cuts, then the other blade' : swordDef(eqSword().id).name);
   F.E.seq.length = 0; F.E.setHold('stagger', 8); toState('stagger', 2.2);
   updateFightHUD();
 }
 const SPECIAL_SWINGS = [[.85, .5], [-1, -.05], [.1, 1]];
 function specialUpdate(dt) {
   const sp = F.special; sp.t += dt;
-  const at = [.05, .32, .6];
-  while (sp.hits < 3 && sp.t >= at[sp.hits]) {
-    const [ux, uy] = SPECIAL_SWINGS[sp.hits];
+  const cross = sp.kind === 'cross', n = cross ? 6 : 3, at = cross ? [.05, .19, .33, .47, .61, .75] : [.05, .32, .6];
+  while (sp.hits < n && sp.t >= at[sp.hits]) {
+    const [ux, uy] = cross ? [[.85, .5], [-.85, .5], [1, -.05], [-1, -.05], [.3, 1], [-.3, 1]][sp.hits] : SPECIAL_SWINGS[sp.hits];
     rigSwing(F.P, ux, uy, .11); F.P.trail.boost = 1.5; sfx.slash(1.4);
     const intact = ['armL', 'legs', 'armR', 'head'].filter(p => !F.E.det[p === 'head' ? 'helm' : p]);
     const part = intact.length ? pick(intact) : 'torso';
-    if (sp.hits === 2 && F.elimb[part] != null && !F.st.myth) F.elimb[part] = Math.min(F.elimb[part], 1);
+    if (sp.hits === n - 1 && F.elimb[part] != null && !F.st.myth) F.elimb[part] = Math.min(F.elimb[part], 1);
     const w = F.E.partCenter(part), s = toScreen(w);
     FX.petals(w, 18, swordDef(eqSword().id).glow || '#ffe08c', 3);
-    damageEnemy(part, F.ps.atk * F.atkMul * 2.4 * elemMul({ sx: s.x, sy: s.y }), true, w, s.x, s.y);
+    damageEnemy(part, F.ps.atk * F.atkMul * (cross ? 2.0 : 2.4) * elemMul({ sx: s.x, sy: s.y }), true, w, s.x, s.y);
     sp.hits++;
     if (F.over) break;
   }
-  if (sp.hits >= 3 && sp.t > .9) { F.special = null; F.returnT = .1; }
+  if (sp.hits >= n && sp.t > (cross ? 1.05 : .9)) { F.special = null; F.returnT = .1; if (sp.kind === 'flow' && !F.over && typeof flowChange === 'function') flowChange(); }
 }
 
 /* ---------- win / lose ---------- */

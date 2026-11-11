@@ -75,6 +75,7 @@ setInterval(() => {
   // two blades: the swap button, and the cost of using both at once
   const sb = $('#swapBtn'); if (sb) { const show = !!inFight && !F.over && !!S.dual && !!F.st.town && F.state !== 'intro'; if (sb.hidden === show) sb.hidden = !show; if (show) sb.textContent = '⇄ ' + STYLES[duelOrder()[((F.sw || 0) + 1) % 3]].n; }
   if (!inFight) STYLE_OVR = null;
+  else if (F.sw === 2 && !F.over && (F.P.det.armL || F.P.det.armR)) duelSwap(0);
   else if (F.sw === 2 && !F.over && F.drawn) { F.staWait = .5; F.sta = Math.max(0, F.sta - .9); if (F.sta <= 1) { duelSwap(0); ovPop(VW / 2, VH * .4, 'Too tired for two blades!', { size: 24, color: '#ffd27a', stroke: '#2a1200' }); } }
   if (!TEAM) return;
   if (!inFight) { if (now - TEAM.t0 < 5) return; tmSend('st', { to: TEAM.pid, st: 'gone', eh: 1 }); TEAM = null; teamLine(''); return; }
@@ -181,7 +182,20 @@ function duelSwap(to) {
   if (typeof F === 'undefined' || !F || F.over || !S.dual) return;
   const now = coopNow(); if (to == null && now < (F.swAt || 0)) return; F.swAt = now + .7;
   F.sw = to == null ? ((F.sw || 0) + 1) % 3 : to; STYLE_OVR = duelOrder()[F.sw];
-  const n = stats(); Object.assign(F.ps, { atk: n.atk, cd: n.cd, staCost: n.staCost, parry: n.parry }); styleRig(F.P);
+  if (F.sw === 2 && (F.P.det.armL || F.P.det.armR)) { F.sw = 0; STYLE_OVR = duelOrder()[0]; ovPop(VW / 2, VH * .46, 'Two blades need two hands!', { size: 22, color: '#ffd27a', stroke: '#2a1200' }); }
+  const n = stats(); Object.assign(F.ps, { atk: n.atk, cd: n.cd, staCost: n.staCost, parry: n.parry }); styleRig(F.P); dualRig(F.P, F.sw === 2);
   const y = styleDef(); ovPop(VW / 2, VH * .4, y.jp + ' ' + y.n, { size: 30, color: F.sw === 2 ? '#ffd27a' : '#ffffff', stroke: '#1a1020' }); sfx.whoosh && sfx.whoosh();
+}
+/* the second blade, held beside the first when both are out */
+function dualRig(P, on) {
+  if (!P || !P.grip) return;
+  if (on && !P.sword2) { const second = usableSwords().filter(w => w.u !== S.eq).sort((x, y) => swordDmg(y) - swordDmg(x))[0]; P.sword2 = buildSword(swordDef((second || eqSword()).id)); P.sword2.position.set(DUAL_POSE[0], DUAL_POSE[1], DUAL_POSE[2]); P.sword2.rotation.set(DUAL_POSE[3], DUAL_POSE[4], DUAL_POSE[5]); P.grip.add(P.sword2); }
+  if (P.sword2) { P.sword2.visible = !!on; P.sword2.scale.setScalar(STYLES[S.style2 || 'kodachi'].len); }
+  if (on) P.sword.scale.setScalar(STYLES[S.style || 'katana'].len);
+}
+const DUAL_POSE = [-.3, 0, 0, 0, 0, .55];
+/* the dual wielder's single-blade spirit strike ends by flowing into the other blade, rested and sharp */
+function flowChange() {
+  if (!F || F.over || !S.dual) return; duelSwap(F.sw === 0 ? 1 : 0); F.sta = 100; F.atkMul = Math.max(F.atkMul || 1, 1.3); const f = F; setTimeout(() => { if (F === f && !F.special && !(TEAM && TEAM.openUntil)) F.atkMul = 1; }, 4000);
 }
 (function () { const b = document.createElement('button'); b.className = 'act-btn'; b.id = 'swapBtn'; b.hidden = true; b.dataset.team = 'swap'; b.style.cssText = 'left:24px;transform:none;bottom:calc(env(safe-area-inset-bottom,0px) + 150px);font-size:15px;padding:10px 16px;animation:none'; ($('#hud') || document.body).appendChild(b); })();
