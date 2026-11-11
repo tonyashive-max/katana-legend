@@ -5,7 +5,7 @@
 let TOWN = null;
 const TOWN_R = 92, GATE_Z = 60;
 function townRoadX(z) { return Math.sin(z * .045) * 7 + Math.sin(z * .017 + 1) * 4; }
-const ROAD_OPEN = 6; // how many towns are finished and open to play; the rest are being built one at a time
+const ROAD_OPEN = 7; // how many towns are finished and open to play; the rest are being built one at a time
 let TCFG = null;
 function townCfg() { return TOWNS[S.cur] || TOWNS[0]; }
 function townH(x, z) {
@@ -192,6 +192,7 @@ function townTarget() {
   if (T.track) { if (ownPiece(T.track)) { delete T.track; save(); } else { const h = pieceHint(T.track).at(); if (h) return h; } }
   if (!T.guard) return P('guard');
   if (T.pass) return T.done ? null : townCfg().doneZ ? { x: townRoadX(townCfg().doneZ + 2), z: townCfg().doneZ + 2 } : { x: townRoadX(GATE_Z + 6), z: GATE_Z + 6 };
+  if (!keeperReady() && T.jobs.a === 2 && townCfg().keeper.alsoAt) { const q = townCfg().keeper.alsoAt(); if (q) return q; }
   if (!keeperReady()) return !T.jobs.a ? P('a') : T.jobs.a === 1 ? P('foe') : !T.jobs.b ? P('b') : townCfg().keeper.also ? (T.ema.length < 3 ? TOWN.pois.filter(q => q.kind === 'ema').sort((x, y) => Math.hypot(x.x - TOWN.pos.x, x.z - TOWN.pos.z) - Math.hypot(y.x - TOWN.pos.x, y.z - TOWN.pos.z))[0] : P('b')) : P('smith');
   return P('keeper');
 }
@@ -461,6 +462,7 @@ function drawTownOverlay(c) {
 function townDone() {
   const c = townCfg(), own = S.armor.owned.filter(id => PIECES[id].set === c.set).length, petals = `<div class="virt">${VIRTUES.map(([k, nm2, g]) => `<div class="petal ${S.virt[k] ? 'on' : ''}"><span>${g}</span><b>${nm2}</b><small>${S.virt[k] || 0}</small></div>`).join('')}</div>`;
   if (TOWN) TOWN.paused = true;
+  if (c.last && TOWN) TOWN.W.fw = 30;
   if (c.last) return openOverlay(`<div class="modal win ending"><div class="eyebrow">Katana Legend II · The Tokaido Road</div><div class="kicker">The letter is delivered</div>
     <p>The palace gate closes behind you. In a hall of gold screens, Princess Hana places the letter in the Emperor's hands. Outside, every lantern in Kyoto is burning, and the first snow falls on Sanjo Bridge.</p>
     <p>${nm()} walked the whole Tokaido, about 500 km, with ${allies().length} friend${allies().length === 1 ? '' : 's'} made along the way. The war is over.</p>${petals}
