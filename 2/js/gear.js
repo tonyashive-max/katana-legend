@@ -72,9 +72,11 @@ function armorTotals() {
 const STYLES = {
   katana: { n: 'Katana', jp: '刀', d: 'The balanced way. No weakness, no surprise.', atk: 1, cd: 1, sta: 1, parry: 1, len: 1 },
   nodachi: { n: 'Nodachi', jp: '野', d: 'A great sword on a long grip. Every cut hits 30% harder, but swings are slower and cost more stamina.', atk: 1.3, cd: 1.3, sta: 1.3, parry: .9, len: 1.3 },
+  both: { n: 'Two Heavens', jp: '二', d: 'Both blades at once. Fast and strong, but it burns stamina every second.', atk: 1.4, cd: .7, sta: 1.5, parry: .8, len: 1 },
   kodachi: { n: 'Kodachi', jp: '小', d: 'A short, quick blade. Swings are 30% faster and parries are easier, but each cut does less.', atk: .78, cd: .7, sta: .8, parry: 1.2, len: .76 },
 };
-function styleDef() { return STYLES[S.style] || STYLES.katana; }
+let STYLE_OVR = null;
+function styleDef() { return STYLES[STYLE_OVR || S.style] || STYLES.katana; }
 function styleRig(rig) { try { if (rig && rig.sword) rig.sword.scale.setScalar(styleDef().len); } catch (e) { /* */ } return rig; }
 /* armor joins the numbers every fight already uses */
 const baseStats = stats;
@@ -201,7 +203,7 @@ function packSamurai() {
     <div class="stats" style="margin:10px 0;grid-template-columns:repeat(4,minmax(0,1fr))"><div class="stat"><b>${st.maxHp}</b><span>Health</span></div><div class="stat"><b>${Math.round(st.atk)}</b><span>Attack</span></div><div class="stat"><b>${Math.round(st.block * 100)}%</b><span>Block</span></div><div class="stat"><b>${a.wt}</b><span>Weight</span></div></div>
     <p class="muted" style="font-size:13px;margin:0 0 8px">Tap a piece to change it. Heavier armor makes every swing cost more stamina.</p>
     <div class="slot-grid">${SLOTS.map(s => { const p = PIECES[S.armor.eq[s.id]]; return `<button class="slot-card ${p ? 'full' : ''}" data-pack-slot="${s.id}"><span class="kj">${s.jp}</span><b>${s.n}</b><small style="${p ? `color:${RAR[SETS[p.set].r].c}` : ''}">${p ? SETS[p.set].n : 'Empty'}</small></button>`; }).join('')}
-      <button class="slot-card full blade" data-pack-slot="blade"><span class="kj">刀</span><b>${d.name}${w.lvl ? ' +' + w.lvl : ''}</b><small>${Math.round(swordDmg(w) * styleDef().atk)} damage · ${styleDef().n} style · ${usableSwords().length} blade${usableSwords().length === 1 ? '' : 's'}</small></button></div>
+      <button class="slot-card full blade" data-pack-slot="blade"><span class="kj">刀</span><b>${d.name}${w.lvl ? ' +' + w.lvl : ''}</b><small>${Math.round(swordDmg(w) * styleDef().atk)} damage · ${styleDef().n}${S.dual ? ' + ' + STYLES[S.style2 || 'kodachi'].n : ''} · ${usableSwords().length} blade${usableSwords().length === 1 ? '' : 's'}</small></button></div>
     ${w.heir ? `<p class="muted" style="font-size:13px;margin-top:8px">Engraved on the tang: carried through ${w.heir.lands} of seven lands and ${w.heir.wins} victories in the rescue of Princess Hana.</p>` : ''}
     <h3 style="margin-top:14px">Sets</h3>
     <div class="stack" style="gap:8px">${Object.keys(SETS).map(k => { const n = setCount(k), own = S.armor.owned.filter(id => PIECES[id].set === k).length; return `<div class="card" style="gap:4px"><div class="row between"><b style="color:${RAR[SETS[k].r].c}">${SETS[k].n}</b><span class="muted">wearing ${n}/7 · own ${own}/7</span></div><div class="bar"><i style="width:${n / 7 * 100}%"></i></div><small class="${n === 7 ? '' : 'muted'}" style="${n === 7 ? 'color:var(--jade)' : ''}">${n === 7 ? '✓ ' : ''}${SETS[k].bonus}</small>
@@ -240,6 +242,7 @@ function packMap() {
 }
 function packClick(d) {
   if (d.coop) return coopClick(d.coop);
+  if (d.team) return teamClick(d.team);
   if (d.pack) { if (d.pack === 'close') closePack(); else { PACK_SLOT = null; openPack(d.pack); } return true; }
   if (d.packSlot != null) { PACK_SLOT = d.packSlot || null; openPack('sam'); return true; }
   if (d.wearPiece) { if (d.wearPiece === 'none') delete S.armor.eq[PACK_SLOT]; else { const p = PIECES[d.wearPiece]; if (p && ownPiece(p.id)) S.armor.eq[p.slot] = p.id; } save(); sfx.up(); PACK_SLOT = null; openPack('sam'); return true; }

@@ -28,7 +28,7 @@ function coopSend(force) {
   if (!CO.on) return;
   const T = TOWN, inFight = typeof F !== 'undefined' && F && !F.over && MODE !== TownMode;
   NET.send('cp', { id: CO.me, n: nm(), t: S.cur, x: T ? +T.pos.x.toFixed(2) : 0, z: T ? +T.pos.z.toFixed(2) : 0, f: T ? +T.face.toFixed(2) : 0, sp: T && !inFight ? +T.speed.toFixed(2) : 0,
-    lf: T ? +(T.lift || 0).toFixed(2) : 0, o: S.outfit, eq: S.armor.eq, sw: eqSword().id, fi: inFight ? F.st.name : null, hp: inFight ? Math.round(F.php / F.pmax * 100) : null });
+    lf: T ? +(T.lift || 0).toFixed(2) : 0, o: S.outfit, eq: S.armor.eq, sw: eqSword().id, gh: S.stolen ? { t: S.stolen.t, bn: swordDef(S.stolen.id).name } : null, fi: inFight ? F.st.name : null, hp: inFight ? Math.round(F.php / F.pmax * 100) : null });
 }
 function coopMsg(d) {
   if (!d || !d.id || d.id === CO.me) return;
@@ -37,9 +37,10 @@ function coopMsg(d) {
     let p = CO.peers[d.id];
     if (!p) { p = CO.peers[d.id] = { id: d.id, px: d.x, pz: d.z, pf: d.f, ph: 0 }; toast(`${String(d.n).slice(0, 14)} joined you on the road!`); sfx.win && sfx.win(); CO.status = ''; coopSend(true); if (PACK_TAB === 'co' && !$('#overlay').hidden) openPack('co'); }
     const sig = JSON.stringify([d.o, d.eq, d.sw]); if (p.sig && p.sig !== sig) coopDrop(p);
-    Object.assign(p, { n: String(d.n || 'Friend').slice(0, 14), t: d.t | 0, x: +d.x || 0, z: +d.z || 0, f: +d.f || 0, sp: +d.sp || 0, lf: +d.lf || 0, o: d.o, eq: d.eq && typeof d.eq === 'object' ? d.eq : {}, sw: d.sw, fi: d.fi ? String(d.fi).slice(0, 30) : null, hp: d.hp, sig, at: coopNow() });
+    Object.assign(p, { n: String(d.n || 'Friend').slice(0, 14), t: d.t | 0, x: +d.x || 0, z: +d.z || 0, f: +d.f || 0, sp: +d.sp || 0, lf: +d.lf || 0, o: d.o, eq: d.eq && typeof d.eq === 'object' ? d.eq : {}, sw: d.sw, gh: d.gh && typeof d.gh === 'object' ? { t: d.gh.t | 0, bn: String(d.gh.bn || 'blade').slice(0, 30) } : null, fi: d.fi ? String(d.fi).slice(0, 30) : null, hp: d.hp, sig, at: coopNow() });
     return;
   }
+  if (d.type === 'tm') return teamMsg(d);
   if (d.type === 'ce') {
     const who = String(d.n || 'Your friend').slice(0, 14);
     if (d.k === 'cheer' && typeof F !== 'undefined' && F && !F.over && MODE !== TownMode) { F.spirit = Math.min(100, F.spirit + 20); F.php = Math.min(F.pmax, F.php + F.pmax * .05); banner(`${who} cheers!`, 'Spirit and health rise'); sfx.taiko && sfx.taiko(.8); FX.sparks(F.P.root.position.clone().add(new V3(0, 1.6, 0)), '#9ff0c8', 40, 5); }

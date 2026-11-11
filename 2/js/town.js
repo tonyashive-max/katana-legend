@@ -152,6 +152,8 @@ const TOWN_LOOKS = {
 };
 /* foes are sized to the samurai who walks in, and get sharper town by town */
 function townFoe(role) {
+  if (role === 'ghost' || role === 'ghost2' || role === 'ghost3') return ghostFoe(role);
+  if (role === 'sensei') { const s = townFoe('keeper'); return Object.assign(s, { town: 'sensei', name: 'Sensei', title: 'Trial of Two Heavens', look: TOWN_LOOKS.sensei, sword: 'bokken', weapon: null, scale: 1, teleport: 0, fury: .2, freeze: false, shock: false, dragon: false, orochi: false, bowWeak: false, arena: null, gold: 0, intro: 'He switches between a long blade and a short one. Read his stance!' }); }
   const ps = stats(), c = townCfg(), i = c.i, D = role === 'a' ? c.a.foe : role === 'keeper' ? c.keeper : c.myth;
   const B = role === 'a' ? { hits: 13 + i, hit: .085 + .004 * i, tele: 1150 - 70 * i, guard: .2 + .02 * i, react: .2 + .03 * i, combo: .15 + .03 * i, feint: .05 + .03 * i, low: .15, gold: 120 }
     : role === 'keeper' ? { boss: 1, hits: 20 + 2 * i, hit: .1 + .005 * i, tele: 950 - 60 * i, guard: .34 + .02 * i, react: .32 + .03 * i, combo: .3 + .03 * i, feint: .15 + .03 * i, low: .2, gold: 260 }
@@ -165,7 +167,9 @@ function gateGuard() { return (townCfg().gate || {}).guard || 'Gate Guard'; }
 function gatePlace() { return (townCfg().gate || {}).place || 'gate'; }
 function isDawn() { return !!TOWN && townClock() === 'Dawn'; }
 function allyName(id) { const [t, r] = id.split(':'), c = TOWN_BY[t]; return c ? (r === 'a' ? c.a.foe.n : r === 'keeper' ? c.keeper.n : c.myth.n) : id; }
-function keeperReady() { const c = townCfg(); return c.keeper.need ? wornPieces().length >= c.keeper.need : S.town.jobs.a === 2 && (!c.keeper.also || c.keeper.also()); }
+function needDual() { return townCfg().i >= 5 && !S.dual; }
+function dualMsg() { const c = townCfg(); return `${c.keeper.n} fights with two blades, and no samurai with a single sword has ever touched ${c.i === 5 ? 'him' : 'it'}. Learn the Two Heavens from the sensei first: train Power and Speed to level 5, then pass his trial.`; }
+function keeperReady() { const c = townCfg(); if (needDual()) return false; return c.keeper.need ? wornPieces().length >= c.keeper.need : S.town.jobs.a === 2 && (!c.keeper.also || c.keeper.also()); }
 function townJobs() {
   const T = S.town, c = townCfg(), own = S.armor.owned.filter(id => PIECES[id].set === c.set).length;
   return [
@@ -173,9 +177,11 @@ function townJobs() {
     c.keeper.need ? { t: `Dress for the road: wear at least 3 pieces of armor (${wornPieces().length}/3)`, done: wornPieces().length >= 3 } : null,
     { t: `${c.a.n}: deal with ${c.a.foe.n}, ${c.a.foe.title}`, done: T.jobs.a === 2 },
     { t: `${c.b.n}: find the three ${c.b.thing} (${T.ema.length}/3)`, done: T.jobs.b === 2 },
+    c.i >= 5 ? { t: 'Earn the Two Heavens from the sensei: carry two blades', done: !!S.dual } : null,
     { t: `Duel ${c.keeper.n} ${c.keeper.where || 'at the gate'}${c.keeper.dawn ? ', at sunrise' : ''}`, done: !!T.pass },
     { t: c.myth.after && !T.pass ? 'Optional: something is not what it seems…' : `Optional: face ${c.myth.n}, ${c.myth.title}`, done: !!T.myth },
     { t: `Optional: complete the ${SETS[c.set].n} armor set (${own}/7)`, done: own === 7 },
+    { t: 'Together: ring the twin bells with a friend', done: !!T.duo },
     { t: c.last ? 'Carry the letter through the palace gate' : `Pass the ${gatePlace()}, on toward ${TOWNS[c.i + 1].n}`, done: !!T.done },
   ].filter(Boolean);
 }
@@ -184,6 +190,7 @@ function townObjective() {
   if (T.track && !ownPiece(T.track)) return `Looking for the ${PIECES[T.track].n}: ${pieceHint(T.track).t}.`;
   if (!T.guard) return `Follow the road north to the ${gatePlace()}.`;
   if (T.pass) return T.done ? `${c.n} is complete. Roam freely, finish the ${SETS[c.set].n} set, or travel on from the Map.` : `The ${gatePlace()} is open. Walk ${c.gate ? c.gate.verb || 'across' : 'through'} it.`;
+  if (T.jobs.a === 2 && needDual() && (!c.keeper.also || c.keeper.also())) return dualMsg();
   if (!keeperReady()) return c.keeper.need ? `${c.keeper.n} only duels samurai dressed for the road. Find 3 pieces of armor: the armorer sells some, and the townsfolk need help.` : c.keeper.also && S.town.jobs.a === 2 ? c.keeper.alsoMsg : `${c.keeper.n} will only face someone this town trusts. Help ${c.a.n} first.`;
   if (c.keeper.dawn && !isDawn()) return `${c.keeper.n} duels only at sunrise. Speak with her ${c.keeper.where} to wait for dawn.`;
   return `Challenge ${c.keeper.n} ${c.keeper.where || 'at the gate'}.`;
@@ -193,6 +200,7 @@ function townTarget() {
   if (T.track) { if (ownPiece(T.track)) { delete T.track; save(); } else { const h = pieceHint(T.track).at(); if (h) return h; } }
   if (!T.guard) return P('guard');
   if (T.pass) return T.done ? null : townCfg().doneZ ? { x: townRoadX(townCfg().doneZ + 2), z: townCfg().doneZ + 2 } : { x: townRoadX(GATE_Z + 6), z: GATE_Z + 6 };
+  if (T.jobs.a === 2 && needDual() && (!townCfg().keeper.also || townCfg().keeper.also())) return P('sensei');
   if (!keeperReady() && T.jobs.a === 2 && townCfg().keeper.alsoAt) { const q = townCfg().keeper.alsoAt(); if (q) return q; }
   if (!keeperReady()) return !T.jobs.a ? P('a') : T.jobs.a === 1 ? P('foe') : !T.jobs.b ? P('b') : townCfg().keeper.also ? (T.ema.length < 3 ? TOWN.pois.filter(q => q.kind === 'ema').sort((x, y) => Math.hypot(x.x - TOWN.pos.x, x.z - TOWN.pos.z) - Math.hypot(y.x - TOWN.pos.x, y.z - TOWN.pos.z))[0] : P('b')) : P('smith');
   return P('keeper');
@@ -255,6 +263,7 @@ function townPeople() {
   [['c0', 'haidate'], ['c1', 'suneate']].forEach(([id, slot], k) => { if (!J.chests.includes(id)) { const p = thing(id, 'chest', L.chest[k][0] * fl, L.chest[k][1], '#b8843a', GEO.box(.9, .6, .6)); p.piece = c.set + '-' + slot; } });
   { const s = labelSprite('Tokaido Road', '#fff6d8', `North: ${c.n} ${G.place || 'gate'}` + (c.last ? '' : ' · ' + TOWNS[c.i + 1].n)); s.position.set(townRoadX(-66) + 3.4, townH(townRoadX(-66) + 3.4, -66) + 3, -66); T.grp.add(s); }
   if (c.people) c.people(T, npc);
+  duoPeople(T);
   for (let i = 0; i < 5; i++) {
     const rig = new Samurai(TOWN_LOOKS.walker[i % 3], swordDef('bokken'), { noSaya: true }); rig.sword.visible = false; rig.root.rotation.order = 'YXZ'; rig.setHold('rest', 6); T.grp.add(rig.root);
     T.walkers.push({ rig, z: -80 + i * 31, dir: i % 2 ? 1 : -1, side: i % 2 ? 1.3 : -1.3, spd: 1.1 + (i % 3) * .25, ph: i * 2 });
@@ -287,6 +296,7 @@ function townAct() {
     return townSay(gateGuard(), keeperReady() ? `${c.keeper.n} is ${c.keeper.where || 'by the gate'}. Bow before you draw.` : townObjective());
   }
   if (p.id === 'keeper') {
+    if (J.jobs.a === 2 && needDual() && (!c.keeper.also || c.keeper.also())) return townSay(c.keeper.n, c.i === 5 ? 'One sword? I carry two, ronin. Come back when you can do the same, or do not come back.' : 'One blade against the Shadow of the Shogun. No. Learn to carry two, and then we end this.');
     if (!keeperReady()) return townSay(c.keeper.n, c.keeper.need ? `A samurai in ${wornPieces().length ? 'half his armor' : 'travel clothes'}? I do not duel the unprepared. Come back wearing three pieces.` : c.keeper.also && J.jobs.a === 2 ? c.keeper.alsoMsg : `I do not know you, and neither does this town. Help ${c.a.n}, then we will talk.`);
     if (c.keeper.dawn && !isDawn()) return townSay(c.keeper.n, c.keeper.notYet, [['dawn', '☀ Wait for sunrise', 'primary'], ['', 'Not yet']]);
     return townSay(c.keeper.n, c.keeper.ask, [['fight:keeper', '⚔ Accept the duel', 'primary'], ['', 'Not yet']]);
@@ -312,6 +322,7 @@ function townClick(d) {
   if (d.title2 != null) return title2Click(d.title2);
   const a = d.town, J = S.town, c = townCfg();
   if (c.click && c.click(a)) return true;
+  if (ghostClick(a)) return true;
   if (a === 'truth' || a === 'lie') {
     J.guard = true; J.note = true; save();
     const next = keeperReady() ? `${c.keeper.n} waits ${c.keeper.where || 'by the gate'}.` : c.keeper.need ? `You need ${c.keeper.n}'s stamp, and he only duels samurai dressed for the road: three pieces of armor at least.` : c.keeper.first || `${c.keeper.n} decides who passes, and will only face someone this town trusts. Help ${c.a.n} first.`;
@@ -319,6 +330,7 @@ function townClick(d) {
     else { virtue('makoto', -1, 'the guard does not believe you'); townSay(gateGuard(), `A rice merchant with a sword like that? Hm. ${next}`); }
     return true;
   }
+  if (a.startsWith('fight:') && teamInvite(a.slice(6))) return true;
   if (a.startsWith('fight:')) { const id = a.slice(6); closeOverlay(); if (TOWN) TOWN.paused = false; if (TOWN) S.town.day = TOWN.day; startBattle(townFoe(id), { kind: 'town', idx: id, ch: 1, from: 'town' }); return true; }
   if (a.startsWith('buy:')) { const id = a.slice(4); if (S.gold >= 60 && !ownPiece(id)) { S.gold -= 60; givePiece(id); townRefreshPlayer(); toast(`Bought ${PIECES[id].n}`); } TOWN.near = TOWN.pois.find(p => p.id === 'smith'); TOWN.paused = false; townAct(); return true; }
   if (a === 'spare' || a === 'finish') { townAfterFight(a); return true; }
@@ -326,7 +338,8 @@ function townClick(d) {
   if (a === 'back') { closeOverlay(); endFight(); return true; }
   if (a === 'smithy') { townSmithy(); return true; }
   if (a === 'forge') { const w = eqSword(), cst = forgeCost(w); if ((w.lvl || 0) >= 10 || !canPay(cst) || !isArmed()) return true; closeOverlay(); if (TOWN) TOWN.paused = false; $('#leaveBtn').textContent = 'Leave'; doUpgrade(); return true; }
-  if (a.startsWith('style:')) { const k = a.slice(6); if (STYLES[k]) { S.style = k; save(); sfx.up && sfx.up(); townRefreshPlayer(); toast(`${STYLES[k].n} style: ${STYLES[k].d}`); } townDojo(); return true; }
+  if (a.startsWith('style2:')) { const k = a.slice(7); if (STYLES[k] && k !== 'both' && k !== (S.style || 'katana')) { S.style2 = k; save(); sfx.up && sfx.up(); } townDojo(); return true; }
+  if (a.startsWith('style:')) { const k = a.slice(6); if (STYLES[k] && k !== 'both') { S.style = k; if (S.style2 === k) S.style2 = k === 'kodachi' ? 'katana' : 'kodachi'; save(); sfx.up && sfx.up(); townRefreshPlayer(); toast(`${STYLES[k].n} style: ${STYLES[k].d}`); } townDojo(); return true; }
   if (a.startsWith('train:')) { closeOverlay(); if (TOWN) TOWN.paused = false; $('#leaveBtn').textContent = 'Leave'; startTraining(a.slice(6)); return true; }
   if (a === 'dawn') { townCloseTalk(); if (TOWN) { TOWN.lapse = ((1 - TOWN.day) % 1) + .012; TOWN.joy = null; hint('The night passes…'); TOWN.lapseThen = () => { const k = TOWN.pois.find(p => p.id === 'keeper'); if (k) { TOWN.near = k; townAct(); } }; } return true; }
   if (a === 'next') { closeOverlay(); townTravel(c.i + 1); return true; }
@@ -345,12 +358,16 @@ function townSmithy() {
 function townDojo() {
   if (TOWN) { TOWN.paused = true; TOWN.joy = null; }
   openOverlay(`<div class="modal" style="text-align:left"><div class="eyebrow">Sensei · road dojo</div><h2>How do you carry your blade?</h2>
-    <div class="grid2" style="grid-template-columns:repeat(3,minmax(0,1fr));margin:8px 0 14px">${Object.entries(STYLES).map(([k, y]) => `<button class="card ${(S.style || 'katana') === k ? 'sel' : ''}" data-town="style:${k}" style="text-align:left;gap:4px"><b>${y.jp} ${y.n}</b><small>${y.d}</small><small style="color:var(--jade)">${(S.style || 'katana') === k ? '✓ Your style' : 'Tap to switch'}</small></button>`).join('')}</div>
+    <div class="grid2" style="grid-template-columns:repeat(3,minmax(0,1fr));margin:8px 0 14px">${Object.entries(STYLES).filter(([k]) => k !== 'both').map(([k, y]) => `<button class="card ${(S.style || 'katana') === k ? 'sel' : ''}" data-town="style:${k}" style="text-align:left;gap:4px"><b>${y.jp} ${y.n}</b><small>${y.d}</small><small style="color:var(--jade)">${(S.style || 'katana') === k ? '✓ Your style' : 'Tap to switch'}</small></button>`).join('')}</div>
+    ${S.dual ? `<h3>二 Your second blade</h3><div class="grid2" style="grid-template-columns:repeat(3,minmax(0,1fr));margin:8px 0 14px">${Object.entries(STYLES).filter(([k]) => k !== 'both').map(([k, y]) => `<button class="card ${(S.style2 || 'kodachi') === k ? 'sel' : ''}" data-town="style2:${k}" style="text-align:left;gap:4px" ${(S.style || 'katana') === k ? 'disabled' : ''}><b>${y.jp} ${y.n}</b><small style="color:var(--jade)">${(S.style || 'katana') === k ? 'Your first blade' : (S.style2 || 'kodachi') === k ? '✓ Second blade' : 'Tap to switch'}</small></button>`).join('')}</div>`
+      : `<div class="card" style="gap:6px;margin-bottom:14px"><b>二 Two Heavens: carry two blades</b><small>The swordsman Miyamoto Musashi taught a school that fights with a long and a short sword together. Reach <b>Power Lv 5</b> (you: ${S.sk.power.l}) and <b>Speed Lv 5</b> (you: ${S.sk.speed.l}), then beat me in a trial duel.</small><button class="btn small ${S.sk.power.l >= 5 && S.sk.speed.l >= 5 ? 'primary' : ''}" data-town="fight:sensei" ${S.sk.power.l >= 5 && S.sk.speed.l >= 5 ? '' : 'disabled'}>⚔ Take the trial</button></div>`}
     <h2>What will you practise?</h2><p class="muted" style="margin:6px 0 10px">Each drill grows one skill, and skills make you stronger in every duel on the road.</p>
     <div class="grid2">${Object.entries(TRAININGS).map(([k, t]) => { const s = S.sk[t.skill], need = skillNeed(s.l); return `<div class="card" style="gap:6px"><div class="row between"><b>${t.g} ${t.name}</b><small class="muted">${SKILLS[t.skill].n} Lv ${s.l}</small></div><div class="bar"><i style="width:${s.l >= 30 ? 100 : Math.round(s.x / need * 100)}%"></i></div><button class="btn small jade" data-town="train:${k}">Start drill</button></div>`; }).join('')}</div>
     <div class="actions"><button class="btn" data-town="">Back to the road</button></div></div>`);
 }
 function townFightResult() {
+  if (specialResult()) return;
+  if (teamResult()) return;
   hint('');
   const st = F.st;
   if (F.outcome !== 'win') return openOverlay(`<div class="modal"><div class="kicker lose">Defeated</div><p><b>${st.name}</b> was too strong this time. Read the stance over their head: HIGH beats MID, MID beats LOW, LOW beats HIGH.</p><div class="actions"><button class="btn primary" data-town="retry">Try again</button><button class="btn" data-town="back">Back to town</button></div></div>`);
@@ -391,6 +408,7 @@ const TownMode = {
     if (T.paused) { T.P.update(dt); return; }
     if (T.W.doors) T.W.doors.visible = !S.town.pass;
     if (T.W.tick) T.W.tick(dt, T);
+    ghostTick(dt, T);
     if (T.lapse) { // the night passes in a few seconds while the samurai waits
       const st = Math.min(T.lapse, dt * .28); T.day = (T.day + st) % 1; T.lapse -= st; T.joy = null; T.speed = 0; T.camYaw += dt * .12;
       if (T.lapse <= 1e-4) { T.lapse = 0; hint(''); sfx.taiko(1); S.town.day = T.day; save(); const f = T.lapseThen; T.lapseThen = null; if (f) f(); }
