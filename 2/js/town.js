@@ -158,7 +158,7 @@ function townFoe(role) {
     : { myth: true, hits: (D.dragon ? 28 : 24) + 2 * i, hit: .11 + .005 * i, tele: D.dragon ? 880 : 820 - 40 * i, guard: .28, react: .4, combo: .4 + .02 * i, feint: .3, low: .2, gold: 400 };
   const st = Object.assign({ ch: [1, 0, 4, 5, 2, 4, 6][i], town: role, name: D.n, title: D.title || D.sub, look: D.look, sword: D.sword, weapon: D.weapon, scale: D.scale, teleport: D.teleport, fury: D.fury, freeze: D.freeze, shock: D.shock, dragon: D.dragon, orochi: D.orochi, bowWeak: D.bowWeak, intro: D.tip, arena: c.arena ? () => c.arena(role) : null,
     stances: role === 'a' ? ['high', 'high', 'low'] : role === 'keeper' ? ['mid', 'mid', 'high', 'low'] : ['high', 'low', 'low', 'mid'], steel: 0, rec: playerPower() }, B);
-  st.hp = Math.round(ps.atk * st.hits); st.dmg = Math.round(ps.maxHp * st.hit * 10) / 10; st.gold = Math.round(st.gold * (1 + .5 * i));
+  st.hp = Math.round(ps.atk / styleDef().atk * st.hits); st.dmg = Math.round(ps.maxHp * st.hit * 10) / 10; st.gold = Math.round(st.gold * (1 + .5 * i));
   return st;
 }
 function gateGuard() { return (townCfg().gate || {}).guard || 'Gate Guard'; }
@@ -220,7 +220,7 @@ function townTravel(i) {
 function townRefreshPlayer() {
   const T = TOWN; if (!T) return;
   if (T.P) { T.grp.remove(T.P.root); T.grp.remove(T.P.trail.mesh); T.P.dispose(); }
-  const P = new Samurai(lookFromOutfit(outfitDef(S.outfit)), swordDef(eqSword().id), {}); P.root.rotation.order = 'YXZ'; P.setSheathed(true);
+  const P = styleRig(new Samurai(lookFromOutfit(outfitDef(S.outfit)), swordDef(eqSword().id), {})); P.root.rotation.order = 'YXZ'; P.setSheathed(true);
   T.grp.add(P.root, P.trail.mesh); T.P = P;
 }
 function townNPC(id, x, z, look, sword, name, sub, o) {
@@ -326,6 +326,7 @@ function townClick(d) {
   if (a === 'back') { closeOverlay(); endFight(); return true; }
   if (a === 'smithy') { townSmithy(); return true; }
   if (a === 'forge') { const w = eqSword(), cst = forgeCost(w); if ((w.lvl || 0) >= 10 || !canPay(cst) || !isArmed()) return true; closeOverlay(); if (TOWN) TOWN.paused = false; $('#leaveBtn').textContent = 'Leave'; doUpgrade(); return true; }
+  if (a.startsWith('style:')) { const k = a.slice(6); if (STYLES[k]) { S.style = k; save(); sfx.up && sfx.up(); townRefreshPlayer(); toast(`${STYLES[k].n} style: ${STYLES[k].d}`); } townDojo(); return true; }
   if (a.startsWith('train:')) { closeOverlay(); if (TOWN) TOWN.paused = false; $('#leaveBtn').textContent = 'Leave'; startTraining(a.slice(6)); return true; }
   if (a === 'dawn') { townCloseTalk(); if (TOWN) { TOWN.lapse = ((1 - TOWN.day) % 1) + .012; TOWN.joy = null; hint('The night passes…'); TOWN.lapseThen = () => { const k = TOWN.pois.find(p => p.id === 'keeper'); if (k) { TOWN.near = k; townAct(); } }; } return true; }
   if (a === 'next') { closeOverlay(); townTravel(c.i + 1); return true; }
@@ -343,7 +344,9 @@ function townSmithy() {
 }
 function townDojo() {
   if (TOWN) { TOWN.paused = true; TOWN.joy = null; }
-  openOverlay(`<div class="modal" style="text-align:left"><div class="eyebrow">Sensei · road dojo</div><h2>What will you practise?</h2><p class="muted" style="margin:6px 0 10px">Each drill grows one skill, and skills make you stronger in every duel on the road.</p>
+  openOverlay(`<div class="modal" style="text-align:left"><div class="eyebrow">Sensei · road dojo</div><h2>How do you carry your blade?</h2>
+    <div class="grid2" style="grid-template-columns:repeat(3,minmax(0,1fr));margin:8px 0 14px">${Object.entries(STYLES).map(([k, y]) => `<button class="card ${(S.style || 'katana') === k ? 'sel' : ''}" data-town="style:${k}" style="text-align:left;gap:4px"><b>${y.jp} ${y.n}</b><small>${y.d}</small><small style="color:var(--jade)">${(S.style || 'katana') === k ? '✓ Your style' : 'Tap to switch'}</small></button>`).join('')}</div>
+    <h2>What will you practise?</h2><p class="muted" style="margin:6px 0 10px">Each drill grows one skill, and skills make you stronger in every duel on the road.</p>
     <div class="grid2">${Object.entries(TRAININGS).map(([k, t]) => { const s = S.sk[t.skill], need = skillNeed(s.l); return `<div class="card" style="gap:6px"><div class="row between"><b>${t.g} ${t.name}</b><small class="muted">${SKILLS[t.skill].n} Lv ${s.l}</small></div><div class="bar"><i style="width:${s.l >= 30 ? 100 : Math.round(s.x / need * 100)}%"></i></div><button class="btn small jade" data-town="train:${k}">Start drill</button></div>`; }).join('')}</div>
     <div class="actions"><button class="btn" data-town="">Back to the road</button></div></div>`);
 }

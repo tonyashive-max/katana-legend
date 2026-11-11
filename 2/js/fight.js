@@ -85,7 +85,7 @@ function startBattle(st, ctx) {
     clearSceneActors();
     const W = st.arena ? st.arena() : buildWorld(st.ch); activateWorld(W);
     const ps = stats();
-    const P = new Samurai(lookFromOutfit(outfitDef(S.outfit)), swordDef(eqSword().id), { player: true });
+    const P = new Samurai(lookFromOutfit(outfitDef(S.outfit)), swordDef(eqSword().id), { player: true }); if (st.town && typeof styleRig === 'function') styleRig(P);
     let E;
     if (st.dragon) E = st.orochi ? new OrochiBoss(st) : new DragonBoss(st);
     else {
