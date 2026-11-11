@@ -810,7 +810,8 @@ function fightCamera(dt) {
   CAM.updateProjectionMatrix(); FX.setScale();
   applyShake(dt);
 }
-function fightBow() { if (!F || F.state !== 'intro' || F.bowed) return; F.bowed = true; F.bowT = 1.4; $('#bowBtn').hidden = true; sfx.bell && sfx.bell(); banner('You bow', F.st.name + ' returns it'); virtue('rei', 1, 'you bowed before the duel'); }
+function fightBow() { if (!F || F.state !== 'intro' || F.bowed) return; F.bowed = true; F.bowT = 1.4; $('#bowBtn').hidden = true; sfx.bell && sfx.bell(); banner('You bow', F.st.name + ' returns it'); virtue('rei', 1, 'you bowed before the duel');
+  if (F.st.bowWeak) { F.ehp = Math.round(F.emax * .7); setTimeout(() => { if (F && !F.over) { banner('The kappa bows back', 'The water spills from the dish on its head. It is weaker now!'); FX.sparks(F.E.root.position.clone().add(new V3(0, 2, 0)), '#7fd0ff', 40, 5); } }, 1700); } }
 function drawFightOverlay(c) {
   if (!F || F.over || F.state === 'intro') return;
   if (F.st.town && F.estance && F.E.root.visible && F.state !== 'standoff') { const h = toScreen(F.E.head && F.E.head.getWorldPosition ? F.E.head.getWorldPosition(new V3()) : F.E.partCenter('head')), S2 = STANCES[F.estance], adv = STANCES[F.stance].beats === F.estance, bad = S2.beats === F.stance; c.save(); c.font = "900 17px 'Zen Maru Gothic', sans-serif"; c.textAlign = 'center'; const tx = S2.g + ' ' + S2.n, w = c.measureText(tx).width + 22, y = h.y - 64; c.fillStyle = adv ? 'rgba(40,110,70,.9)' : bad ? 'rgba(140,40,30,.9)' : 'rgba(20,24,40,.85)'; c.strokeStyle = 'rgba(255,224,140,.9)'; c.lineWidth = 2; c.beginPath(); if (c.roundRect) c.roundRect(h.x - w / 2, y - 19, w, 27, 8); else c.rect(h.x - w / 2, y - 19, w, 27); c.fill(); c.stroke(); c.fillStyle = '#fff6d8'; c.fillText(tx, h.x, y); c.restore(); }

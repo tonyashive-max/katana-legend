@@ -251,7 +251,7 @@ Object.assign(TOWN_BY.hara, {
       <line x1="${sx(-56)}" y1="${sy(10)}" x2="${sx(-34)}" y2="${sy(10)}" stroke="#8a6a44" stroke-width="3"/><circle cx="${sx(HARA_FROST[0])}" cy="${sy(HARA_FROST[1])}" r="14" fill="#dfeaf2" opacity=".5"/>
       <polyline points="${road.join(' ')}" fill="none" stroke="#c9b48c" stroke-width="5"/><text x="6" y="150" font-size="9" fill="#bfe0d8">marsh</text>`; },
   roadK: (x, z) => 1 - smooth(60, 61.5, z) * (1 - smooth(71, 72.5, z)),
-  gate: { guard: 'Bridge Keeper', place: 'marsh bridge', halt: "Hold, traveler. This bridge is the only way across the floating marsh, and it belongs to Lady Tomoe's dojo. What is your business on the Tokaido?" },
+  gate: { map: 'Bridge', guard: 'Bridge Keeper', place: 'marsh bridge', halt: "Hold, traveler. This bridge is the only way across the floating marsh, and it belongs to Lady Tomoe's dojo. What is your business on the Tokaido?" },
 });
 Object.assign(TOWN_BY.hara.keeper, { where: 'on the dojo stage', dawn: true, notYet: 'I duel only at sunrise, when the mountain turns red. Wait with me, ronin. The night is short on this plain.', ask: 'The mountain is red. Read my stance, ronin, and show me the road has taught you something.' });
 Object.assign(TOWN_BY.hara.b, { look: { cloth: '#3a4a6a', armor: '#3a4a6a', trim: '#e8dcc0', helm: 'band', helmCol: '#e8dcc0', crest: null, eye: '#ffe6a0' }, sub: 'On the rise, painting Fuji', ask: 'The wind off the mountain scattered my three best brushes across the plain. I cannot finish Fuji without them.' });

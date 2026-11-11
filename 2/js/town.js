@@ -5,7 +5,7 @@
 let TOWN = null;
 const TOWN_R = 92, GATE_Z = 60;
 function townRoadX(z) { return Math.sin(z * .045) * 7 + Math.sin(z * .017 + 1) * 4; }
-const ROAD_OPEN = 2; // how many towns are finished and open to play; the rest are being built one at a time
+const ROAD_OPEN = 3; // how many towns are finished and open to play; the rest are being built one at a time
 let TCFG = null;
 function townCfg() { return TOWNS[S.cur] || TOWNS[0]; }
 function townH(x, z) {
@@ -155,7 +155,7 @@ function townFoe(role) {
   const B = role === 'a' ? { hits: 13 + i, hit: .085 + .004 * i, tele: 1150 - 70 * i, guard: .2 + .02 * i, react: .2 + .03 * i, combo: .15 + .03 * i, feint: .05 + .03 * i, low: .15, gold: 120 }
     : role === 'keeper' ? { boss: 1, hits: 20 + 2 * i, hit: .1 + .005 * i, tele: 950 - 60 * i, guard: .34 + .02 * i, react: .32 + .03 * i, combo: .3 + .03 * i, feint: .15 + .03 * i, low: .2, gold: 260 }
     : { myth: true, hits: (D.dragon ? 28 : 24) + 2 * i, hit: .11 + .005 * i, tele: D.dragon ? 880 : 820 - 40 * i, guard: .28, react: .4, combo: .4 + .02 * i, feint: .3, low: .2, gold: 400 };
-  const st = Object.assign({ ch: [1, 0, 4, 5, 2, 4, 6][i], town: role, name: D.n, title: D.title || D.sub, look: D.look, sword: D.sword, weapon: D.weapon, scale: D.scale, teleport: D.teleport, fury: D.fury, freeze: D.freeze, shock: D.shock, dragon: D.dragon, orochi: D.orochi, intro: D.tip, arena: c.arena ? () => c.arena(role) : null,
+  const st = Object.assign({ ch: [1, 0, 4, 5, 2, 4, 6][i], town: role, name: D.n, title: D.title || D.sub, look: D.look, sword: D.sword, weapon: D.weapon, scale: D.scale, teleport: D.teleport, fury: D.fury, freeze: D.freeze, shock: D.shock, dragon: D.dragon, orochi: D.orochi, bowWeak: D.bowWeak, intro: D.tip, arena: c.arena ? () => c.arena(role) : null,
     stances: role === 'a' ? ['high', 'high', 'low'] : role === 'keeper' ? ['mid', 'mid', 'high', 'low'] : ['high', 'low', 'low', 'mid'], steel: 0, rec: playerPower() }, B);
   st.hp = Math.round(ps.atk * st.hits); st.dmg = Math.round(ps.maxHp * st.hit * 10) / 10; st.gold = Math.round(st.gold * (1 + .5 * i));
   return st;
@@ -164,7 +164,7 @@ function gateGuard() { return (townCfg().gate || {}).guard || 'Gate Guard'; }
 function gatePlace() { return (townCfg().gate || {}).place || 'gate'; }
 function isDawn() { return !!TOWN && townClock() === 'Dawn'; }
 function allyName(id) { const [t, r] = id.split(':'), c = TOWN_BY[t]; return c ? (r === 'a' ? c.a.foe.n : r === 'keeper' ? c.keeper.n : c.myth.n) : id; }
-function keeperReady() { const c = townCfg(); return c.keeper.need ? wornPieces().length >= c.keeper.need : S.town.jobs.a === 2; }
+function keeperReady() { const c = townCfg(); return c.keeper.need ? wornPieces().length >= c.keeper.need : S.town.jobs.a === 2 && (!c.keeper.also || c.keeper.also()); }
 function townJobs() {
   const T = S.town, c = townCfg(), own = S.armor.owned.filter(id => PIECES[id].set === c.set).length;
   return [
@@ -183,7 +183,7 @@ function townObjective() {
   if (T.track && !ownPiece(T.track)) return `Looking for the ${PIECES[T.track].n}: ${pieceHint(T.track).t}.`;
   if (!T.guard) return `Follow the road north to the ${gatePlace()}.`;
   if (T.pass) return T.done ? `${c.n} is complete. Roam freely, finish the ${SETS[c.set].n} set, or travel on from the Map.` : `The ${gatePlace()} is open. Walk ${c.gate ? 'across' : 'through'} it.`;
-  if (!keeperReady()) return c.keeper.need ? `${c.keeper.n} only duels samurai dressed for the road. Find 3 pieces of armor: the armorer sells some, and the townsfolk need help.` : `${c.keeper.n} will only face someone this town trusts. Help ${c.a.n} first.`;
+  if (!keeperReady()) return c.keeper.need ? `${c.keeper.n} only duels samurai dressed for the road. Find 3 pieces of armor: the armorer sells some, and the townsfolk need help.` : c.keeper.also && S.town.jobs.a === 2 ? c.keeper.alsoMsg : `${c.keeper.n} will only face someone this town trusts. Help ${c.a.n} first.`;
   if (c.keeper.dawn && !isDawn()) return `${c.keeper.n} duels only at sunrise. Speak with her ${c.keeper.where} to wait for dawn.`;
   return `Challenge ${c.keeper.n} ${c.keeper.where || 'at the gate'}.`;
 }
@@ -191,8 +191,8 @@ function townTarget() {
   if (!TOWN) return null; const T = S.town, P = k => TOWN.pois.find(p => p.id === k);
   if (T.track) { if (ownPiece(T.track)) { delete T.track; save(); } else { const h = pieceHint(T.track).at(); if (h) return h; } }
   if (!T.guard) return P('guard');
-  if (T.pass) return T.done ? null : { x: townRoadX(GATE_Z + 6), z: GATE_Z + 6 };
-  if (!keeperReady()) return !T.jobs.a ? P('a') : T.jobs.a === 1 ? P('foe') : !T.jobs.b ? P('b') : P('smith');
+  if (T.pass) return T.done ? null : townCfg().doneZ ? { x: townRoadX(townCfg().doneZ + 2), z: townCfg().doneZ + 2 } : { x: townRoadX(GATE_Z + 6), z: GATE_Z + 6 };
+  if (!keeperReady()) return !T.jobs.a ? P('a') : T.jobs.a === 1 ? P('foe') : !T.jobs.b ? P('b') : townCfg().keeper.also ? (T.ema.length < 3 ? TOWN.pois.filter(q => q.kind === 'ema').sort((x, y) => Math.hypot(x.x - TOWN.pos.x, x.z - TOWN.pos.z) - Math.hypot(y.x - TOWN.pos.x, y.z - TOWN.pos.z))[0] : P('b')) : P('smith');
   return P('keeper');
 }
 
@@ -234,7 +234,7 @@ function townNPC(id, x, z, look, sword, name, sub, o) {
 function townPeople() {
   const T = TOWN, J = S.town, c = townCfg(), fl = c.flip, gx = townRoadX(GATE_Z), al = r => allies().includes(c.id + ':' + r), GRN = '#9ff0c8', L = tl(), at = (k, d) => L.pos[k] || d, G = c.gate || {};
   const npc = (id, k, d, look, sword, name, sub, o) => { const p = at(k, d); if (p[2] != null) o.ry = p[2]; return townNPC(id, p[0], p[1], look, sword, name, sub, o); };
-  npc('guard', 'guard', [gx - 1.6, GATE_Z - 2.2], TOWN_LOOKS.guard, 'iron', G.guard || 'Gate Guard', c.n + ' ' + (G.place || 'gate'), { ry: Math.PI, map: G.place ? 'Bridge' : 'Gate', mapCol: '#ff9a7a' });
+  npc('guard', 'guard', [gx - 1.6, GATE_Z - 2.2], TOWN_LOOKS.guard, 'iron', G.guard || 'Gate Guard', c.n + ' ' + (G.place || 'gate'), { ry: Math.PI, map: G.map || 'Gate', mapCol: '#ff9a7a' });
   if (!J.pass) npc('keeper', 'keeper', [gx + 4.5, GATE_Z - 6], c.keeper.look, c.keeper.sword, c.keeper.n, c.keeper.sub, { ry: Math.PI * 1.15, boss: true, col: '#ffb38a' });
   else if (al('keeper')) npc('friend:keeper', 'keeper', [gx + 4.5, GATE_Z - 6], c.keeper.look, c.keeper.sword, c.keeper.n, 'Friend', { ry: Math.PI * 1.15, col: GRN });
   npc('a', 'a', [townRoadX(6) - 10.5 * fl, 6], c.a.look, 'iron', c.a.n, c.a.sub, { ry: Math.PI / 2 * fl, unarmed: true, map: c.a.sub });
@@ -247,7 +247,7 @@ function townPeople() {
   if (!J.myth) { if (c.myth.dragon) { const p = thing('myth', 'mark', MX, MZ, mcol, GEO.oct(.7), 4); p.map = c.myth.n; p.col = mcol; const lab = labelSprite(c.myth.n, mcol, c.myth.title); lab.position.set(MX, townH(MX, MZ) + 3.4, MZ); T.grp.add(lab); }
     else npc('myth', 'myth', [MX, MZ], c.myth.look, c.myth.weapon === 'club' ? 'ogre' : c.myth.sword, c.myth.n, c.myth.title, { ry: -2.2 * fl, scale: c.myth.scale, boss: true, map: c.myth.n, mapCol: mcol, col: mcol }); }
   else if (al('myth') && !c.myth.dragon) npc('friend:myth', 'myth', [MX, MZ], c.myth.look, c.myth.weapon === 'club' ? 'ogre' : c.myth.sword, c.myth.n, 'Friend', { ry: -2.2 * fl, scale: c.myth.scale, col: GRN });
-  L.ema.forEach(([x, z], k) => { if (!J.ema.includes(k)) thing('ema' + k, 'ema', x * fl, z, '#ffd98a', GEO.box(.5, .38, .06)); });
+  L.ema.forEach(([x, z], k) => { if (!J.ema.includes(k)) thing('ema' + k, 'ema', x * fl, z, L.emaCol || '#ffd98a', L.emaGeo ? L.emaGeo() : GEO.box(.5, .38, .06)); });
   [['c0', 'haidate'], ['c1', 'suneate']].forEach(([id, slot], k) => { if (!J.chests.includes(id)) { const p = thing(id, 'chest', L.chest[k][0] * fl, L.chest[k][1], '#b8843a', GEO.box(.9, .6, .6)); p.piece = c.set + '-' + slot; } });
   { const s = labelSprite('Tokaido Road', '#fff6d8', `North: ${c.n} ${G.place || 'gate'}` + (c.last ? '' : ' · ' + TOWNS[c.i + 1].n)); s.position.set(townRoadX(-66) + 3.4, townH(townRoadX(-66) + 3.4, -66) + 3, -66); T.grp.add(s); }
   for (let i = 0; i < 5; i++) {
@@ -281,7 +281,7 @@ function townAct() {
     return townSay(gateGuard(), keeperReady() ? `${c.keeper.n} is ${c.keeper.where || 'by the gate'}. Bow before you draw.` : townObjective());
   }
   if (p.id === 'keeper') {
-    if (!keeperReady()) return townSay(c.keeper.n, c.keeper.need ? `A samurai in ${wornPieces().length ? 'half his armor' : 'travel clothes'}? I do not duel the unprepared. Come back wearing three pieces.` : `I do not know you, and neither does this town. Help ${c.a.n}, then we will talk.`);
+    if (!keeperReady()) return townSay(c.keeper.n, c.keeper.need ? `A samurai in ${wornPieces().length ? 'half his armor' : 'travel clothes'}? I do not duel the unprepared. Come back wearing three pieces.` : c.keeper.also && J.jobs.a === 2 ? c.keeper.alsoMsg : `I do not know you, and neither does this town. Help ${c.a.n}, then we will talk.`);
     if (c.keeper.dawn && !isDawn()) return townSay(c.keeper.n, c.keeper.notYet, [['dawn', '☀ Wait for sunrise', 'primary'], ['', 'Not yet']]);
     return townSay(c.keeper.n, c.keeper.ask, [['fight:keeper', '⚔ Accept the duel', 'primary'], ['', 'Not yet']]);
   }
@@ -293,8 +293,8 @@ function townAct() {
   if (p.id === 'myth') return townSay(c.myth.n, c.myth.line, [['fight:myth', '⚔ Face it', 'primary'], ['', 'Back away slowly']]);
   if (p.id === 'b') {
     if (J.jobs.b === 2) return townSay(c.b.n, 'Thank you again. May the road be kind to you.');
-    if (J.ema.length >= 3) { J.jobs.b = 2; save(); virtue('gi', 1, `you helped ${c.b.n}`); townSay(c.b.n, c.b.thanks); townGive([c.set + '-sode']); return; }
-    J.jobs.b = 1; save(); return townSay(c.b.n, c.b.ask + (J.ema.length ? ` You have found ${J.ema.length}.` : ' They glow gold where they fell.'));
+    if (J.ema.length >= 3) { J.jobs.b = 2; save(); virtue('gi', 1, `you helped ${c.b.n}`); townSay(c.b.n, c.b.thanks); townGive([c.set + '-sode']); if (c.onJob) c.onJob('b'); return; }
+    J.jobs.b = 1; save(); return townSay(c.b.n, c.b.ask + (J.ema.length ? ` You have found ${J.ema.length}.` : tl().emaHint || ' They glow gold where they fell.'));
   }
   if (p.id === 'smith') {
     const stock = ['do', 'kabuto', 'kote', 'sode', 'haidate', 'suneate', 'menpo'].map(x => 'ashigaru-' + x).filter(id => !ownPiece(id));
@@ -307,7 +307,7 @@ function townClick(d) {
   const a = d.town, J = S.town, c = townCfg();
   if (a === 'truth' || a === 'lie') {
     J.guard = true; J.note = true; save();
-    const next = keeperReady() ? `${c.keeper.n} waits ${c.keeper.where || 'by the gate'}.` : c.keeper.need ? `You need ${c.keeper.n}'s stamp, and he only duels samurai dressed for the road: three pieces of armor at least.` : `${c.keeper.n} decides who passes, and will only face someone this town trusts. Help ${c.a.n} first.`;
+    const next = keeperReady() ? `${c.keeper.n} waits ${c.keeper.where || 'by the gate'}.` : c.keeper.need ? `You need ${c.keeper.n}'s stamp, and he only duels samurai dressed for the road: three pieces of armor at least.` : c.keeper.first || `${c.keeper.n} decides who passes, and will only face someone this town trusts. Help ${c.a.n} first.`;
     if (a === 'truth') { virtue('makoto', 1, 'you told the truth'); townSay(gateGuard(), `The princess's letter? ${next}<br><span class="muted">A Road Note was added to your journal.</span>`); }
     else { virtue('makoto', -1, 'the guard does not believe you'); townSay(gateGuard(), `A rice merchant with a sword like that? Hm. ${next}`); }
     return true;
@@ -381,15 +381,15 @@ const TownMode = {
     // the palisade, the lake, the peaks and the edge of the map
     const h = townH(T.pos.x, T.pos.z), gx = townRoadX(GATE_Z), wall = T.lastGood.z < GATE_Z - .5 && T.pos.z > GATE_Z - .9 && !(S.town.pass && Math.abs(T.pos.x - gx) < 2.6);
     const wallBack = T.lastGood.z > GATE_Z + .5 && T.pos.z < GATE_Z + .9 && !(Math.abs(T.pos.x - gx) < 2.6);
-    if (h < -.35 || h > 15.5 || Math.abs(T.pos.x) > TOWN_R || Math.abs(T.pos.z) > TOWN_R - 2 || wall || wallBack) T.pos.copy(T.lastGood); else T.lastGood.copy(T.pos);
+    if (h < (T.W.minH == null ? -.35 : T.W.minH) || h > 15.5 || Math.abs(T.pos.x) > TOWN_R || Math.abs(T.pos.z) > TOWN_R - 2 || wall || wallBack) T.pos.copy(T.lastGood); else T.lastGood.copy(T.pos);
     T.pos.y = townH(T.pos.x, T.pos.z);
-    if (S.town.pass && !S.town.done && T.pos.z > GATE_Z + 5) { S.town.done = true; S.far = Math.min(ROAD_OPEN - 1, Math.max(S.far || 0, S.cur + 1)); save(); virtue('chugi', 1, 'the letter moves on'); townDone(); }
+    if (S.town.pass && !S.town.done && T.pos.z > (townCfg().doneZ || GATE_Z + 5)) { S.town.done = true; S.far = Math.min(ROAD_OPEN - 1, Math.max(S.far || 0, S.cur + 1)); save(); virtue('chugi', 1, 'the letter moves on'); townDone(); }
     // walk animation
     const P = T.P; T.phase += T.speed * dt * (7 + 3 * T.speed);
-    const st = .3 * T.speed, lift = .14 * T.speed;
+    const st = .3 * T.speed * (T.lift > .3 ? 0 : 1), lift = .14 * T.speed * (T.lift > .3 ? 0 : 1);
     P.feet.L.set(.15, .035 + Math.max(0, Math.sin(T.phase)) * lift, Math.sin(T.phase) * st - .02); P.feet.R.set(-.15, .035 + Math.max(0, Math.sin(T.phase + Math.PI)) * lift, Math.sin(T.phase + Math.PI) * st + .02);
     P.crouch = -Math.abs(Math.sin(T.phase)) * .035 * T.speed; P.leanAdd = T.speed * .1; P.armSwing = -Math.sin(T.phase) * T.speed;
-    P.root.position.copy(T.pos); P.root.rotation.y = T.face; P.update(dt);
+    P.root.position.copy(T.pos); if (T.lift) P.root.position.y += T.lift; P.root.rotation.y = T.face; P.update(dt);
     // travelers walk the road
     for (const w of T.walkers) {
       w.z += w.dir * w.spd * dt; if (w.z > GATE_Z - 6) w.dir = -1; if (w.z < -84) w.dir = 1;
@@ -411,7 +411,7 @@ const TownMode = {
     }
     if (near !== T.near) { T.near = near; const b = $('#actBtn'); if (near) { b.hidden = false; b.classList.remove('locked'); b.textContent = near.kind === 'chest' ? 'Open the chest' : near.kind === 'mark' ? 'Face ' + townCfg().myth.n : 'Talk to ' + ((c => ({ guard: 'the ' + gateGuard().toLowerCase().replace('gate ', ''), keeper: c.keeper.n, a: c.a.n, smith: 'the armorer', b: c.b.n, foe: c.a.foe.n, myth: c.myth.n, 'friend:a': c.a.foe.n, 'friend:myth': c.myth.n, 'friend:keeper': c.keeper.n }[near.id] || ''))(townCfg())); } else b.hidden = true; }
     T.saveT += dt; if (T.saveT > 3) { T.saveT = 0; S.town.at = { x: T.pos.x, z: T.pos.z, yaw: T.face }; S.town.day = T.day; save(); }
-    townSkyAndLight(dt);
+    townSkyAndLight(dt); if (T.W.post) T.W.post(dt, T);
     $('#tInfo').innerHTML = `<b>${townCfg().n} · ${townClock()}</b>${esc(townObjective())}`;
     // camera
     const tgt = T.pos.clone().add(new V3(0, 1.5, 0)), dist = VH > VW ? 6.2 : 5.2;
@@ -476,7 +476,7 @@ function showTitle2() {
   const t = $('#title');
   t.innerHTML = `<div class="ttl-inner"><div class="ttl-mark">道</div><h1>Katana Legend II</h1><div class="ttl-sub">The Tokaido Road · Hakone to Kyoto</div>
     ${S.started ? `<button class="btn primary ttl-go" data-title2="go">Continue as ${nm()}</button>` : `<button class="btn primary ttl-go" data-title2="${firstGameSave() ? 'bring' : 'import'}">${firstGameSave() ? 'Continue the legend of ' + esc(String(firstGameSave().name || 'Shep').slice(0, 14)) : 'Bring my legend from the first game'}</button><button class="btn ttl-go" data-title2="new" style="margin-top:10px">Start as a new ronin</button>`}
-    <div class="ttl-who" style="margin-top:14px"><span><small>Early build: Hakone and Hara are open, the road beyond is being built. A legend imagined by Shep.</small></span></div></div>`;
+    <div class="ttl-who" style="margin-top:14px"><span><small>Early build: Hakone, Hara and Shimada are open, the road beyond is being built. A legend imagined by Shep.</small></span></div></div>`;
   t.hidden = false; t.classList.remove('out');
 }
 function title2Click(a) {
