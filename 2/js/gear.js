@@ -213,6 +213,7 @@ function packSamurai() {
 function packJournal() {
   const T = S.town, jobs = townJobs();
   return `<h2>Journal</h2>
+    ${honorHTML()}
     <h3 style="margin-top:10px">The seven virtues</h3>
     <div class="virt">${VIRTUES.map(([k, n, g]) => `<div class="petal ${S.virt[k] ? 'on' : ''}"><span>${g}</span><b>${n}</b><small>${S.virt[k] || 0}</small></div>`).join('')}</div>
     <h3 style="margin-top:14px">Friends on the road</h3>

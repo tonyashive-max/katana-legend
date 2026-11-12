@@ -226,7 +226,7 @@ function startTown(back) {
     showHUD('explore'); $('#hud').classList.add('town');
     $('#leaveBtn').textContent = 'Pack'; OV.draw = drawTownOverlay; OV.trailCol = '255,255,255';
     MUSIC.start('hub'); setMode(TownMode);
-    if (!S.town.seen) { S.town.seen = true; save(); setTimeout(() => { if (TOWN) titleCard(c.jp, c.n, c.sub, `Station ${c.i + 2} of 8`); }, 500); if (c.i > 0) setTimeout(() => { if (TOWN && !TITLE_UP) townSay('The Tokaido road', c.intro); }, 2600); }
+    if (!S.town.seen) { S.town.seen = true; save(); setTimeout(() => { if (TOWN) titleCard(c.jp, c.n, c.sub, `Station ${c.i + 2} of 8`); }, 500); if (c.i > 0) setTimeout(() => { if (TOWN && !TOWN.paused) cineArrive(() => { if (TOWN) townSay('The Tokaido road', c.intro); }); }, 2400); }
   });
 }
 function townTravel(i, shown) {
@@ -281,7 +281,7 @@ function townPeople() {
     if (c.i + 1 < ROAD_OPEN) { const z = (c.doneZ || GATE_Z + 5) + 2.2, x = c.exitX != null ? c.exitX : townRoadX(z); T.pois.push({ id: 'north', kind: 'spot', x, z, r: 3.2, label: 'Walk on to ' + TOWNS[c.i + 1].n, act: () => { if (S.town.done) townTravel(c.i + 1); } }); }
   }
   if (c.people) c.people(T, npc);
-  duoPeople(T); puzzlePeople(T); beastPeople(T); warPeople(T);
+  duoPeople(T); puzzlePeople(T); beastPeople(T); warPeople(T); packPeople(T);
   for (let i = 0; i < 5; i++) {
     const rig = new Samurai(TOWN_LOOKS.walker[i % 3], swordDef('bokken'), { noSaya: true }); rig.sword.visible = false; rig.root.rotation.order = 'YXZ'; rig.setHold('rest', 6); T.grp.add(rig.root);
     T.walkers.push({ rig, z: -80 + i * 31, dir: i % 2 ? 1 : -1, side: i % 2 ? 1.3 : -1.3, spd: 1.1 + (i % 3) * .25, ph: i * 2 });
@@ -318,7 +318,7 @@ function townAct() {
     if (J.jobs.a === 2 && needDual() && (!c.keeper.also || c.keeper.also())) return townSay(c.keeper.n, c.i === 5 ? 'One sword? I carry two, ronin. Come back when you can do the same, or do not come back.' : 'One blade against the Shadow of the Shogun. No. Learn to carry two, and then we end this.');
     if (!keeperReady()) return townSay(c.keeper.n, c.keeper.need ? `A samurai in ${wornPieces().length ? 'half his armor' : 'travel clothes'}? I do not duel the unprepared. Come back wearing three pieces.` : c.keeper.also && J.jobs.a === 2 ? c.keeper.alsoMsg : `I do not know you, and neither does this town. Help ${c.a.n}, then we will talk.`);
     if (c.keeper.dawn && !isDawn()) return townSay(c.keeper.n, c.keeper.notYet, [['dawn', '☀ Wait for sunrise', 'primary'], ['', 'Not yet']]);
-    return townSay(c.keeper.n, c.keeper.ask, [['fight:keeper', '⚔ Accept the duel', 'primary'], ['', 'Not yet']]);
+    return townSay(c.keeper.n, c.keeper.ask + readyLine(), [['fight:keeper', '⚔ Accept the duel', 'primary'], ['', 'Not yet']]);
   }
   if (p.id === 'a') {
     if (!J.jobs.a) { J.jobs.a = 1; save(); return townSay(c.a.n, c.a.ask); }
@@ -406,21 +406,21 @@ function townFightResult() {
   if (teamResult()) return;
   hint('');
   const st = F.st;
-  if (F.outcome !== 'win') return openOverlay(`<div class="modal"><div class="kicker lose">Defeated</div><p><b>${st.name}</b> was too strong this time. Read the stance over their head: HIGH beats MID, MID beats LOW, LOW beats HIGH.</p><div class="actions"><button class="btn primary" data-town="retry">Try again</button><button class="btn" data-town="back">Back to town</button></div></div>`);
+  if (F.outcome !== 'win') return openOverlay(`<div class="modal"><div class="kicker lose">${F.broken ? 'Your blade snapped!' : 'Defeated'}</div><p>${F.broken ? `Your <b>${F.broken.name}</b> broke against ${st.name} and is gone for good. You now carry the ${F.broken.next}. A blade must be strong enough for its town: train, then forge or earn a better one.` : `<b>${st.name}</b> was too strong this time. Read the stance over their head: HIGH beats MID, MID beats LOW, LOW beats HIGH.`}${readyLine()}</p><div class="actions"><button class="btn primary" data-town="retry">Try again</button><button class="btn" data-town="back">Back to town</button></div></div>`);
   openOverlay(`<div class="modal win"><div class="kicker">Victory!</div><p><b>${st.name}</b> ${st.dragon ? 'sinks low, beaten' : 'drops to one knee'}.</p><p class="muted">What does a samurai do now?</p>
     <div class="choice2">
       <button class="card" data-town="spare"><b>Sheathe your blade</b><small>${st.name} becomes a <b>friend on the road</b>. Friends stand with you: they make the big duels of their town easier, catch you once when you fall, and each one adds 10% Spirit at the start of every duel.</small><small style="color:var(--jade)">Mercy +1 · friends: ${allies().length} → ${allies().length + 1}</small></button>
-      <button class="card" data-town="finish"><b>Press your advantage</b><small>Take everything they carry and send them running. You will not see them again.</small><small style="color:var(--gold-2,#ffd27a)">+${Math.round(st.gold * .5)} extra gold, once</small></button>
+      <button class="card" data-town="finish"><b>Press your advantage</b><small>Take everything they carry and send them running. You will not see them again.</small><small style="color:var(--gold-2,#ffd27a)">+${Math.round(st.gold * .5)} extra gold, once · Mercy −1</small></button>
     </div></div>`);
 }
 function townAfterFight(choice) {
   const id = F.ctx.idx, st = F.st, J = S.town, c = townCfg(), clean = !F.lostLimb, bowed = !!F.bowed, key = c.id + ':' + id;
   let gold = st.gold;
-  if (choice === 'spare') { virtue('jin', 1, `you spared ${st.name}`); if (!allies().includes(key)) allies().push(key); } else gold += Math.round(st.gold * .5);
+  if (choice === 'spare') { virtue('jin', 1, `you spared ${st.name}`); if (!allies().includes(key)) allies().push(key); } else { gold += Math.round(st.gold * .5); virtue('jin', -1, `you robbed ${st.name}`); }
   let blade = null; if (!ownsSword(st.sword)) { const w = addSword(st.sword); blade = swordDef(st.sword); if (swordDmg(w) > swordDmg(eqSword())) S.eq = w.u; }
   if (bowed && clean) virtue('meiyo', 1, 'a clean, honorable win');
   const steel = ({ a: 3, keeper: 5, myth: 8 }[id] || 3) + c.i; S.steel = (S.steel || 0) + steel;
-  const xpUp = ['power', 'speed', 'guard', 'vital'].filter(k => addSkillXP(k, id === 'a' ? 14 : 22)); // every duel on the road teaches a little of everything
+  const xpUp = ['power', 'speed', 'guard', 'vital'].filter(k => addSkillXP(k, id === 'a' ? 10 : 14)); // every duel on the road teaches a little of everything
   const mats = Object.entries(rollDrops(c.i, id === 'myth' ? 'myth' : id === 'keeper' ? 'boss' : 'fight')).map(([m, n]) => `<span class="chip">+${n} ${MATERIALS[m].n}</span>`).join('');
   S.gold += gold; S.wins++; coopEvent('win', { foe: st.name });
   const gifts = [];
@@ -487,6 +487,7 @@ const TownMode = {
       R.feet.L.set(.15, .035 + Math.max(0, Math.sin(w.ph)) * .1 * k, Math.sin(w.ph) * .22 * k); R.feet.R.set(-.15, .035 + Math.max(0, -Math.sin(w.ph)) * .1 * k, -Math.sin(w.ph) * .22 * k); R.armSwing = -Math.sin(w.ph) * .7 * k; R.leanAdd = stop ? .25 : .06;
       R.root.visible = dP < 110; if (dP < 70) R.update(dt);
     }
+    packTick(dt, T);
     // people turn to face you; things glow and bob
     let near = null, nd = 1e9;
     for (const p of T.pois.slice()) {
@@ -506,6 +507,7 @@ const TownMode = {
     for (let k = 1; k <= 4; k++) { const pp = tgt.clone().lerp(pos, k / 4); if (townH(pp.x, pp.z) > pp.y - .4) { pos = tgt.clone().lerp(pos, (k - 1) / 4 + .05); pos.y = Math.max(pos.y, townH(pos.x, pos.z) + 1.2); break; } }
     const kk = T.clock < .1 ? 60 : 9; T.camPos.lerp(pos, damp(kk, dt)); T.camLook.lerp(tgt.clone().addScaledVector(fwd, 1.8), damp(kk, dt));
     const gy = Math.max(townH(T.camPos.x, T.camPos.z), -.75) + .5; if (T.camPos.y < gy) T.camPos.y = gy;
+    if (T.cine) cineCam(T);
     CAM.position.copy(T.camPos); CAM.lookAt(T.camLook); CAM.fov = lerp(CAM.fov, 58, damp(6, dt)); CAM.updateProjectionMatrix(); FX.setScale(); applyShake(dt);
     hint(T.clock < 8 && !S.town.guard ? 'Drag on the left side to walk · drag on the right side to look around' : '');
   },
@@ -546,7 +548,7 @@ function drawTownOverlay(c) {
 function townDone() {
   const c = townCfg(), own = S.armor.owned.filter(id => PIECES[id].set === c.set).length, petals = `<div class="virt">${VIRTUES.map(([k, nm2, g]) => `<div class="petal ${S.virt[k] ? 'on' : ''}"><span>${g}</span><b>${nm2}</b><small>${S.virt[k] || 0}</small></div>`).join('')}</div>`;
   if (TOWN) TOWN.paused = true;
-  if (c.last && !S.endSeen && !window.__noTut) { S.endSeen = true; save(); return storyCards(STORY_END, () => townDone()); }
+  if (c.last && !S.endSeen && !window.__noTut) { S.endSeen = true; save(); if (TOWN) TOWN.paused = false; return cineEnding(() => { if (TOWN) TOWN.paused = true; storyCards(STORY_END, () => townDone()); }); }
   if (c.last && TOWN) TOWN.W.fw = 30;
   if (c.last) return openOverlay(`<div class="modal win ending"><div class="eyebrow">Katana Legend II · The Tokaido Road</div><div class="kicker">The letter is delivered</div>
     <p>The palace gate closes behind you. In a hall of gold screens, Princess Hana places the letter in the Emperor's hands. Outside, every lantern in Kyoto is burning, and the first snow falls on Sanjo Bridge.</p>
@@ -574,7 +576,7 @@ function title2Click(a) {
   if (a === 'go' || a === 'new') {
     if (a === 'new' && !S.started) { const w = addSword('iron'); S.eq = w.u; S.gold = 150; }
     S.started = true; save(); closeOverlay(); TITLE_UP = false; sfx.taiko(1); const t = $('#title'); t.classList.add('out'); setTimeout(() => { t.hidden = true; }, 600);
-    if (!S.town.intro) setTimeout(() => storyOpen(0), 900);
+    if (!S.town.intro) setTimeout(() => cineArrive(() => storyOpen(0)), 900);
     return true;
   }
   if (a === 'import') { $('#title').hidden = true; openOverlay(`<div class="modal" style="text-align:left"><h2>Bring your legend</h2><p class="muted">In the first game, open Settings, then Backup &amp; restore, then Copy backup code. Paste it here. Your name, wax seal, training and best blade come with you. The first game is not changed.</p><textarea class="bk-code" id="imp2" placeholder="KATANA1:…"></textarea><p class="bk-msg" id="imp2msg"></p><div class="actions"><button class="btn" data-title2="cancel">Cancel</button><button class="btn primary" data-title2="read">Bring my legend</button></div></div>`); return true; }

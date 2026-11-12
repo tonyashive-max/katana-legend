@@ -6,15 +6,15 @@
 
 /* what a well-prepared ronin looks like on arriving in town i */
 const REF_BLADE = [13, 19, 27, 36, 48, 62, 80];
-function refStats(i) { const L = 1 + 1.2 * i; return { L, atk: REF_BLADE[i] * (1 + (L - 1) * .08), hp: 100 + (L - 1) * 12 + 40 + 18 * i }; }
-function foeFix(st, i, boss) { const r = refStats(i); st.hp = Math.round(r.atk * st.hits); st.dmg = Math.round(r.hp * st.hit * 10) / 10; if (boss) st.breakAt = Math.round(REF_BLADE[i] * .62); st.rec = Math.round(r.atk); return st; }
+function refStats(i) { const L = 1 + 1.1 * i; return { L, atk: REF_BLADE[i] * (1 + (L - 1) * .08), hp: 100 + (L - 1) * 12 + 40 + 18 * i }; }
+function foeFix(st, i, boss) { const r = refStats(i); st.hp = Math.round(r.atk * st.hits); st.dmg = Math.round(r.hp * st.hit * 10) / 10; if (boss) st.breakAt = Math.round(REF_BLADE[i] * .7); st.rec = Math.round(r.atk); return st; }
 function readyWord() { const c = townCfg(), r = refStats(c.i), p = stats(), k = (p.atk / styleDef().atk) / r.atk * .6 + p.maxHp / r.hp * .4; return k >= 1 ? ['Ready', '#9ff0c8', 'You are as strong as this town expects.'] : k >= .8 ? ['Nearly ready', '#ffd27a', 'Train a little more and forge your blade.'] : ['Not ready', '#ff9a7a', 'This town will break you. Train with the sensei and forge your blade.']; }
 
 /* ---------- road warriors: two more duelists in every town ---------- */
 const WARRIORS = [['Matasaburo', 'the Boaster'], ['Onatsu', 'the Quiet Blade'], ['Heihachi', 'of the Long Road'], ['Sayo', 'the Crane'], ['Gennosuke', 'the Debt Collector'], ['Tsuru', 'the Winter Wind'], ['Bunta', 'the Wrestler'], ['Okiyo', 'of the Ferry'], ['Shinza', 'the Left Hand'], ['Riku', 'the Fox Cub'], ['Daigoro', 'the Bell Ringer'], ['Ume', 'the Lantern'], ['Kanbei', 'the Gate Breaker'], ['Yae', 'the Last Petal']];
 const WAR_WEAPON = [null, null, null, null, 'f-yari', 'f-nagi', 'f-axe', 'f-hook', 'f-nagi', 'f-yari'];
 function warDef(k, ti) { const c = ti == null ? townCfg() : TOWNS[ti], n = c.i * 2 + k, w = c.i >= 4 ? WAR_WEAPON[(n - 4) % WAR_WEAPON.length] || 'f-yari' : null; return { id: 'w' + k, n: WARRIORS[n][0], title: WARRIORS[n][1], look: STAGES[(n * 5 + 3) % STAGES.length].look, sword: w || STAGES[(n * 5 + 3) % STAGES.length].sword, weapon: w }; }
-function warFoe(k) { const D = warDef(k), st = townFoe('a'); return Object.assign(st, { town: D.id, name: D.n, title: D.title, look: D.look, sword: D.sword, weapon: D.weapon, hp: Math.round(st.hp * 1.12), gold: Math.round(st.gold * .6), stances: k ? ['low', 'mid', 'high', 'low'] : ['mid', 'high', 'mid'], intro: D.weapon ? `${D.n} fights with a ${swordDef(D.weapon).name.toLowerCase()}, not a sword. Its reach is long: parry, then close in.` : 'A wandering duelist. Read the stance over their head.' }); }
+function warFoe(k) { const D = warDef(k), st = townFoe('a'); return Object.assign(st, { town: D.id, name: D.n, title: D.title, look: D.look, sword: D.sword, weapon: D.weapon, hp: Math.round(st.hp * 1.12), gold: Math.round(st.gold * .6), stances: k ? ['low', 'mid', 'high', 'low'] : ['mid', 'high', 'mid'], intro: D.weapon ? `${D.n} wields the ${swordDef(D.weapon).name.toLowerCase()}, not a sword. ${WEAPON_TIP[WEAPON_FX[D.weapon]]}` : 'A wandering duelist. Read the stance over their head.' }); }
 function warDone(k) { return ((S.town.war || []).includes(k)); }
 function warsLeft() { return [0, 1].filter(k => !warDone(k)); }
 function warPeople(T) {
@@ -58,8 +58,8 @@ function road2Result() {
 }
 function road2After(choice) {
   const k = +F.ctx.idx[1], D = warDef(k), c = townCfg(), key = c.id + ':w' + k; let gold = F.st.gold;
-  if (choice === 'wspare') { virtue('jin', 1, `you spared ${D.n}`); if (!allies().includes(key)) allies().push(key); } else gold += Math.round(F.st.gold * .5);
-  const steel = 3 + c.i, mats = Object.entries(rollDrops(c.i, 'fight')).map(([m, n]) => `<span class="chip">+${n} ${MATERIALS[m].n}</span>`).join(''), ups = ['power', 'speed', 'guard', 'vital'].filter(s => addSkillXP(s, 18));
+  if (choice === 'wspare') { virtue('jin', 1, `you spared ${D.n}`); if (!allies().includes(key)) allies().push(key); } else { gold += Math.round(F.st.gold * .5); virtue('jin', -1, `you robbed ${D.n}`); }
+  const steel = 3 + c.i, mats = Object.entries(rollDrops(c.i, 'fight')).map(([m, n]) => `<span class="chip">+${n} ${MATERIALS[m].n}</span>`).join(''), ups = ['power', 'speed', 'guard', 'vital'].filter(s => addSkillXP(s, 12));
   if (!warDone(k)) (S.town.war = S.town.war || []).push(k); S.gold += gold; S.steel = (S.steel || 0) + steel; S.wins++; coopEvent('win', { foe: F.st.name }); virtue('yu', 1, 'you answered a challenge'); save();
   openOverlay(`<div class="modal win"><div class="kicker">${choice === 'wspare' ? 'Mercy' : 'Victory'}</div><p><b>${D.n}</b> ${D.title} ${choice === 'wspare' ? 'bows low. "When the beast comes, call my name."' : 'runs and does not look back.'} ${warsLeft().length ? 'One duelist still bars the way.' : `Every duelist in ${c.n} has been faced. ${c.keeper.n} will hear of it.`}</p><div class="rewards"><span class="chip gold"><i></i>+${gold}</span><span class="chip steel"><i></i>+${steel} steel</span>${mats}${ups.length ? `<span class="chip">${ups.map(s => SKILLS[s].n).join(', ')} level up!</span>` : ''}</div><div class="actions"><button class="btn primary" data-town="back">Back to town</button></div></div>`);
 }
@@ -118,5 +118,5 @@ function friendsHere() { return allies().filter(a => a.startsWith(townCfg().id +
 /* a friend from this town steps in, once per duel, when you would fall */
 { const df = defeat; defeat = function (reason) {
   if (reason === 'Defeated' && F && !F.over && !F.saved && F.ctx && F.ctx.kind === 'town' && !(typeof TEAM !== 'undefined' && TEAM && TEAM.on)) { const fr = friendsHere();
-    if (fr.length) { F.saved = true; F.php = Math.round(F.ps.maxHp * .3); banner(allyName(fr[fr.length - 1]) + ' steps in!', 'Your friend turns the blow aside. Get up and finish it!'); sfx.parry && sfx.parry(); slowmo(.3, .9); return; } }
+    if (fr.length) { F.saved = true; F.php = Math.round(F.ps.maxHp * .3); banner(allyName(fr[fr.length - 1]) + ' steps in!', 'Your friend turns the blow aside. Get up and finish it!'); sfx.parry && sfx.parry(); slowmo(.3, .9); friendStepIn(); return; } }
   df(reason); }; }

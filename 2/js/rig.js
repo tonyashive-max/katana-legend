@@ -2,6 +2,7 @@
 /* ===== Procedural cel-shaded samurai: modeling, IK animation, limb detachment ===== */
 
 const _t1 = new V3(), _t2 = new V3(), _t3 = new V3(), _t4 = new V3(), _tm = new THREE.Matrix4();
+const _q2 = new THREE.Quaternion(), _v2 = new V3();
 const _qa = new V3(), _qb = new V3(), _qc = new V3();
 function quatFromDir(dir, edge, out) {
   const y = _qa.copy(dir).normalize();
@@ -689,6 +690,9 @@ class Samurai {
     this.head.rotation.y = -this.chest.rotation.y * .6;
     this.head.rotation.x = -this.chest.rotation.x * .5;
     this.grip.position.copy(this.gp); this.grip.quaternion.copy(this.gq);
+    // a second blade in the left hand mirrors the first, so the two cut as a pair
+    const two = this.grip2 && this.grip2.visible && !this.det.armL;
+    if (two) { const g2 = this.grip2, k2 = dt ? damp(16, dt) : 1; _q2.set(this.gq.x, -this.gq.y, -this.gq.z, this.gq.w); g2.quaternion.slerp(_q2, k2); _v2.set(-this.gp.x + .36, this.gp.y - .05, this.gp.z + .04); g2.position.lerp(_v2, k2); }
     // arms
     const dir = _t4.set(0, 1, 0).applyQuaternion(this.gq);
     let rT = new V3().copy(this.gp).addScaledVector(dir, -.06);
@@ -717,6 +721,7 @@ class Samurai {
       const k = dt ? damp(10, dt) : 1; if (!this.handInit) { this.lCur.copy(lT); this.handInit = true; }
       this.lCur.lerp(lT, k); lT = this.lCur.clone(); this.rCur.copy(rT);
     } else { this.rCur.copy(rT); this.lCur.copy(lT); this.handInit = true; }
+    if (two && !inSaya && !drawing) { const d2 = _v2.set(0, 1, 0).applyQuaternion(this.grip2.quaternion); lT = new V3().copy(this.grip2.position).addScaledVector(d2, -.06); if (!this.cereSpread) rT = new V3().copy(this.gp).addScaledVector(dir, -.1); }
     for (const s of ['L', 'R']) {
       if (this.det['arm' + s]) continue;
       let T;

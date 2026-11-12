@@ -324,7 +324,8 @@ function fightStep(d) {
 }
 function enemyHitsPlayer() {
   if (F.over) return;
-  if (F.plx !== F.aim && !(F.fury && F.st.dragon)) { enemyWhiff(); return; }
+  const wfx = weaponFx();
+  if (F.plx !== F.aim && !(F.fury && F.st.dragon) && wfx !== 'sweep') { enemyWhiff(); return; }
   if (F.gear && F.gear.dodge1) { F.gear.dodge1 = false; ovPop(VW / 2, VH * .56, 'TANUKI TRICK!', { size: 30, color: '#e8b03a', stroke: '#2a1200' }); enemyWhiff(); return; }
   if (!F.drawn) setTimeout(() => { if (F && !F.drawn && !F.over) { playerDraw(true); } }, 350);
   const st = F.st, P = F.P, E = F.E;
@@ -332,8 +333,11 @@ function enemyHitsPlayer() {
   let d = st.dmg * rnd(.9, 1.1) * (E.det.armR ? .6 : 1) * (E.det.legs ? .85 : 1);
   if (limb === 'head' && P.det.helm) d *= 1.3;
   const sc = { x: VW / 2, y: VH * .72 };
+  if (wfx && F.clock > (F.wfxPop || 0)) { F.wfxPop = F.clock + 6; fightHint(WEAPON_TIP[wfx]); }
+  if (wfx === 'hook') { F.sta = Math.max(0, F.sta - 22); F.spirit = Math.max(0, F.spirit - 12); ovPop(sc.x, sc.y - 104, 'HOOKED!', { size: 24, color: '#b8e06a', stroke: '#0a1a00' }); }
+  if (wfx === 'crush' && F.blocking) { F.sta = Math.max(0, F.sta - 26); ovPop(sc.x, sc.y - 104, 'GUARD CRUSHED!', { size: 24, color: '#ff8a7a', stroke: '#1a0000' }); }
   if (F.blocking) {
-    const red = F.ps.block * (P.det.armL ? .5 : 1);
+    const red = F.ps.block * (P.det.armL ? .5 : 1) * (wfx === 'pierce' ? .45 : wfx === 'crush' ? .35 : 1);
     d *= (1 - red) * (F.fury ? 1.3 : 1); F.plimb[limb] -= d * .35;
     F.sta = Math.max(0, F.sta - (F.fury ? 30 : 12));
     sfx.clang(1.1); FX.sparks(P.bladePoint(.45), '#d9eeff', 22, 4.5); shake(F.fury ? .06 : .025); P.jolt = .25;
@@ -440,8 +444,9 @@ function ringInfo(rig, f) {
   return { x: s.x, y: s.y, r: Math.max(48, .2 * focalPx() / d) };
 }
 function fightHint(msg) { F.hintMsg = msg; F.hintT = 3; }
-function fightSlash(x0, y0, x1, y1) {
+function fightSlash(x0, y0, x1, y1, pid) {
   if (!F || F.state === 'intro' || F.over || F.special || F.broken) return;
+  if (F.st.town && followThrough(x1, y1, pid)) return;
   if (!F.drawn || F.clock - F.drawnAt < .1) return;
   if (F.firstStrike && !F.iaiDone && F.clock < F.iaiUntil) {
     const hit = hitTest(F.E, x0, y0, x1, y1);
@@ -472,7 +477,7 @@ function fightSlash(x0, y0, x1, y1) {
   if (F.state === 'vanish') return;
   let hit = hitTest(F.E, x0, y0, x1, y1);
   if (!hit && F.duo) { const o = duoOther(); if (o && !o.dead && o.E && hitTest(o.E, x0, y0, x1, y1) && F.state !== 'windup' && F.state !== 'strike') { swapFoe('hit'); hit = hitTest(F.E, x0, y0, x1, y1); } }
-  if (!hit) return;
+  if (!hit) { if (F.st.town) F.cdUntil = Math.min(F.cdUntil, F.clock + .09); return; } // a cut through empty air costs breath, not time
   if (F.state === 'guard' && guardBlocks(hit)) {
     sfx.clang(); const bp = F.E.bladePoint(.5); FX.sparks(bp, '#cfe6ff', 18, 4);
     const s = toScreen(bp); ovPop(s.x, s.y - 30, 'BLOCKED', { size: 24, color: '#bfe2ff', stroke: '#0a1a3a' });
@@ -497,6 +502,7 @@ function fightSlash(x0, y0, x1, y1) {
   else if (Math.random() < F.ps.crit) { dmg *= 1.6; crit = true; } else if (F.state === 'recover') dmg *= 1.25;
   if (tired) dmg *= .35;
   if (F.leadK !== 1) { dmg *= F.leadK; if (F.clock > (F.leadPop || 0)) { F.leadPop = F.clock + 1.4; ovPop(hit.sx, hit.sy + 46, F.leadK > 1 ? 'HEAVY' : 'QUICK', { size: 18, color: F.leadK > 1 ? '#ffb07a' : '#9fe8ff', stroke: '#1a0800' }); } }
+  if (!tired) F.stroke = { id: pid, x: x0, y: y0, ux, uy, t: F.clock, part: hit.part, dmg, world: hit.world, sx: hit.sx, sy: hit.sy, done: false };
   damageEnemy(hit.part, dmg, crit, hit.world, hit.sx, hit.sy, tired);
   if (!F.over && (F.state === 'idle' || F.state === 'guard' || F.state === 'recover')) {
     F.hitTimes.push(F.clock); F.hitTimes = F.hitTimes.filter(t => F.clock - t < 1.6);
