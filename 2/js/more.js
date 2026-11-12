@@ -77,12 +77,14 @@ function packMore() {
       <div class="card" style="gap:6px"><b>刀 Blade collection</b><div style="font-size:26px;font-weight:900;color:var(--gold-2,#ffd27a)">${S.seen.length} / ${SWORDS.length}</div><small>You carry ${own} of them now. Blades come from duels, master smiths, the mystery forge and wagers.</small><button class="btn small" data-more="rack">Open the blade rack</button></div>
       <div class="card" style="gap:6px"><b>鎧 Armor</b><div style="font-size:26px;font-weight:900;color:var(--gold-2,#ffd27a)">${S.armor.owned.length} / ${Object.keys(PIECES).length}</div><small>${sets} of 8 sets complete · ${Object.keys(S.armor.leg || {}).length} legendary · ${mastersLearned()} of 8 master blades learned.</small></div>
       <div class="card" style="gap:6px"><b>⚔ Duel a friend</b><small><b>Arcade:</b> two tablets, or two players on this one, just for fun. <b>Wager duel:</b> each samurai stakes a blade, and the winner keeps both.</small><button class="btn small primary" data-more="versus">Open the duelling ground</button></div>
+      ${fsCard()}
       <div class="card" style="gap:6px"><b>💾 Keep your legend safe</b><small>${S.lastBackup ? 'Last backup ' + new Date(S.lastBackup).toLocaleDateString() : 'Never backed up'}. A backup moves your legend to another tablet or saves it if the browser is cleared.</small><div class="row" style="gap:6px"><button class="btn small primary" data-more="backup">Back up</button><button class="btn small" data-more="settings">Settings</button></div></div>
     </div>`;
 }
 function moreClick(a) {
   if (a === 'rack') { closePack(); townWorkshop('swords'); return true; }
   if (a === 'versus') { closePack(); if (CO.on) { coopClose(true); toast('You stopped travelling together so the duelling ground can connect.'); } townWorkshop('versus'); return true; }
+  if (a === 'fs') { fsSet(!fsActive()); closePack(); return true; }
   if (a === 'backup') { PACK_SLOT = null; openBackup(); return true; }
   if (a === 'settings') { openSettings(); return true; }
   if (a === 'tut') { townCloseTalk(); tutStart(); return true; }
