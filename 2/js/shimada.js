@@ -61,7 +61,7 @@ function shimadaDecor(W, c) {
   const onFlat = (x, z, pad) => SH_LAY.flats.some(f => Math.hypot(x - f[0], z - f[1]) < f[2] + pad) || SH_LAY.ema.concat(SH_LAY.chest).some(f => Math.hypot(x - f[0], z - f[1]) < 3.5);
   const rain0 = S.town.jobs.b === 2 ? 0 : 1;
   const water = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshBasicMaterial({ color: '#6f8f9c', transparent: true, opacity: .86 })); water.rotation.x = -Math.PI / 2; water.position.y = rain0 ? .06 : -.22; W.scene.add(water); W.water = water; W.waterCol = '#6f8f9c';
-  W.rainAmt = rain0; W.minH = rain0 ? 0 : -.62;
+  W.rainAmt = rain0; W.minH = rain0 ? 0 : -.56;
   addMountains(W, { base: '#4f6a5a', top: '#8aa890', snow: '#f4f8ff', snowLine: 2, r0: 150, r1: 250, h0: 16, h1: 48, a0: -3.6, a1: 2.2, n: 24, seed: 31 });
   // the town of inns: two tight rows along the road, full of travellers waiting on the river
   const inn = (k) => ({ roof: ['#3a3a42', '#44403c', '#33363e'][k % 3], cap: '#55555e', wall: ['#e8dcc0', '#dccfae', '#efe6d0'][k % 3], h: k % 3 === 1 ? 4.4 : 2.8, rh: 1.6, win: '#ffcf86' });
@@ -132,9 +132,10 @@ function shimadaDecor(W, c) {
   W.tick = (dt, T) => {
     const dry = S.town.jobs.b === 2;
     W.rainAmt = clamp(W.rainAmt + (dry ? -dt / 7 : dt / 7), 0, 1); const r = W.rainAmt;
-    W.minH = r > .45 ? 0 : -.62; water.position.y = lerp(-.22, .06, smooth(.1, .9, r));
+    W.minH = r > .45 ? 0 : -.56; water.position.y = lerp(-.22, .06, smooth(.1, .9, r));
     for (const m of streaks) { const u = m.userData; u.t += dt * u.v * (1 + r); if (u.north) { const z = 71.5 + u.o * 8.5; m.position.set(88 - (u.t % 132), water.position.y + .02, z); m.rotation.z = 0; } else { m.position.set(-62 + u.o * 19, water.position.y + .02, 60 - (u.t % 150)); m.rotation.z = E; } }
     const on = !!S.town.pass && T.pos.z > 62.3 && T.pos.z < 82.2;
+    if (on) { const rx = townRoadX(T.pos.z), k = damp(3.2, dt); T.pos.x = lerp(T.pos.x, rx, k); if (townH(T.pos.x, T.pos.z) >= W.minH) T.lastGood.copy(T.pos); } // the porters know the ford: they keep to it whatever you steer
     T.lift = lerp(T.lift || 0, on ? 1.42 : 0, damp(5, dt)); if (T.lift < .02) T.lift = 0;
     carry.visible = T.lift > .05;
     if (carry.visible) {
