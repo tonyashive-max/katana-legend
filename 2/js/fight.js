@@ -116,7 +116,7 @@ function startBattle(st, ctx) {
     };
     if (st.duo) setupDuo(st);
     F.stance = 'mid'; F.bowT = 0; applyArmorToFight(); foeStance();
-    if (st.town && allies().length) { F.spirit = Math.min(100, allies().length * 25); setTimeout(() => { if (F && F.state === 'intro') toast(`Your friends cheer you on: Spirit starts at ${F.spirit}%`); }, 1400); }
+    if (st.town && allies().length) { F.spirit = Math.min(100, allies().length * 10); setTimeout(() => { if (F && F.state === 'intro') toast(`Your friends cheer you on: Spirit starts at ${F.spirit}%`); }, 1400); }
     document.querySelectorAll('#stanceBar button').forEach(b => b.classList.toggle('on', b.dataset.stance === 'mid'));
     P.setFP(F.view === 'fp');
     P.setHold(guardPose(), 10);

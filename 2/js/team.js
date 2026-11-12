@@ -6,9 +6,9 @@
 /* ---------- team duels ---------- */
 let TEAM = null;
 const tmSend = (k, o) => { if (CO.on) NET.send('tm', Object.assign({ id: CO.me, n: nm(), k }, o || {})); };
-function teamFoeName(role) { const c = townCfg(); if (role === 'beast') return BEASTS2[c.id].n; return role === 'a' ? c.a.foe.n : role === 'keeper' ? c.keeper.n : c.myth.n; }
+function teamFoeName(role) { const c = townCfg(); if (role === 'beast') return BEASTS2[c.id].n; if (role[0] === 'w') return warDef(+role[1]).n; return role === 'a' ? c.a.foe.n : role === 'keeper' ? c.keeper.n : c.myth.n; }
 function teamInvite(role) {
-  if (!CO.on || !['a', 'keeper', 'myth', 'beast'].includes(role)) return false;
+  if (!CO.on || !['a', 'keeper', 'myth', 'beast', 'w0', 'w1'].includes(role)) return false;
   const p = coopHere().find(q => !q.fi); if (!p) return false;
   CO.inv = { role, pid: p.id, t: coopNow() }; tmSend('inv', { to: p.id, role, foe: teamFoeName(role), t: S.cur });
   if (TOWN) TOWN.paused = true;
@@ -105,15 +105,12 @@ function duoPeople(T) {
     T.pois.push({ id: 'tbell' + i, kind: 'spot', x: x + .9, z: z + .9, r: 2.6, map: S.town.duo ? null : 'Twin bell', col: '#9ff0c8', label: 'Ring the twin bell', act: () => {
       sfx.bell && sfx.bell(); shake(.05); FX.sparks(new V3(x, y + 2, z), '#ffe08c', 24, 4);
       if (S.town.duo) return toast('The twin bells of ' + townCfg().n + ' have already rung as one.');
-      const now = coopNow(); DUO.mine = { i, t: now }; tmSend('bell', { i, t: S.cur });
-      if (DUO.peer && DUO.peer.i !== i && now - DUO.peer.t < 5) return duoSolved();
-      const fr = coopHere()[0];
-      toast(fr ? `Rung! ${fr.n} has five seconds to ring the other bell.` : 'A second bell far across town stays silent. This takes two samurai: one at each bell, rung together. (Pack, then Together.)');
+      tmSend('bell', { i, t: S.cur }); duoRing(i, 'me');
     } });
   });
 }
-function duoHeard(d, who) { if (d.t !== S.cur || S.town.duo) return; const now = coopNow(); DUO.peer = { i: d.i | 0, t: now }; if (DUO.mine && DUO.mine.i !== DUO.peer.i && now - DUO.mine.t < 5) return duoSolved(); toast(`${who} rang the ${d.i ? 'far' : 'south'} bell! Ring the other one now!`); sfx.bell && sfx.bell(); }
-function duoSolved() { if (S.town.duo) return; S.town.duo = true; S.gold += 300; S.steel = (S.steel || 0) + 10; save(); virtue('chugi', 1, 'two bells rung as one'); sfx.win && sfx.win(); banner('The twin bells ring as one!', '+300 gold · +10 steel for each of you'); }
+function duoHeard(d, who) { if (d.t !== S.cur || S.town.duo) return; sfx.bell && sfx.bell(); duoRing(d.i | 0, who); }
+function duoSolved() { if (S.town.duo) return; S.town.duo = true; S.gold += 300; S.steel = (S.steel || 0) + 10; save(); virtue('chugi', 1, 'two bells rung as one'); sfx.win && sfx.win(); banner('The twin bells ring as one!', '+300 gold · +10 steel · a Twin Bell blade for each of you'); }
 
 /* ---------- ghosts on the night road ---------- */
 const GHOST_Q = {
@@ -176,7 +173,7 @@ function townEncSlash(x0, y0, x1, y1) {
   e.iai = e.t - e.drawnAt < .5; e.phase = 'won'; e.t1 = e.t;
   const gp = e.ghost.chest.getWorldPosition(new V3()), s = toScreen(gp), c = townCfg();
   FX.sparks(gp, '#bff4ff', 70, 6, .09); FX.glowBurst(gp, '#7fe8ff', 2.6, .5); FX.petals(gp, 30, '#bfe8ff', 3.5); FX.puff(gp, 14, '#e8f8ff', .9);
-  sfx.banish && sfx.banish(); hitstop(120); slowmo(.35, .5); OV.flash = .4; OV.flashCol = '200,240,255';
+  S.ghosts = (S.ghosts || 0) + 1; sfx.banish && sfx.banish(); hitstop(120); slowmo(.35, .5); OV.flash = .4; OV.flashCol = '200,240,255';
   ovPop(s.x, s.y - 30, e.iai ? 'IAI!' : 'BANISHED!', { size: e.iai ? 52 : 40, color: '#2a1200', stroke: '#e8fbff', burst: e.iai ? '#ffe08c' : '#9fe8ff', rot: rnd(-.2, .2), life: 1.2, vy: -30 });
   const gold = (e.iai ? 40 : 20) + c.i * 12; S.gold += gold; S.steel = (S.steel || 0) + 1 + (e.iai ? 1 : 0); S.ghosts = (S.ghosts || 0) + 1;
   const ups = addSkillXP('iai', e.kind === 'thief' ? (e.iai ? 16 : 10) : 24), got = rollDrops(c.i, 'ghost'), mt = Object.entries(got).map(([id, n]) => `+${n} ${MATERIALS[id].n}`).join(' · ');
@@ -226,7 +223,7 @@ function townEncPointer(ev, px, py, id) {
 }
 function ghostClick(a) {
   if (!a.startsWith('gq:')) return false;
-  if (a === 'gq:y') { S.gold += 150; save(); virtue('rei', 1, 'you answered the Lady in White'); townSay('The Lady in White', 'She smiles, bows, and is gone. Where she stood lies a small purse.<br><span class="muted">+150 gold</span>'); return true; }
+  if (a === 'gq:y') { S.gold += 150; S.ladies = S.ladies || []; if (!S.ladies.includes(townCfg().id)) S.ladies.push(townCfg().id); save(); virtue('rei', 1, 'you answered the Lady in White'); townSay('The Lady in White', 'She smiles, bows, and is gone. Where she stood lies a small purse.<br><span class="muted">+150 gold</span>'); return true; }
   const open = TOWNS.map((t, i) => i).filter(i => i <= (S.far || 0) && i < ROAD_OPEN && i !== S.cur), to = open.length ? open[(Math.random() * open.length) | 0] : -1, T = TOWN;
   if (to < 0) { S.gold = Math.max(0, S.gold - 50); save(); townSay('The Lady in White', 'She sighs. A cold wind turns you around three times and empties your purse a little.<br><span class="muted">−50 gold</span>'); return true; }
   townCloseTalk(); banner('Whisked away!', `The Lady in White carries you off to ${TOWNS[to].n}`); tmSend('whisk', { town: to }); if (T) T.paused = true; setTimeout(() => { if (TOWN === T) { T.paused = false; townTravel(to); } }, 1800); return true;

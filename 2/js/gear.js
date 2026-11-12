@@ -216,7 +216,7 @@ function packJournal() {
     <h3 style="margin-top:10px">The seven virtues</h3>
     <div class="virt">${VIRTUES.map(([k, n, g]) => `<div class="petal ${S.virt[k] ? 'on' : ''}"><span>${g}</span><b>${n}</b><small>${S.virt[k] || 0}</small></div>`).join('')}</div>
     <h3 style="margin-top:14px">Friends on the road</h3>
-    <p class="muted">${allies().length ? `<b style="color:var(--jade)">${allies().map(allyName).join(', ')}</b>. Each friend you spared cheers you on: you start every duel with ${Math.min(100, allies().length * 25)}% Spirit.` : 'None yet. A foe you spare becomes a friend, and each friend fills a quarter of your Spirit at the start of every duel.'}</p>
+    <p class="muted">${allies().length ? `<b style="color:var(--jade)">${allies().map(allyName).join(', ')}</b>. Friends you spared stand with you: in their own town they make the keeper, the spirit and the beast easier, and one of them catches you once when you fall. Every friend also adds 10% Spirit at the start of every duel (now ${Math.min(100, allies().length * 10)}%).` : 'None yet. A foe you spare becomes a friend. Friends make the big duels of their town much easier, and without them those duels are much harder.'}</p>
     <h3 style="margin-top:14px">${townCfg().n}</h3>
     <ul class="checks">${jobs.map(j => `<li class="${j.done ? 'ok' : ''}"><span>${j.done ? '✓' : '○'}</span>${j.t}</li>`).join('')}</ul>
     <h3 style="margin-top:14px">Road Notes</h3>

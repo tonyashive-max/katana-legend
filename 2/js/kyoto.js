@@ -105,7 +105,7 @@ function kyotoPeople(T, npc) {
       } });
   });
   // every friend you spared on the road has come to see the festival
-  const list = allies().filter(id => { const [t, r] = id.split(':'), c = TOWN_BY[t]; return c && t !== 'kyoto' && !(r === 'myth' && c.myth.dragon); }).slice(0, 14);
+  const list = allies().filter(id => { const [t, r] = id.split(':'), c = TOWN_BY[t]; return c && t !== 'kyoto' && r[0] !== 'w' && !(r === 'myth' && c.myth.dragon); }).slice(0, 14);
   list.forEach((id, i) => {
     const [t, r] = id.split(':'), c = TOWN_BY[t], D = r === 'a' ? c.a.foe : r === 'keeper' ? c.keeper : c.myth, sd = i % 2 ? 1 : -1, z = 20 + Math.floor(i / 2) * 4.6, x = HR(z) + sd * 6;
     const p = townNPC('ally' + i, x, z, D.look, r === 'myth' && D.weapon === 'club' ? 'ogre' : D.sword, D.n, 'Friend from ' + c.n, { ry: -sd * Math.PI / 2, scale: r === 'myth' ? Math.min(D.scale || 1, 1.3) : 1, col: '#9ff0c8' });

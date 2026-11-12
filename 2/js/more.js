@@ -34,8 +34,8 @@ const BEASTS2 = {
   kyoto: { n: 'Ibaraki', title: 'Ogre of the Capital Gate', w: 'f-tetsu', look: 0, tint: { armor: '#7a1a1a', skin: '#c8321e', aura: '#ff5a2a' }, tip: 'The strongest thing on the road that is not a dragon. Everything you have learned.' },
 };
 function beastFoe() {
-  const c = townCfg(), B = BEASTS2[c.id], st = townFoe('myth');
-  return Object.assign(st, { town: 'beast', name: B.n, title: B.title, look: Object.assign({}, MYTHS[B.look].look, B.tint), sword: B.w, weapon: B.w, scale: 1.55, hp: Math.round(st.hp * .8), dragon: false, orochi: false, teleport: 0, freeze: false, shock: false, bowWeak: false, fury: .35, gold: 260 + c.i * 40, intro: B.tip });
+  const c = townCfg(), B = BEASTS2[c.id], st = (window._rawFoe = 1, townFoe('myth')); window._rawFoe = 0;
+  return friendEdge(Object.assign(st, { town: 'beast', name: B.n, title: B.title, look: Object.assign({}, MYTHS[B.look].look, B.tint), sword: B.w, weapon: B.w, scale: 1.55, hp: Math.round(st.hp * .8), breakAt: Math.round((st.breakAt || 0) * .8), dragon: false, orochi: false, teleport: 0, freeze: false, shock: false, bowWeak: false, fury: .35, gold: 260 + c.i * 40, intro: B.tip }), 'beast');
 }
 function beastSpot(T) { for (const [x, z] of [[-24, -62], [24, -62], [-26, -20], [26, -20], [-26, 24], [28, 26], [0, -70]]) { let ok = true; for (let a = 0; a < 8 && ok; a++) { const h = townH(x + Math.cos(a * .785) * 7, z + Math.sin(a * .785) * 7); if (h < .12 || h > 5) ok = false; } if (ok && !T.W.obs.some(o => Math.hypot(o.x - x, o.z - z) < 4 && o.r > 1.4)) return [x, z]; } return null; }
 function beastPeople(T) {

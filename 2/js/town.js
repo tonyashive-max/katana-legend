@@ -155,6 +155,7 @@ const TOWN_LOOKS = {
 function townFoe(role) {
   if (role === 'ghost' || role === 'ghost2' || role === 'ghost3') return ghostFoe(role);
   if (role === 'beast') return beastFoe();
+  if (role === 'w0' || role === 'w1') return warFoe(+role[1]);
   if (role === 'sensei') { const s = townFoe('keeper'); return Object.assign(s, { town: 'sensei', name: 'Hermit of the Mountain', title: 'Trial of Two Heavens', look: TOWN_LOOKS.hermit, sword: 'bokken', weapon: null, scale: 1, teleport: 0, fury: .2, freeze: false, shock: false, dragon: false, orochi: false, bowWeak: false, arena: null, gold: 0, intro: 'He switches between a long blade and a short one. Read his stance!' }); }
   const ps = stats(), c = townCfg(), i = c.i, D = role === 'a' ? c.a.foe : role === 'keeper' ? c.keeper : c.myth;
   const B = role === 'a' ? { hits: 13 + i, hit: .085 + .004 * i, tele: 1150 - 70 * i, guard: .2 + .02 * i, react: .2 + .03 * i, combo: .15 + .03 * i, feint: .05 + .03 * i, low: .15, gold: 120 }
@@ -162,16 +163,16 @@ function townFoe(role) {
     : { myth: true, hits: (D.dragon ? 28 : 24) + 2 * i, hit: .11 + .005 * i, tele: D.dragon ? 880 : 820 - 40 * i, guard: .28, react: .4, combo: .4 + .02 * i, feint: .3, low: .2, gold: 400 };
   const st = Object.assign({ ch: [1, 0, 4, 5, 2, 4, 6][i], town: role, name: D.n, title: D.title || D.sub, look: D.look, sword: D.sword, weapon: D.weapon, scale: D.scale, teleport: D.teleport, fury: D.fury, freeze: D.freeze, shock: D.shock, dragon: D.dragon, orochi: D.orochi, bowWeak: D.bowWeak, intro: D.tip, arena: c.arena ? () => c.arena(role) : null,
     stances: role === 'a' ? ['high', 'high', 'low'] : role === 'keeper' ? ['mid', 'mid', 'high', 'low'] : ['high', 'low', 'low', 'mid'], steel: 0, rec: playerPower() }, B);
-  st.hp = Math.round(ps.atk / styleDef().atk * st.hits); st.dmg = Math.round(ps.maxHp * st.hit * 10) / 10; st.gold = Math.round(st.gold * (1 + .5 * i));
+  foeFix(st, i, role !== 'a'); friendEdge(st, role); st.gold = Math.round(st.gold * (.5 + .2 * i));
   return st;
 }
 function gateGuard() { return (townCfg().gate || {}).guard || 'Gate Guard'; }
 function gatePlace() { return (townCfg().gate || {}).place || 'gate'; }
 function isDawn() { return !!TOWN && townClock() === 'Dawn'; }
-function allyName(id) { const [t, r] = id.split(':'), c = TOWN_BY[t]; return c ? (r === 'a' ? c.a.foe.n : r === 'keeper' ? c.keeper.n : c.myth.n) : id; }
+function allyName(id) { const [t, r] = id.split(':'), c = TOWN_BY[t]; if (c && r[0] === 'w') return warDef(+r[1], c.i).n; return c ? (r === 'a' ? c.a.foe.n : r === 'keeper' ? c.keeper.n : c.myth.n) : id; }
 function needDual() { return townCfg().i >= 5 && !S.dual; }
 function dualMsg() { const c = townCfg(); return `${c.keeper.n} fights with two blades, and no samurai with a single sword has ever touched ${c.i === 5 ? 'him' : 'it'}. Learn the Two Heavens from the Hermit of the Mountain, by the shrine above Hakone${c.id === 'hakone' ? '' : ' (walk back down the road from the south end of each town)'}: train Power and Speed to level 4, then pass his trial.`; }
-function keeperReady() { const c = townCfg(); if (needDual()) return false; return c.keeper.need ? wornPieces().length >= c.keeper.need : S.town.jobs.a === 2 && (!c.keeper.also || c.keeper.also()); }
+function keeperReady() { const c = townCfg(); if (needDual() || warsLeft().length) return false; return c.keeper.need ? wornPieces().length >= c.keeper.need : S.town.jobs.a === 2 && (!c.keeper.also || c.keeper.also()); }
 function townJobs() {
   const T = S.town, c = townCfg(), own = S.armor.owned.filter(id => PIECES[id].set === c.set).length;
   return [
@@ -180,6 +181,7 @@ function townJobs() {
     { t: `${c.a.n}: deal with ${c.a.foe.n}, ${c.a.foe.title}`, done: T.jobs.a === 2 },
     { t: `${c.b.n}: find the three ${c.b.thing} (${T.ema.length}/3)`, done: T.jobs.b === 2 },
     c.i >= 5 ? { t: 'Earn the Two Heavens from the Hermit above Hakone: carry two blades', done: !!S.dual } : null,
+    { t: 'Beat both road warriors', done: !warsLeft().length },
     { t: `Duel ${c.keeper.n} ${c.keeper.where || 'at the gate'}${c.keeper.dawn ? ', at sunrise' : ''}`, done: !!T.pass },
     { t: c.myth.after && !T.pass ? 'Optional: something is not what it seems…' : `Optional: face ${c.myth.n}, ${c.myth.title}`, done: !!T.myth },
     { t: `Optional: complete the ${SETS[c.set].n} armor set (${own}/7)`, done: own === 7 },
@@ -195,6 +197,7 @@ function townObjective() {
   if (T.track && !ownPiece(T.track)) return `Looking for the ${PIECES[T.track].n}: ${pieceHint(T.track).t}.`;
   if (!T.guard) return `Follow the road north to the ${gatePlace()}.`;
   if (T.pass) return T.done ? `${c.n} is complete. Roam freely, finish the ${SETS[c.set].n} set, or travel on from the Map.` : `The ${gatePlace()} is open. Walk ${c.gate ? c.gate.verb || 'across' : 'through'} it.`;
+  if (T.jobs.a === 2 && warsLeft().length) return `${c.keeper.n} only faces a ronin who has beaten every duelist on this road. ${warsLeft().length === 2 ? 'Two are' : 'One is'} still waiting: look for the red "Duelist" marks on your map.`;
   if (T.jobs.a === 2 && needDual() && (!c.keeper.also || c.keeper.also())) return dualMsg();
   if (!keeperReady()) return c.keeper.need ? `${c.keeper.n} only duels samurai dressed for the road. Find 3 pieces of armor: the armorer sells some, and the townsfolk need help.` : c.keeper.also && S.town.jobs.a === 2 ? c.keeper.alsoMsg : `${c.keeper.n} will only face someone this town trusts. Help ${c.a.n} first.`;
   if (c.keeper.dawn && !isDawn()) return `${c.keeper.n} duels only at sunrise. Speak with her ${c.keeper.where} to wait for dawn.`;
@@ -205,6 +208,7 @@ function townTarget() {
   if (T.track) { if (ownPiece(T.track)) { delete T.track; save(); } else { const h = pieceHint(T.track).at(); if (h) return h; } }
   if (!T.guard) return P('guard');
   if (T.pass) return T.done ? null : townCfg().doneZ ? { x: townRoadX(townCfg().doneZ + 2), z: townCfg().doneZ + 2 } : { x: townRoadX(GATE_Z + 6), z: GATE_Z + 6 };
+  if (T.jobs.a === 2 && warsLeft().length) return P('w' + warsLeft()[0]) || P('keeper');
   if (T.jobs.a === 2 && needDual() && (!townCfg().keeper.also || townCfg().keeper.also())) return P('hermit') || P('sensei');
   if (!keeperReady() && T.jobs.a === 2 && townCfg().keeper.alsoAt) { const q = townCfg().keeper.alsoAt(); if (q) return q; }
   if (!keeperReady()) return !T.jobs.a ? P('a') : T.jobs.a === 1 ? P('foe') : !T.jobs.b ? P('b') : townCfg().keeper.also ? (T.ema.length < 3 ? TOWN.pois.filter(q => q.kind === 'ema').sort((x, y) => Math.hypot(x.x - TOWN.pos.x, x.z - TOWN.pos.z) - Math.hypot(y.x - TOWN.pos.x, y.z - TOWN.pos.z))[0] : P('b')) : P('smith');
@@ -277,7 +281,7 @@ function townPeople() {
     if (c.i + 1 < ROAD_OPEN) { const z = (c.doneZ || GATE_Z + 5) + 2.2, x = c.exitX != null ? c.exitX : townRoadX(z); T.pois.push({ id: 'north', kind: 'spot', x, z, r: 3.2, label: 'Walk on to ' + TOWNS[c.i + 1].n, act: () => { if (S.town.done) townTravel(c.i + 1); } }); }
   }
   if (c.people) c.people(T, npc);
-  duoPeople(T); puzzlePeople(T); beastPeople(T);
+  duoPeople(T); puzzlePeople(T); beastPeople(T); warPeople(T);
   for (let i = 0; i < 5; i++) {
     const rig = new Samurai(TOWN_LOOKS.walker[i % 3], swordDef('bokken'), { noSaya: true }); rig.sword.visible = false; rig.root.rotation.order = 'YXZ'; rig.setHold('rest', 6); T.grp.add(rig.root);
     T.walkers.push({ rig, z: -80 + i * 31, dir: i % 2 ? 1 : -1, side: i % 2 ? 1.3 : -1.3, spd: 1.1 + (i % 3) * .25, ph: i * 2 });
@@ -310,6 +314,7 @@ function townAct() {
     return townSay(gateGuard(), keeperReady() ? `${c.keeper.n} is ${c.keeper.where || 'by the gate'}. Bow before you draw.` : townObjective());
   }
   if (p.id === 'keeper') {
+    if (J.jobs.a === 2 && warsLeft().length) return townSay(c.keeper.n, `There ${warsLeft().length === 2 ? 'are two duelists' : 'is a duelist'} on my road you have not faced. Beat them, then come to me.`);
     if (J.jobs.a === 2 && needDual() && (!c.keeper.also || c.keeper.also())) return townSay(c.keeper.n, c.i === 5 ? 'One sword? I carry two, ronin. Come back when you can do the same, or do not come back.' : 'One blade against the Shadow of the Shogun. No. Learn to carry two, and then we end this.');
     if (!keeperReady()) return townSay(c.keeper.n, c.keeper.need ? `A samurai in ${wornPieces().length ? 'half his armor' : 'travel clothes'}? I do not duel the unprepared. Come back wearing three pieces.` : c.keeper.also && J.jobs.a === 2 ? c.keeper.alsoMsg : `I do not know you, and neither does this town. Help ${c.a.n}, then we will talk.`);
     if (c.keeper.dawn && !isDawn()) return townSay(c.keeper.n, c.keeper.notYet, [['dawn', '☀ Wait for sunrise', 'primary'], ['', 'Not yet']]);
@@ -328,7 +333,7 @@ function townAct() {
   }
   if (p.id === 'smith') {
     const stock = ['do', 'kabuto', 'kote', 'sode', 'haidate', 'suneate', 'menpo'].map(x => 'ashigaru-' + x).filter(id => !ownPiece(id));
-    return townSay('The Armorer', `Foot-soldier armor, plain and honest. 60 gold a piece. You have <b>${fmt(S.gold)}</b> gold.` + (stock.length ? '' : '<br>You have bought everything I make.') + '<br><span class="muted">I keep a forge out back, too, if your blade needs work.</span>', stock.slice(0, 3).map(id => ['buy:' + id, `${PIECES[id].n.replace('Foot Soldier ', '')} · 60`, S.gold >= 60 ? 'primary' : '']).concat([['smithy', '🔨 Forge my blade'], ['aforge', '🛡 Forge my armor'], ['', 'Done']]));
+    return townSay('The Armorer', `I do not sell armor. Nobody on this road does: armor is earned. The <b>sensei</b> next to me hands out foot-soldier pieces to those who train${stock.length ? ` (you still lack ${stock.length})` : ''}, and every town's own set is won by helping it. What I do is <b>forge</b>: bring gold and steel and I will make what you carry stronger.`, [['smithy', '🔨 Forge my blade', 'primary'], ['aforge', '🛡 Forge my armor'], ['', 'Done']]);
   }
 }
 function townClick(d) {
@@ -350,6 +355,7 @@ function townClick(d) {
   if (a.startsWith('fight:')) { const id = a.slice(6); closeOverlay(); if (TOWN) TOWN.paused = false; if (TOWN) S.town.day = TOWN.day; startBattle(townFoe(id), { kind: 'town', idx: id, ch: 1, from: 'town' }); return true; }
   if (a.startsWith('buy:')) { const id = a.slice(4); if (S.gold >= 60 && !ownPiece(id)) { S.gold -= 60; givePiece(id); townRefreshPlayer(); toast(`Bought ${PIECES[id].n}`); } TOWN.near = TOWN.pois.find(p => p.id === 'smith'); TOWN.paused = false; townAct(); return true; }
   if (a === 'spare' || a === 'finish') { townAfterFight(a); return true; }
+  if (a === 'wspare' || a === 'wfinish') { road2After(a); return true; }
   if (a === 'retry') { const ctx = F.ctx; closeOverlay(); F = null; startBattle(townFoe(ctx.idx), ctx); return true; }
   if (a === 'back') { closeOverlay(); endFight(); return true; }
   if (a === 'aforge') { townArmorForge(); return true; }
@@ -389,11 +395,12 @@ function townDojo() {
   openOverlay(`<div class="modal" style="text-align:left"><div class="eyebrow">Sensei · road dojo</div><h2>How do you carry your blade?</h2>
     <div class="grid2" style="grid-template-columns:repeat(3,minmax(0,1fr));margin:8px 0 14px">${Object.entries(STYLES).filter(([k]) => k !== 'both').map(([k, y]) => `<button class="card ${(S.style || 'katana') === k ? 'sel' : ''}" data-town="style:${k}" style="text-align:left;gap:4px"><b>${y.jp} ${y.n}</b><small>${y.d}</small><small style="color:var(--jade)">${(S.style || 'katana') === k ? '✓ Your style' : 'Tap to switch'}</small></button>`).join('')}</div>
     <p class="muted" style="font-size:13px;margin:0 0 12px">二 Two blades at once? That is not mine to teach. Climb to the <b>Hermit of the Mountain</b>, by the shrine above Hakone.</p>
-    <h2>What will you practise?</h2><p class="muted" style="margin:6px 0 10px">Each drill grows one skill, and skills make you stronger in every duel on the road.</p>
+    <h2>What will you practise?</h2><p class="muted" style="margin:6px 0 10px">Each drill grows one skill, and skills are what win duels on this road. The first time you finish each drill I give you a piece of foot-soldier armor (${SLOTS.filter(s => ownPiece('ashigaru-' + s.id)).length}/7; the hermit's two-blade drills count too). For ${townCfg().n} you are: <b style="color:${readyWord()[1]}">${readyWord()[0]}</b>. ${readyWord()[2]}</p>
     <div class="grid2">${Object.entries(TRAININGS).filter(([k, t]) => !t.dual).map(([k, t]) => { const s = S.sk[t.skill], need = skillNeed(s.l); return `<div class="card" style="gap:6px"><div class="row between"><b>${t.g} ${t.name}</b><small class="muted">${SKILLS[t.skill].n} Lv ${s.l}</small></div><div class="bar"><i style="width:${s.l >= 30 ? 100 : Math.round(s.x / need * 100)}%"></i></div><button class="btn small jade" data-town="train:${k}">Start drill</button></div>`; }).join('')}</div>
     <div class="actions"><button class="btn" data-town="">Back to the road</button></div></div>`);
 }
 function townFightResult() {
+  if (road2Result()) return;
   if (moreResult()) return;
   if (specialResult()) return;
   if (teamResult()) return;
@@ -402,7 +409,7 @@ function townFightResult() {
   if (F.outcome !== 'win') return openOverlay(`<div class="modal"><div class="kicker lose">Defeated</div><p><b>${st.name}</b> was too strong this time. Read the stance over their head: HIGH beats MID, MID beats LOW, LOW beats HIGH.</p><div class="actions"><button class="btn primary" data-town="retry">Try again</button><button class="btn" data-town="back">Back to town</button></div></div>`);
   openOverlay(`<div class="modal win"><div class="kicker">Victory!</div><p><b>${st.name}</b> ${st.dragon ? 'sinks low, beaten' : 'drops to one knee'}.</p><p class="muted">What does a samurai do now?</p>
     <div class="choice2">
-      <button class="card" data-town="spare"><b>Sheathe your blade</b><small>${st.name} becomes a <b>friend on the road</b>. Every friend fills a quarter of your Spirit at the start of every duel, for good.</small><small style="color:var(--jade)">Mercy +1 · friends: ${allies().length} → ${allies().length + 1}</small></button>
+      <button class="card" data-town="spare"><b>Sheathe your blade</b><small>${st.name} becomes a <b>friend on the road</b>. Friends stand with you: they make the big duels of their town easier, catch you once when you fall, and each one adds 10% Spirit at the start of every duel.</small><small style="color:var(--jade)">Mercy +1 · friends: ${allies().length} → ${allies().length + 1}</small></button>
       <button class="card" data-town="finish"><b>Press your advantage</b><small>Take everything they carry and send them running. You will not see them again.</small><small style="color:var(--gold-2,#ffd27a)">+${Math.round(st.gold * .5)} extra gold, once</small></button>
     </div></div>`);
 }
@@ -413,7 +420,7 @@ function townAfterFight(choice) {
   let blade = null; if (!ownsSword(st.sword)) { const w = addSword(st.sword); blade = swordDef(st.sword); if (swordDmg(w) > swordDmg(eqSword())) S.eq = w.u; }
   if (bowed && clean) virtue('meiyo', 1, 'a clean, honorable win');
   const steel = ({ a: 3, keeper: 5, myth: 8 }[id] || 3) + c.i; S.steel = (S.steel || 0) + steel;
-  const xpUp = ['power', 'speed', 'guard', 'vital'].filter(k => addSkillXP(k, id === 'a' ? 10 : 16)); // every duel on the road teaches a little of everything
+  const xpUp = ['power', 'speed', 'guard', 'vital'].filter(k => addSkillXP(k, id === 'a' ? 14 : 22)); // every duel on the road teaches a little of everything
   const mats = Object.entries(rollDrops(c.i, id === 'myth' ? 'myth' : id === 'keeper' ? 'boss' : 'fight')).map(([m, n]) => `<span class="chip">+${n} ${MATERIALS[m].n}</span>`).join('');
   S.gold += gold; S.wins++; coopEvent('win', { foe: st.name });
   const gifts = [];
