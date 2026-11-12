@@ -45,7 +45,7 @@ function beastPeople(T) {
   T.beast = { rig, lab, cx: sp[0], cz: sp[1], x: sp[0] + 6, z: sp[1], a: 0, state: 'roam', t: 0, ph: 0, nap: 0 };
 }
 function beastTick(dt, T) {
-  const b = T.beast; if (!b || T.enc) return; b.t += dt; if (b.nap > 0) b.nap -= dt;
+  const b = T.beast; if (!b || T.enc || window.__noBeast) return; b.t += dt; if (b.nap > 0) b.nap -= dt;
   const d = Math.hypot(T.pos.x - b.x, T.pos.z - b.z); let tx, tz, v;
   if (b.state === 'roam') { b.a += dt * .22; tx = b.cx + Math.cos(b.a) * 6; tz = b.cz + Math.sin(b.a) * 6; v = 1.6; if (d < 15 && b.nap <= 0 && isArmed() && !T.boat && !T.lift) { b.state = 'notice'; b.t = 0; sfx.taiko && sfx.taiko(1.2); shake(.12); banner(`${BEASTS2[townCfg().id].n} has seen you!`, 'Fight it or run'); } }
   else if (b.state === 'notice') { tx = b.x; tz = b.z; v = 0; if (b.t > 1.1) b.state = 'chase'; }
@@ -87,6 +87,8 @@ function moreClick(a) {
   if (a === 'settings') { openSettings(); return true; }
   if (a === 'tut') { townCloseTalk(); tutStart(); return true; }
   if (a === 'story') { storyOpen(+1); return true; }
+  if (a === 'card') { const q = STORY_Q; if (q) storyCards(q.list, q.then, q.i + 1); return true; }
+  if (a.startsWith('walk:')) { const to = +a.slice(5); closeOverlay(); if (TOWN) TOWN.paused = false; const go = () => townTravel(to, true); if (TOWNS[to].id === 'otsu') storyCards(STORY_OTSU, go); else go(); return true; }
   return true;
 }
 /* ---------- the opening ---------- */
@@ -97,7 +99,7 @@ let STORY_I = -1;
 function storyOpen(d) {
   STORY_I = d ? STORY_I + d : 0; if (TOWN) { TOWN.paused = true; TOWN.joy = null; }
   if (STORY_I >= STORY2.length) { STORY_I = -1; S.town.intro = true; save();
-    return townSay('Princess Hana\'s letter', `${nm()}, the peace letter is sealed with the cherry crest and sewn into your sleeve. Carry it west along the Tokaido to Kyoto before the lantern festival.<br><br>${TOWNS[0].intro}`, S.tut2 ? null : [['', 'I know how to fight'], ['tut', '🎓 Teach me first (5 minutes)', 'primary']]); }
+    return townSay('Princess Hana\'s letter', `${nm()}, the peace letter is sealed with the cherry crest and sewn into your sleeve. Carry it west along the Tokaido to Kyoto before the lantern festival.<br><br>${TOWNS[0].intro}`, S.tut2 || window.__noTut ? null : [['', 'I know how to fight'], ['tut', '🎓 Teach me first (5 minutes)', 'primary']]); }
   const p = STORY2[STORY_I];
   openOverlay(`<div class="modal" style="background:linear-gradient(180deg,#1c2444,#0e1226);border:1px solid rgba(240,195,90,.5)"><div style="font-size:96px;line-height:1.1;color:#f0c35a;font-family:serif;text-shadow:0 0 30px rgba(240,195,90,.5)">${p[0]}</div><div class="eyebrow" style="margin-top:6px">${p[1]}</div><p style="font-size:17px;line-height:1.55;margin:12px 0">${p[2]}</p><div class="actions"><button class="btn primary" data-more="story">${STORY_I + 1 < STORY2.length ? 'Next' : 'Take the letter'}</button></div></div>`);
 }
@@ -151,4 +153,34 @@ function moreResult() {
   const gold = F.st.gold, steel = 6 + c.i, mats = Object.entries(rollDrops(c.i, 'myth')).map(([m, n]) => `<span class="chip">+${n} ${MATERIALS[m].n}</span>`).join('');
   S.town.beast = true; S.gold += gold; S.steel = (S.steel || 0) + steel; S.wins++; S.beasts2 = (S.beasts2 || 0) + 1; virtue('yu', 1, 'you faced a beast of the road'); coopEvent('win', { foe: F.st.name }); save();
   return openOverlay(`<div class="modal win"><div class="kicker">Beast defeated</div><p><b>${BEASTS2[c.id].n}</b>, ${BEASTS2[c.id].title}, will trouble ${c.n} no more. Its ${swordDef(BEASTS2[c.id].w).name.toLowerCase()} is too heavy for any samurai to carry.</p><div class="rewards"><span class="chip gold"><i></i>+${gold}</span><span class="chip steel"><i></i>+${steel} steel</span>${mats}</div>${back}</div>`), true;
+}
+
+/* ---------- story scenes: cards, and the walk between stations ---------- */
+function storyCards(list, then, i) {
+  i = i | 0; if (TOWN) { TOWN.paused = true; TOWN.joy = null; }
+  if (i >= list.length) { closeOverlay(); if (TOWN) TOWN.paused = false; return then && then(); }
+  const p = list[i]; STORY_Q = { list, then, i };
+  openOverlay(`<div class="modal" style="background:linear-gradient(180deg,${p[3] || '#1c2444'},#0e1226);border:1px solid rgba(240,195,90,.5)"><div style="font-size:92px;line-height:1.1;color:#f0c35a;font-family:serif;text-shadow:0 0 30px rgba(240,195,90,.5)">${p[0]}</div><div class="eyebrow" style="margin-top:6px">${p[1]}</div><p style="font-size:17px;line-height:1.55;margin:12px 0">${p[2]}</p><div class="actions"><button class="btn primary" data-more="card">${i + 1 < list.length ? 'Next' : 'Go on'}</button></div></div>`);
+}
+let STORY_Q = null;
+const ROAD_DAYS = [0, 2, 4, 6, 3, 4, 1];
+const STORY_OTSU = [['裏', 'The traitor', 'Kagemori was the captain of Princess Hana\'s own guard. It was he who rode beside her the night the Eternal Shogun fell, and he who swore to see the letter safely to Kyoto.'],
+  ['橋', 'The bridge at Seta', 'Instead he took the Shogun\'s gold, and the long bridge with it. Every road to the capital crosses that bridge. He is waiting on it now, with two swords, for the ronin who carries the letter.', '#3a1c2a']];
+const STORY_END = [['門', 'The palace gate', 'The Shadow falls, and the great gate of the palace opens for the first time in three nights. Snow drifts through it. Behind you, the whole avenue has gone quiet.', '#2a2444'],
+  ['姫', 'The traveler in the hood', 'A small figure steps out of the crowd and lowers her hood. Princess Hana has walked the last mile beside you without a word. She takes the letter from your sleeve with both hands.', '#3a1c3a'],
+  ['和', 'Peace', 'The Emperor reads it by lantern light. In the morning, criers carry the news down every road in Japan: the war is over. On the Tokaido, eight stations of people you spared, helped and fought beside will tell the story of the ronin who carried it.', '#1c3a2a']];
+/* a woodblock map of the road: the samurai walks from one station to the next */
+function roadScene(to) {
+  const from = S.cur; if (to !== from + 1 || (S.towns[TOWNS[to].id] || {}).seen || window.__noTut) return false;
+  if (TOWN) { TOWN.paused = true; TOWN.joy = null; }
+  const days = ROAD_DAYS[to] || 2; S.days = (S.days || 0) + days;
+  openOverlay(`<div class="modal" style="background:#efe3c8;color:#2a1c12;border:6px double #6a3a22;max-width:560px"><div class="eyebrow" style="color:#8a2a1a">東海道 · The Tokaido</div><canvas id="roadCv" width="520" height="200" style="width:100%;border-radius:8px;margin:8px 0"></canvas><p style="font-size:16px;margin:4px 0"><b>${TOWNS[from].n} → ${TOWNS[to].n}</b> · ${days} day${days === 1 ? '' : 's'} on foot · day ${S.days} of the journey</p><div class="actions"><button class="btn primary" data-more="walk:${to}">Arrive in ${TOWNS[to].n}</button></div></div>`);
+  const cv = document.getElementById('roadCv'), x = cv.getContext('2d'), N = TOWNS.length, px = i => 40 + i * 440 / (N - 1), py = i => 120 + Math.sin(i * 1.3) * 34; let t0 = performance.now();
+  const draw = () => { if (!document.body.contains(cv)) return; const k = Math.min(1, (performance.now() - t0) / 2600);
+    x.fillStyle = '#efe3c8'; x.fillRect(0, 0, 520, 200); x.fillStyle = '#3f6a8a'; x.fillRect(0, 168, 520, 32); x.fillStyle = '#56769f'; x.beginPath(); x.moveTo(60, 110); x.lineTo(118, 30); x.lineTo(176, 110); x.fill(); x.fillStyle = '#fff'; x.beginPath(); x.moveTo(104, 50); x.lineTo(118, 30); x.lineTo(132, 50); x.lineTo(118, 44); x.fill();
+    x.strokeStyle = '#6a3a22'; x.lineWidth = 4; x.setLineDash([8, 6]); x.beginPath(); for (let i = 0; i < N; i++) (i ? x.lineTo(px(i), py(i)) : x.moveTo(px(i), py(i))); x.stroke(); x.setLineDash([]);
+    for (let i = 0; i < N; i++) { x.fillStyle = i <= from ? '#8a2a1a' : i === to ? '#c9a35a' : '#b8a888'; x.beginPath(); x.arc(px(i), py(i), 8, 0, 7); x.fill(); x.fillStyle = '#2a1c12'; x.font = '700 12px serif'; x.textAlign = 'center'; x.fillText(TOWNS[i].jp, px(i), py(i) - 14); x.font = '10px sans-serif'; x.fillText(TOWNS[i].n, px(i), py(i) + 24); }
+    const sx = lerp(px(from), px(to), k), sy = lerp(py(from), py(to), k) - 6 - Math.abs(Math.sin(k * 30)) * 3; x.fillStyle = '#1c1410'; x.beginPath(); x.arc(sx, sy - 12, 5, 0, 7); x.fill(); x.fillRect(sx - 4, sy - 8, 8, 12); x.fillStyle = '#c9a35a'; x.beginPath(); x.moveTo(sx - 9, sy - 13); x.lineTo(sx, sy - 20); x.lineTo(sx + 9, sy - 13); x.fill();
+    requestAnimationFrame(draw); }; draw();
+  return true;
 }

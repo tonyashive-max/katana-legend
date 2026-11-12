@@ -29,7 +29,7 @@ const TwinGame = {
     if (q.done[0] && q.done[1]) { T.correct++; const fast = q.t < q.lim * .55; if (fast) T.fast++; tPop(fast ? 'TWO HEAVENS!' : 'Both!', null, VH * .3, { size: fast ? 36 : 28, color: fast ? '#ffe08c' : '#d9ffb0', stroke: '#06203a' }); T.cur = null; T.gap = .4; }
   },
   draw(c) { const q = T.cur; if (!q) return; const R = Math.min(VW, VH) * .13, y = VH * .48; dualTimer(c, 1 - q.t / q.lim); for (const s of [0, 1]) dualArrow(c, VW * (s ? .7 : .3), y, R, q.a[s], DUAL_COL[s], q.done[s], DUAL_GLYPH[s] + ' ' + DUAL_NAME[s]); },
-  xp() { return T.correct * 6 + T.fast * 3; },
+  xp() { return T.correct * 3 + T.fast * 2; },
   summary() { return `${T.correct} of ${T.N} cut with both blades, ${T.fast} in perfect time`; },
 };
 /* Long and Short: read the chain and cut it in order, changing blades as you go */
@@ -53,7 +53,7 @@ const FlowGame = {
     q.seq.forEach((s, i) => { const x = x0 + i * R * 2.8, done = i < q.k, now = i === q.k; c.globalAlpha = done ? .3 : 1; c.fillStyle = 'rgba(8,10,20,.75)'; c.strokeStyle = DUAL_COL[s]; c.lineWidth = now ? 8 : 4; c.beginPath(); c.arc(x, y, R * (now ? 1.15 : 1), 0, Math.PI * 2); c.fill(); c.stroke(); c.fillStyle = DUAL_COL[s]; c.font = `900 ${Math.round(R * 1.1)}px system-ui,sans-serif`; c.fillText(done ? '✓' : DUAL_GLYPH[s], x, y + R * .4); });
     c.globalAlpha = 1; c.font = '900 15px system-ui,sans-serif'; c.fillStyle = DUAL_COL[0]; c.fillText('◀ LONG BLADE SIDE', VW * .22, VH * .66); c.fillStyle = DUAL_COL[1]; c.fillText('SHORT BLADE SIDE ▶', VW * .78, VH * .66); c.restore();
   },
-  xp() { return T.correct * 8 + T.cuts; },
+  xp() { return T.correct * 5 + T.cuts * .5; },
   summary() { return `${T.correct} of ${T.N} chains cut in order`; },
 };
 TRAININGS.twin = { name: 'Twin Cut', skill: 'speed', g: '双', dual: true, desc: 'Two arrows at once, one for each blade. Cut the gold arrow on the left side and the blue arrow on the right side before time runs out.' };
@@ -62,11 +62,11 @@ TRAIN_KINDS.twin = TwinGame; TRAIN_KINDS.flow = FlowGame;
 
 function townHermit() {
   if (TOWN) { TOWN.paused = true; TOWN.joy = null; }
-  const ok = S.sk.power.l >= 5 && S.sk.speed.l >= 5, drill = k => { const t = TRAININGS[k], s = S.sk[t.skill], need = skillNeed(s.l); return `<div class="card" style="gap:6px"><div class="row between"><b>${t.g} ${t.name}</b><small class="muted">${SKILLS[t.skill].n} Lv ${s.l}</small></div><small>${t.desc}</small><div class="bar"><i style="width:${s.l >= 30 ? 100 : Math.round(s.x / need * 100)}%"></i></div><button class="btn small jade" data-town="train:${k}">Start drill</button></div>`; };
+  const ok = S.sk.power.l >= 4 && S.sk.speed.l >= 4, drill = k => { const t = TRAININGS[k], s = S.sk[t.skill], need = skillNeed(s.l); return `<div class="card" style="gap:6px"><div class="row between"><b>${t.g} ${t.name}</b><small class="muted">${SKILLS[t.skill].n} Lv ${s.l}</small></div><small>${t.desc}</small><div class="bar"><i style="width:${s.l >= 30 ? 100 : Math.round(s.x / need * 100)}%"></i></div><button class="btn small jade" data-town="train:${k}">Start drill</button></div>`; };
   openOverlay(`<div class="modal" style="text-align:left"><div class="eyebrow">Hermit of the Mountain · Two Heavens school</div>
     <p style="margin:6px 0 10px">"One sword is a question. Two swords are a conversation." <span class="muted">The swordsman Miyamoto Musashi founded a school that fights with a long and a short sword together, and wrote down its teaching in a mountain cave.</span></p>
     ${S.dual ? `<h3>二 Your two blades</h3><p class="muted" style="font-size:13px;margin:2px 0 6px">First blade: <b>${styleDef().n}</b> (change it with any sensei). Second blade:</p><div class="grid2" style="grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 14px">${Object.entries(STYLES).filter(([k]) => k !== 'both').map(([k, y]) => `<button class="card ${(S.style2 || 'kodachi') === k ? 'sel' : ''}" data-town="style2:${k}" style="text-align:left;gap:4px" ${(S.style || 'katana') === k ? 'disabled' : ''}><b>${y.jp} ${y.n}</b><small style="color:var(--jade)">${(S.style || 'katana') === k ? 'Your first blade' : (S.style2 || 'kodachi') === k ? '✓ Second blade' : 'Tap to switch'}</small></button>`).join('')}</div>`
-      : `<div class="card" style="gap:6px;margin-bottom:14px"><b>二 The trial of Two Heavens</b><small>Reach <b>Power Lv 5</b> (you: ${S.sk.power.l}) and <b>Speed Lv 5</b> (you: ${S.sk.speed.l}), then beat me. My two drills below will get you there. Pass, and you may carry two blades.</small><button class="btn small ${ok ? 'primary' : ''}" data-town="fight:sensei" ${ok ? '' : 'disabled'}>⚔ Take the trial</button></div>`}
+      : `<div class="card" style="gap:6px;margin-bottom:14px"><b>二 The trial of Two Heavens</b><small>Reach <b>Power Lv 4</b> (you: ${S.sk.power.l}) and <b>Speed Lv 4</b> (you: ${S.sk.speed.l}), then beat me. My two drills below will get you there. Pass, and you may carry two blades.</small><button class="btn small ${ok ? 'primary' : ''}" data-town="fight:sensei" ${ok ? '' : 'disabled'}>⚔ Take the trial</button></div>`}
     <h3>Drills for two blades</h3><div class="grid2">${drill('twin')}${drill('flow')}</div>
     <div class="actions"><button class="btn" data-town="">Back down the mountain</button></div></div>`);
 }

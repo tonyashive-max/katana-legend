@@ -10,7 +10,7 @@ function openPuzzle(ch, onSolve) {
 }
 function pzShell(title, intro, body, extra) {
   openOverlay(`<div class="modal puzzle">
-    <div class="eyebrow">Spirit Shrine · ${CHAPTERS[PZ.ch].name}</div>
+    <div class="eyebrow">Spirit Shrine · ${typeof TOWN !== "undefined" && TOWN && MODE === TownMode ? townCfg().n : CHAPTERS[PZ.ch].name}</div>
     <h2>${title}</h2>
     <p class="muted" id="pzMsg">${intro}</p>
     <div class="pz-body">${body}</div>

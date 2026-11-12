@@ -170,7 +170,7 @@ function gatePlace() { return (townCfg().gate || {}).place || 'gate'; }
 function isDawn() { return !!TOWN && townClock() === 'Dawn'; }
 function allyName(id) { const [t, r] = id.split(':'), c = TOWN_BY[t]; return c ? (r === 'a' ? c.a.foe.n : r === 'keeper' ? c.keeper.n : c.myth.n) : id; }
 function needDual() { return townCfg().i >= 5 && !S.dual; }
-function dualMsg() { const c = townCfg(); return `${c.keeper.n} fights with two blades, and no samurai with a single sword has ever touched ${c.i === 5 ? 'him' : 'it'}. Learn the Two Heavens from the Hermit of the Mountain, by the shrine above Hakone${c.id === 'hakone' ? '' : ' (walk back down the road from the south end of each town)'}: train Power and Speed to level 5, then pass his trial.`; }
+function dualMsg() { const c = townCfg(); return `${c.keeper.n} fights with two blades, and no samurai with a single sword has ever touched ${c.i === 5 ? 'him' : 'it'}. Learn the Two Heavens from the Hermit of the Mountain, by the shrine above Hakone${c.id === 'hakone' ? '' : ' (walk back down the road from the south end of each town)'}: train Power and Speed to level 4, then pass his trial.`; }
 function keeperReady() { const c = townCfg(); if (needDual()) return false; return c.keeper.need ? wornPieces().length >= c.keeper.need : S.town.jobs.a === 2 && (!c.keeper.also || c.keeper.also()); }
 function townJobs() {
   const T = S.town, c = townCfg(), own = S.armor.owned.filter(id => PIECES[id].set === c.set).length;
@@ -225,8 +225,9 @@ function startTown(back) {
     if (!S.town.seen) { S.town.seen = true; save(); setTimeout(() => { if (TOWN) titleCard(c.jp, c.n, c.sub, `Station ${c.i + 2} of 8`); }, 500); if (c.i > 0) setTimeout(() => { if (TOWN && !TITLE_UP) townSay('The Tokaido road', c.intro); }, 2600); }
   });
 }
-function townTravel(i) {
+function townTravel(i, shown) {
   if (!TOWNS[i] || i > (S.far || 0) || i >= ROAD_OPEN) return;
+  if (!shown && roadScene(i)) return;
   if (TOWN) { S.town.at = { x: TOWN.pos.x, z: TOWN.pos.z, yaw: TOWN.face }; }
   S.cur = i; delete S.town; gearInit(); save(); startTown(true);
 }
@@ -412,6 +413,7 @@ function townAfterFight(choice) {
   let blade = null; if (!ownsSword(st.sword)) { const w = addSword(st.sword); blade = swordDef(st.sword); if (swordDmg(w) > swordDmg(eqSword())) S.eq = w.u; }
   if (bowed && clean) virtue('meiyo', 1, 'a clean, honorable win');
   const steel = ({ a: 3, keeper: 5, myth: 8 }[id] || 3) + c.i; S.steel = (S.steel || 0) + steel;
+  const xpUp = ['power', 'speed', 'guard', 'vital'].filter(k => addSkillXP(k, id === 'a' ? 10 : 16)); // every duel on the road teaches a little of everything
   const mats = Object.entries(rollDrops(c.i, id === 'myth' ? 'myth' : id === 'keeper' ? 'boss' : 'fight')).map(([m, n]) => `<span class="chip">+${n} ${MATERIALS[m].n}</span>`).join('');
   S.gold += gold; S.wins++; coopEvent('win', { foe: st.name });
   const gifts = [];
@@ -422,7 +424,7 @@ function townAfterFight(choice) {
   const got = gifts.filter(g => givePiece(g, true));
   const line = id === 'keeper' ? c.keeper.win : id === 'a' ? (choice === 'spare' ? `${st.name} swears to do better. You will find them near ${c.a.n}: ${c.a.foe.job.toLowerCase()}.` : `${st.name} runs, empty-handed.`) : (choice === 'spare' ? `${st.name} bows its head. It will remember your mercy.` : `${st.name} fades back into the wild.`);
   openOverlay(`<div class="modal win"><div class="kicker">${choice === 'spare' ? 'Mercy' : 'Victory'}</div><p>${line}</p>
-    <div class="rewards"><span class="chip gold"><i></i>+${gold}</span><span class="chip steel"><i></i>+${steel} steel</span>${mats}${blade ? `<span class="chip" style="color:${RAR[blade.r].c}">刀 ${blade.name}</span>` : ''}${got.map(g => `<span class="chip" style="color:${RAR[SETS[PIECES[g].set].r].c}">${PIECES[g].n}</span>`).join('')}</div>
+    <div class="rewards"><span class="chip gold"><i></i>+${gold}</span><span class="chip steel"><i></i>+${steel} steel</span>${mats}${xpUp.length ? `<span class="chip">${xpUp.map(k => SKILLS[k].n).join(', ')} level up!</span>` : ''}${blade ? `<span class="chip" style="color:${RAR[blade.r].c}">刀 ${blade.name}</span>` : ''}${got.map(g => `<span class="chip" style="color:${RAR[SETS[PIECES[g].set].r].c}">${PIECES[g].n}</span>`).join('')}</div>
     ${blade ? `<p class="muted">You won their blade, the <b>${blade.name}</b>. Your blades are in the Pack: tap the 刀 card.</p>` : ''}${got.length ? '<p class="muted">New armor went straight on. Open your Pack to see it.</p>' : ''}${choice === 'spare' ? `<p style="color:var(--jade)">${st.name} is now a friend. You will start every duel with ${Math.min(100, allies().length * 25)}% Spirit.</p>` : ''}${fullSet() ? `<p><span class="tag new">Full set</span> ${SETS[fullSet()].bonus}</p>` : ''}
     <div class="actions"><button class="btn primary" data-town="back">Back to town</button></div></div>`);
 }
@@ -537,6 +539,7 @@ function drawTownOverlay(c) {
 function townDone() {
   const c = townCfg(), own = S.armor.owned.filter(id => PIECES[id].set === c.set).length, petals = `<div class="virt">${VIRTUES.map(([k, nm2, g]) => `<div class="petal ${S.virt[k] ? 'on' : ''}"><span>${g}</span><b>${nm2}</b><small>${S.virt[k] || 0}</small></div>`).join('')}</div>`;
   if (TOWN) TOWN.paused = true;
+  if (c.last && !S.endSeen && !window.__noTut) { S.endSeen = true; save(); return storyCards(STORY_END, () => townDone()); }
   if (c.last && TOWN) TOWN.W.fw = 30;
   if (c.last) return openOverlay(`<div class="modal win ending"><div class="eyebrow">Katana Legend II · The Tokaido Road</div><div class="kicker">The letter is delivered</div>
     <p>The palace gate closes behind you. In a hall of gold screens, Princess Hana places the letter in the Emperor's hands. Outside, every lantern in Kyoto is burning, and the first snow falls on Sanjo Bridge.</p>
