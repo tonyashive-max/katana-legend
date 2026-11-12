@@ -40,10 +40,11 @@ function titleCard(kj, name, sub, kicker) {
   requestAnimationFrame(() => { const c = el.querySelector('.tc'); if (c) c.classList.add('show'); });
   _tcT = setTimeout(() => { el.innerHTML = ''; }, 3300);
 }
-/* one step, wherever you are: a duel, a story fight, or the footwork drill */
+const STEP_TAP = { d: 0, t: 0 };
+/* one step, wherever you are: a duel, a story fight, or the footwork drill. In a road duel, a double tap on a step button changes your lead foot */
 function stepInput(d, who) {
   if (MODE === VsMode && VS) return vsStep(VS[who || 'A'], d);
-  if (MODE === FightMode && F) return fightStep(d);
+  if (MODE === FightMode && F) { const now = performance.now(); if (F.st.town && STEP_TAP.d === d && now - STEP_TAP.t < 340) { STEP_TAP.t = 0; return fightLead(d); } STEP_TAP.d = d; STEP_TAP.t = now; return fightStep(d); }
   if (MODE === TrainMode && T && T.kind === 'dodge') return DodgeGame.step(d);
   return false;
 }

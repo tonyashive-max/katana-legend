@@ -110,7 +110,7 @@ function startBattle(st, ctx) {
       state: 'intro', t: 0, dur: 0, tele: 1, dir: 'R', chained: false, resolved: false, feinted: false, fury: false, counter: false,
       guardDir: 'R', guardHits: 0, over: false, outcome: null, introT: 0, endT: 0, hitTimes: [], frozenT: 0, deflects: 0,
       combo: 0, comboT: 0, parries: 0, lostLimb: false, special: null, trophy: null, atkMul: 1, legsPenalty: 1,
-      ex: 0, lunge: 0, kb: 0, returnT: 0, plx: 0, ppx: 0, plean: 0, aim: 0, stepCd: 0, dodgeT: 0, dodgeX: 0, dodges: 0, camPos: new V3(), camLook: new V3(), camK: 30, blockPose: null,
+      ex: 0, lunge: 0, kb: 0, returnT: 0, plx: 0, ppx: 0, plean: 0, lead: 'R', leadK: 1, aim: 0, stepCd: 0, dodgeT: 0, dodgeX: 0, dodges: 0, camPos: new V3(), camLook: new V3(), camK: 30, blockPose: null,
       tutorial: S.wins < 3, hintMsg: '', hintT: 0, fragile: bladeAtRisk(st), strain: 0, broken: null,
       drawn: false, drawnAt: -1, signaled: false, sigT: 0, signalAt: 0, enemyDrawAt: Infinity, enemyDrawn: false, firstStrike: false, iaiUntil: 0, iaiDone: false, leaf: null,
     };
@@ -296,6 +296,20 @@ function enemyWhiff() {
   if (F.dodges === 1) fightHint('Dodged! They swung at empty air. Strike while they stumble!');
   updateFightHUD();
 }
+/* which foot is forward: cuts from your lead side are quicker, cuts from your rear side turn the hips through and hit harder */
+function fightLead(d) {
+  if (!F || F.over || F.state === 'intro') return false;
+  const to = d < 0 ? 'L' : 'R'; if (F.lead === to) { ovPop(VW / 2, VH * .6, (to === 'L' ? 'Left' : 'Right') + ' foot already leads', { size: 20, color: '#c9c2b0' }); return false; }
+  F.lead = to; leadPose(); sfx.whoosh(); ovPop(VW / 2, VH * .56, (to === 'L' ? '◣ LEFT' : 'RIGHT ◢') + ' FOOT FORWARD', { size: 26, color: '#ffe08c', stroke: '#1a0800' });
+  fightHint(`${to === 'L' ? 'Left' : 'Right'} foot leads: cuts from your ${to === 'L' ? 'left' : 'right'} are quick, cuts from your ${to === 'L' ? 'right' : 'left'} are heavy.`);
+  return true;
+}
+function leadPose() {
+  if (!F || !F.st.town) return; const l = F.lead === 'L';
+  try { F.P.feet.L.set(.16, .035, l ? .2 : -.14); F.P.feet.R.set(-.16, .035, l ? -.14 : .2); } catch (e) { /* */ }
+  let c = $('#leadChip'); if (!c) { c = document.createElement('span'); c.id = 'leadChip'; c.style.cssText = 'margin-left:8px;align-self:center;font-size:12px;font-weight:900;color:#ffe08c;background:rgba(8,10,20,.7);border:1px solid rgba(255,224,140,.45);border-radius:999px;padding:5px 10px;white-space:nowrap'; ($('#stanceBar') || $('#hud')).appendChild(c); }
+  c.textContent = l ? '◣ Left foot leads' : 'Right foot leads ◢';
+}
 function fightStep(d) {
   if (!F || !F.drawn || F.over || F.special || F.broken || F.state === 'intro' || F.state === 'standoff') return false;
   if (F.returnT > .05 || F.stepCd > 0) return false;
@@ -444,6 +458,7 @@ function fightSlash(x0, y0, x1, y1) {
   F.cdUntil = F.clock + F.ps.cd / 1000 * (F.P.det.armR ? 1.25 : 1) * (tired ? 1.6 : 1) * (F.frozenT > 0 ? 1.8 : 1) * (F.stance === 'high' ? 1.2 : F.stance === 'low' ? .8 : 1);
   F.sta = Math.max(0, F.sta - F.ps.staCost); F.staWait = .45;
   const len = Math.hypot(x1 - x0, y1 - y0) || 1, ux = (x1 - x0) / len, uy = (y1 - y0) / len;
+  F.leadK = 1; if (F.st.town && Math.abs(ux) > .35) { const from = ux < 0 ? 'R' : 'L'; if (from === F.lead) { F.cdUntil = F.clock + (F.cdUntil - F.clock) * .78; F.leadK = .95; } else { F.cdUntil = F.clock + (F.cdUntil - F.clock) * 1.12; F.leadK = 1.28; } }
   rigSwing(F.P, ux, uy, tired ? .2 : .13); F.returnT = .3; sfx.slash(tired ? .5 : 1);
   if (tired && F.clock > F.tiredPop) { F.tiredPop = F.clock + 1.2; ovPop(VW / 2, VH * .62, 'OUT OF BREATH', { size: 26, color: '#ffd27a' }); fightHint('Out of breath! Wait for the yellow bar to refill, and strike when they are open.'); }
   // parry
@@ -481,6 +496,7 @@ function fightSlash(x0, y0, x1, y1) {
   if (F.state === 'stagger') { dmg *= 1.6; crit = true; }
   else if (Math.random() < F.ps.crit) { dmg *= 1.6; crit = true; } else if (F.state === 'recover') dmg *= 1.25;
   if (tired) dmg *= .35;
+  if (F.leadK !== 1) { dmg *= F.leadK; if (F.clock > (F.leadPop || 0)) { F.leadPop = F.clock + 1.4; ovPop(hit.sx, hit.sy + 46, F.leadK > 1 ? 'HEAVY' : 'QUICK', { size: 18, color: F.leadK > 1 ? '#ffb07a' : '#9fe8ff', stroke: '#1a0800' }); } }
   damageEnemy(hit.part, dmg, crit, hit.world, hit.sx, hit.sy, tired);
   if (!F.over && (F.state === 'idle' || F.state === 'guard' || F.state === 'recover')) {
     F.hitTimes.push(F.clock); F.hitTimes = F.hitTimes.filter(t => F.clock - t < 1.6);

@@ -285,7 +285,7 @@ function townAct() {
   const p = T.near, J = S.town, c = townCfg();
   S.town.at = { x: T.pos.x, z: T.pos.z, yaw: T.face }; save();
   if (p.act) return p.act(p);
-  if (p.kind === 'chest') { J.chests.push(p.id); save(); T.grp.remove(p.m); T.pois = T.pois.filter(q => q !== p); FX.sparks(p.m.position, '#ffe08c', 40, 5); townGive([p.piece]); return; }
+  if (p.kind === 'chest') { J.chests.push(p.id); { const got = rollDrops(c.i, 'ghost'), mt = Object.entries(got).map(([id, n]) => `+${n} ${MATERIALS[id].n}`).join(' · '); if (mt) setTimeout(() => toast('Forge materials: ' + mt), 2600); } save(); T.grp.remove(p.m); T.pois = T.pois.filter(q => q !== p); FX.sparks(p.m.position, '#ffe08c', 40, 5); townGive([p.piece]); return; }
   if (p.id.startsWith('friend:')) {
     const r = p.id.slice(7), left = SLOTS.map(s => c.set + '-' + s.id).filter(id => !ownPiece(id)), tip = left.length ? `<br><br>Still hunting the ${SETS[c.set].n} armor? ${pieceHint(left[0]).t}.` : '';
     return townSay(allyName(c.id + ':' + r), ({ a: `You could have ended me. ${c.a.n} gave me honest work instead. Whenever you duel, I will be shouting for you.`, keeper: 'You fought with honor and offered your hand. This gate remembers its friends.', myth: 'You showed mercy. Few humans do. Fight well, small one.' })[r] + tip + '<br><span class="muted">Friends you spared fill your Spirit at the start of every duel.</span>');
@@ -336,7 +336,7 @@ function townClick(d) {
   if (a === 'spare' || a === 'finish') { townAfterFight(a); return true; }
   if (a === 'retry') { const ctx = F.ctx; closeOverlay(); F = null; startBattle(townFoe(ctx.idx), ctx); return true; }
   if (a === 'back') { closeOverlay(); endFight(); return true; }
-  if (a === 'smithy') { townSmithy(); return true; }
+  if (a === 'smithy') { townWorkshop('forge'); return true; }
   if (a === 'forge') { const w = eqSword(), cst = forgeCost(w); if ((w.lvl || 0) >= 10 || !canPay(cst) || !isArmed()) return true; closeOverlay(); if (TOWN) TOWN.paused = false; $('#leaveBtn').textContent = 'Leave'; doUpgrade(); return true; }
   if (a.startsWith('style2:')) { const k = a.slice(7); if (STYLES[k] && k !== 'both' && k !== (S.style || 'katana')) { S.style2 = k; save(); sfx.up && sfx.up(); } townDojo(); return true; }
   if (a.startsWith('style:')) { const k = a.slice(6); if (STYLES[k] && k !== 'both') { S.style = k; if (S.style2 === k) S.style2 = k === 'kodachi' ? 'katana' : 'kodachi'; save(); sfx.up && sfx.up(); townRefreshPlayer(); toast(`${STYLES[k].n} style: ${STYLES[k].d}`); } townDojo(); return true; }
@@ -346,6 +346,15 @@ function townClick(d) {
   townCloseTalk(); return true;
 }
 /* a town fight ends with a choice */
+/* the armorer's forge is the first game's whole smithy: forging, infusing, fusing, recipes and the blade rack */
+function townWorkshop(tab) {
+  if (TOWN) { TOWN.paused = true; TOWN.joy = null; } closeOverlay();
+  const ui = $('#ui'); ui.classList.add('road'); const bn = ui.querySelector('.brand-name'); if (bn) bn.textContent = "The Armorer's Forge";
+  if (!$('#roadBack')) { const b = document.createElement('button'); b.className = 'tab'; b.id = 'roadBack'; b.innerHTML = '<b>道</b><span>Back to the road</span>'; b.addEventListener('click', townWorkshopClose); ui.querySelector('.tabs').appendChild(b);
+    const st = document.createElement('style'); st.textContent = '#ui.road .tab{display:none}#ui.road .tab[data-tab=forge],#ui.road .tab[data-tab=swords],#ui.road #roadBack{display:grid}#ui.road .tabs{grid-template-columns:repeat(3,minmax(0,1fr))}#ui:not(.road) #roadBack{display:none}'; document.head.appendChild(st); }
+  ui.hidden = false; $('#hud').hidden = true; showTab(tab || 'forge');
+}
+function townWorkshopClose() { $('#ui').hidden = true; $('#hud').hidden = false; if (TOWN && MODE === TownMode) { TOWN.paused = false; townRefreshPlayer(); } }
 function townSmithy() {
   const w = eqSword(), d = swordDef(w.id), cst = forgeCost(w), max = (w.lvl || 0) >= 10, next = Math.round(swordDmg(Object.assign({}, w, { lvl: (w.lvl || 0) + 1 })));
   if (TOWN) { TOWN.paused = true; TOWN.joy = null; }
@@ -384,6 +393,7 @@ function townAfterFight(choice) {
   let blade = null; if (!ownsSword(st.sword)) { const w = addSword(st.sword); blade = swordDef(st.sword); if (swordDmg(w) > swordDmg(eqSword())) S.eq = w.u; }
   if (bowed && clean) virtue('meiyo', 1, 'a clean, honorable win');
   const steel = ({ a: 3, keeper: 5, myth: 8 }[id] || 3) + c.i; S.steel = (S.steel || 0) + steel;
+  const mats = Object.entries(rollDrops(c.i, id === 'myth' ? 'myth' : id === 'keeper' ? 'boss' : 'fight')).map(([m, n]) => `<span class="chip">+${n} ${MATERIALS[m].n}</span>`).join('');
   S.gold += gold; S.wins++; coopEvent('win', { foe: st.name });
   const gifts = [];
   if (id === 'a') { J.jobs.a = 2; gifts.push(c.set + '-kote'); virtue('gi', 1, `you helped ${c.a.n}`); }
@@ -393,7 +403,7 @@ function townAfterFight(choice) {
   const got = gifts.filter(g => givePiece(g, true));
   const line = id === 'keeper' ? c.keeper.win : id === 'a' ? (choice === 'spare' ? `${st.name} swears to do better. You will find them near ${c.a.n}: ${c.a.foe.job.toLowerCase()}.` : `${st.name} runs, empty-handed.`) : (choice === 'spare' ? `${st.name} bows its head. It will remember your mercy.` : `${st.name} fades back into the wild.`);
   openOverlay(`<div class="modal win"><div class="kicker">${choice === 'spare' ? 'Mercy' : 'Victory'}</div><p>${line}</p>
-    <div class="rewards"><span class="chip gold"><i></i>+${gold}</span><span class="chip steel"><i></i>+${steel} steel</span>${blade ? `<span class="chip" style="color:${RAR[blade.r].c}">刀 ${blade.name}</span>` : ''}${got.map(g => `<span class="chip" style="color:${RAR[SETS[PIECES[g].set].r].c}">${PIECES[g].n}</span>`).join('')}</div>
+    <div class="rewards"><span class="chip gold"><i></i>+${gold}</span><span class="chip steel"><i></i>+${steel} steel</span>${mats}${blade ? `<span class="chip" style="color:${RAR[blade.r].c}">刀 ${blade.name}</span>` : ''}${got.map(g => `<span class="chip" style="color:${RAR[SETS[PIECES[g].set].r].c}">${PIECES[g].n}</span>`).join('')}</div>
     ${blade ? `<p class="muted">You won their blade, the <b>${blade.name}</b>. Your blades are in the Pack: tap the 刀 card.</p>` : ''}${got.length ? '<p class="muted">New armor went straight on. Open your Pack to see it.</p>' : ''}${choice === 'spare' ? `<p style="color:var(--jade)">${st.name} is now a friend. You will start every duel with ${Math.min(100, allies().length * 25)}% Spirit.</p>` : ''}${fullSet() ? `<p><span class="tag new">Full set</span> ${SETS[fullSet()].bonus}</p>` : ''}
     <div class="actions"><button class="btn primary" data-town="back">Back to town</button></div></div>`);
 }
@@ -470,9 +480,11 @@ const TownMode = {
     CAM.position.copy(T.camPos); CAM.lookAt(T.camLook); CAM.fov = lerp(CAM.fov, 58, damp(6, dt)); CAM.updateProjectionMatrix(); FX.setScale(); applyShake(dt);
     hint(T.clock < 8 && !S.town.guard ? 'Drag on the left side to walk · drag on the right side to look around' : '');
   },
-  down(px, py, id) { const T = TOWN; if (!T || T.paused) return; if (px < VW * .45 && !T.joy) T.joy = { id, ox: px, oy: py, x: px, y: py }; else if (!T.look) T.look = { id, x: px, y: py }; },
-  move(px, py, id) { const T = TOWN; if (!T) return; if (T.joy && T.joy.id === id) { T.joy.x = px; T.joy.y = py; } else if (T.look && T.look.id === id) { T.camYaw -= (px - T.look.x) * .006; T.camPitch = clamp(T.camPitch + (py - T.look.y) * .003, .06, .8); T.look.x = px; T.look.y = py; } },
-  up(id) { const T = TOWN; if (!T) return; if (T.joy && T.joy.id === id) T.joy = null; if (T.look && T.look.id === id) T.look = null; },
+  drawStart() { return townEncDraw(); },
+  slash(a, b, c, d) { townEncSlash(a, b, c, d); },
+  down(px, py, id) { const T = TOWN; if (!T || T.paused) return; if (T.enc) return townEncPointer('down', px, py, id); if (px < VW * .45 && !T.joy) T.joy = { id, ox: px, oy: py, x: px, y: py }; else if (!T.look) T.look = { id, x: px, y: py }; },
+  move(px, py, id) { const T = TOWN; if (!T) return; if (T.enc) return townEncPointer('move', px, py, id); if (T.joy && T.joy.id === id) { T.joy.x = px; T.joy.y = py; } else if (T.look && T.look.id === id) { T.camYaw -= (px - T.look.x) * .006; T.camPitch = clamp(T.camPitch + (py - T.look.y) * .003, .06, .8); T.look.x = px; T.look.y = py; } },
+  up(id) { const T = TOWN; if (!T) return; if (T.enc) townEncPointer('up', 0, 0, id); if (T.joy && T.joy.id === id) T.joy = null; if (T.look && T.look.id === id) T.look = null; },
 };
 function townClock() { const h = (TOWN.day * 24 + 6) % 24; return h < 5 ? 'Night' : h < 8 ? 'Dawn' : h < 16 ? 'Day' : h < 19 ? 'Dusk' : 'Night'; }
 const SKY_KEYS = [ // time of day: sky top / middle / horizon, fog, key light colour and strength, hemisphere strength

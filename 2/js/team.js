@@ -74,6 +74,7 @@ setInterval(() => {
   const now = coopNow(), inFight = typeof F !== 'undefined' && F && typeof MODE !== 'undefined' && MODE !== TownMode;
   // two blades: the swap button, and the cost of using both at once
   const sb = $('#swapBtn'); if (sb) { const show = !!inFight && !F.over && !!S.dual && !!F.st.town && F.state !== 'intro' && F.dualLost == null; if (sb.hidden === show) sb.hidden = !show; if (show) sb.textContent = '⇄ ' + STYLES[duelOrder()[((F.sw || 0) + 1) % 3]].n; }
+  if (inFight && F.st.town && !F.leadInit && typeof leadPose === 'function') { F.leadInit = true; leadPose(); }
   if (!inFight) STYLE_OVR = null;
   else if (S.dual && F.st.town && !F.over && F.dualLost == null && (F.P.det.armL || F.P.det.armR) && !(F.P.det.armL && F.P.det.armR)) { // an arm is gone: its blade falls, the other is already in your remaining hand
     const lost = F.P.det.armR ? 0 : 1, keep = 1 - lost, o = duelOrder(); F.dualLost = lost; duelSwap(keep);
@@ -128,25 +129,99 @@ function ghostFoe(kind) { const st = townFoe('a'); return Object.assign(st, { to
 function ghostRestore() { const w = S.stolen && S.swords.find(x => x.u === S.stolen.u); if (w) { delete w.captured; S.eq = w.u; } S.stolen = null; save(); if (TOWN && MODE === TownMode) townRefreshPlayer(); }
 function ghostRemove(T, id) { const p = T.pois.find(q => q.id === id); if (!p) return; T.grp.remove(p.rig.root); T.grp.remove(p.lab); p.rig.dispose && p.rig.dispose(); T.pois = T.pois.filter(q => q !== p); if (T.near === p) T.near = null; }
 function ghostTick(dt, T) {
+  if (T.enc) return townEncUpdate(dt, T);
   if (window.__noGhost) return;
-  const G = T.gh || (T.gh = { night: false, n: (S.wins | 0) % 2, r: null }), night = townClock() === 'Night', b = T.pois.find(p => p.id === 'b') || { x: townRoadX(20) + 8, z: 20 };
+  const G = T.gh || (T.gh = { night: false, r: null, wait: rnd(50, 110) }), night = townClock() === 'Night', b = T.pois.find(p => p.id === 'b') || { x: townRoadX(20) + 8, z: 20 };
   // the ghost that holds a stolen blade waits near the shrine: yours, or your friend's
   const mine = !!S.stolen && S.stolen.t === S.cur, fr = coopPeers().find(p => p.gh && p.gh.t === S.cur);
-  if (mine && !T.pois.find(p => p.id === 'ghost2')) { const p = townNPC('ghost2', b.x - 3.2, b.z + 3.4, GHOST_LOOK, 'iron', 'Sword Thief', 'holding your ' + swordDef(S.stolen.id).name, { col: '#bff4ff', map: 'Your stolen blade', mapCol: '#bff4ff' }); p.label = 'Face the sword thief'; p.act = () => townSay('Sword Thief', `The ghost clutches your <b>${swordDef(S.stolen.id).name}</b> and hisses.`, [['fight:ghost2', '⚔ Win it back', 'primary'], ['', 'Not yet']]); }
+  if (mine && !T.pois.find(p => p.id === 'ghost2')) { const p = townNPC('ghost2', b.x - 3.2, b.z + 3.4, GHOST_LOOK, S.stolen.id, 'Sword Thief', 'holding your ' + swordDef(S.stolen.id).name, { col: '#bff4ff', map: 'Your stolen blade', mapCol: '#bff4ff' }); p.label = 'Hunt the sword thief'; p.r = 4.2; p.act = () => townEncStart('held', p); }
   if (!mine) ghostRemove(T, 'ghost2');
-  if (fr && !T.pois.find(p => p.id === 'ghost3')) { const p = townNPC('ghost3', b.x + 3.4, b.z + 3.6, GHOST_LOOK, 'iron', 'Sword Thief', `holding ${fr.n}'s ${fr.gh.bn}`, { col: '#9ff0c8', map: `${fr.n}'s stolen blade`, mapCol: '#9ff0c8' }); p.label = 'Face the sword thief'; p.fr = fr.id; p.act = () => townSay('Sword Thief', `The ghost clutches <b>${esc(fr.n)}'s ${esc(fr.gh.bn)}</b>. ${esc(fr.n)} cannot fight for it twice in one night, but you can.`, [['fight:ghost3', `⚔ Win it back for ${esc(fr.n)}`, 'primary'], ['', 'Not yet']]); }
+  if (fr && !T.pois.find(p => p.id === 'ghost3')) { const p = townNPC('ghost3', b.x + 3.4, b.z + 3.6, GHOST_LOOK, 'iron', 'Sword Thief', `holding ${fr.n}'s ${fr.gh.bn}`, { col: '#9ff0c8', map: `${fr.n}'s stolen blade`, mapCol: '#9ff0c8' }); p.label = `Win back ${fr.n}'s blade`; p.r = 4.2; p.fr = fr.id; p.act = () => townEncStart('heldFr', p); }
   if (!fr) ghostRemove(T, 'ghost3');
-  // one ghost walks the road each night: the sword thief and the Lady in White take turns
-  if (night && !G.night) { G.night = true; G.n++; const thief = G.n % 2 === 0 && !S.stolen && usableSwords().length > 0, za = clamp(T.pos.z + 26, -72, 50), zb = clamp(T.pos.z - 24, -72, 50), z = Math.abs(za - T.pos.z) >= Math.abs(zb - T.pos.z) === thief || Math.abs(zb - T.pos.z) < 13 ? (Math.abs(za - T.pos.z) < 13 ? zb : za) : zb, x = townRoadX(z) + 1;
-    if (Math.abs(z - T.pos.z) > 12) { const rig = new Samurai(thief ? GHOST_LOOK : LADY_LOOK, swordDef('iron'), { ghost: true, noSaya: true }); rig.root.rotation.order = 'YXZ'; if (!thief) rig.sword.visible = false; rig.setHold(thief ? 'rest' : 'show', 6); rig.root.position.set(x, townH(x, z), z); T.grp.add(rig.root); const h = halo('#bfe0ff', 4, .5); h.position.y = 1.2; rig.root.add(h); G.r = { rig, thief, x, z, t: 0 }; toast(thief ? 'Night falls. Something pale is walking the road…' : 'Night falls. A lady in white is walking the road…'); } }
+  // the sword thief: no warning, any time you are walking with a real blade at your hip
+  const w = eqSword();
+  if (T.speed > .3 && !T.boat && !T.lift && !T.lapse && w && w.id !== 'bokken' && !S.stolen) { G.wait -= dt * (night ? 2 : 1); if (G.wait <= 0) { G.wait = rnd(80, 170); return townEncStart('thief'); } }
+  // the Lady in White walks the road once each night
+  if (night && !G.night) { G.night = true; const za = clamp(T.pos.z + 26, -72, 50), zb = clamp(T.pos.z - 24, -72, 50), z = Math.abs(za - T.pos.z) >= Math.abs(zb - T.pos.z) ? za : zb, x = townRoadX(z) + 1;
+    if (Math.abs(z - T.pos.z) > 12) { const rig = new Samurai(LADY_LOOK, swordDef('iron'), { ghost: true, noSaya: true }); rig.root.rotation.order = 'YXZ'; rig.sword.visible = false; rig.setHold('show', 6); rig.root.position.set(x, townH(x, z), z); T.grp.add(rig.root); const h = halo('#bfe0ff', 4, .5); h.position.y = 1.2; rig.root.add(h); G.r = { rig, x, z, t: 0 }; toast('Night falls. A lady in white is walking the road…'); } }
   if (!night && G.night) { G.night = false; if (G.r) { T.grp.remove(G.r.rig.root); G.r.rig.dispose && G.r.rig.dispose(); G.r = null; } }
   const r = G.r; if (!r) return;
   const dx = T.pos.x - r.x, dz = T.pos.z - r.z, d = Math.hypot(dx, dz); r.t += dt;
-  if (d < 34 && d > .1) { const v = (r.thief ? 2.1 : 1.5) * dt; r.x += dx / d * v; r.z += dz / d * v; }
+  if (d < 34 && d > .1) { const v = 1.5 * dt; r.x += dx / d * v; r.z += dz / d * v; }
   r.rig.root.position.set(r.x, townH(r.x, r.z) + .12 + Math.sin(r.t * 2) * .08, r.z); r.rig.root.rotation.y = Math.atan2(dx, dz); r.rig.update(dt);
   if (d < 1.9) { T.grp.remove(r.rig.root); r.rig.dispose && r.rig.dispose(); G.r = null; S.town.at = { x: T.pos.x, z: T.pos.z, yaw: T.face };
-    if (r.thief) townSay('A cold wind', 'A pale ghost reaches for your <b>blade</b>. Only you can defend it!', [['fight:ghost', '⚔ Defend your blade', 'primary']]);
-    else { const q = GHOST_Q[townCfg().id], ans = [1, 2, 3].sort(() => Math.random() - .5); sfx.bell && sfx.bell(); townSay('The Lady in White', `"Answer me truly, traveler, or the road will carry you away."<br><br><b>${q[0]}</b>`, ans.map(i => ['gq:' + (i === 1 ? 'y' : 'n'), q[i]])); } }
+    const q = GHOST_Q[townCfg().id], ans = [1, 2, 3].sort(() => Math.random() - .5); sfx.bell && sfx.bell(); townSay('The Lady in White', `"Answer me truly, traveler, or the road will carry you away."<br><br><b>${q[0]}</b>`, ans.map(i => ['gq:' + (i === 1 ? 'y' : 'n'), q[i]])); }
+}
+/* ----- the sword thief: a sudden ghost on the road. Draw from the hilt and cut it down before it reaches you ----- */
+function townEncStart(kind, poi) {
+  const T = TOWN; if (!T || T.enc || T.paused) return;
+  const held = kind !== 'thief', def = kind === 'held' && S.stolen ? swordDef(S.stolen.id) : swordDef('iron');
+  const ghost = new Samurai(GHOST_LOOK, def, { ghost: true, noSaya: true }); ghost.root.rotation.order = 'YXZ';
+  let f = new V3(Math.sin(T.face), 0, Math.cos(T.face)), gx = T.pos.x + f.x * 5.4, gz = T.pos.z + f.z * 5.4;
+  if (poi) { const dx = poi.x - T.pos.x, dz = poi.z - T.pos.z, l = Math.hypot(dx, dz) || 1; gx = T.pos.x + dx / l * 5.4; gz = T.pos.z + dz / l * 5.4; poi.rig.root.visible = false; poi.lab.visible = false; }
+  else { const h = townH(gx, gz); if (h < (T.W.minH == null ? -.35 : T.W.minH) || h > 15) { f = new V3(-f.x, 0, -f.z); gx = T.pos.x + f.x * 5.4; gz = T.pos.z + f.z * 5.4; } }
+  const gy = Math.max(townH(gx, gz), -.3); ghost.root.position.set(gx, gy + .3, gz); ghost.setHold('guard', 8); ghost.mat.opacity = 0; T.grp.add(ghost.root, ghost.trail.mesh);
+  const win = (Math.max(.95, 1.65 - townCfg().i * .1) + (stats().drawBonus || 0)) * (held ? .88 : 1);
+  T.enc = { ghost, kind, poi, phase: 'appear', t: 0, t0: 0, win, sx: gx, sz: gz, gy, drawnAt: -1, op: 0, iai: false, sw: null };
+  T.joy = null; T.look = null; T.near = null; $('#actBtn').hidden = true;
+  banner(held ? 'THE THIEF LUNGES!' : 'GHOST THIEF!', held ? 'Draw and strike!' : 'Swipe out of the gold hilt to draw, then cut it down!');
+  sfx.ghost && sfx.ghost(); shake(.1); FX.puff(new V3(gx, gy + 1, gz), 12, '#bfe8ff', .7);
+}
+function townEncDraw() { const T = TOWN, e = T && T.enc; if (!e || e.phase !== 'draw') return false; if (!T.P.drawSword({ to: ['endL', 'guard'], durs: [.14, .3] })) return false; sfx.draw && sfx.draw(); e.phase = 'drawn'; e.drawnAt = e.t; $('#hiltBtn').hidden = true; return true; }
+function townEncSlash(x0, y0, x1, y1) {
+  const T = TOWN, e = T && T.enc; if (!e || e.phase !== 'drawn' || e.t - e.drawnAt < .1) return;
+  const len = Math.hypot(x1 - x0, y1 - y0) || 1; if (e.t - e.drawnAt > .3) { rigSwing(T.P, (x1 - x0) / len, (y1 - y0) / len, .12); sfx.slash && sfx.slash(); }
+  if (!hitTest(e.ghost, x0, y0, x1, y1)) return;
+  e.iai = e.t - e.drawnAt < .5; e.phase = 'won'; e.t1 = e.t;
+  const gp = e.ghost.chest.getWorldPosition(new V3()), s = toScreen(gp), c = townCfg();
+  FX.sparks(gp, '#bff4ff', 70, 6, .09); FX.glowBurst(gp, '#7fe8ff', 2.6, .5); FX.petals(gp, 30, '#bfe8ff', 3.5); FX.puff(gp, 14, '#e8f8ff', .9);
+  sfx.banish && sfx.banish(); hitstop(120); slowmo(.35, .5); OV.flash = .4; OV.flashCol = '200,240,255';
+  ovPop(s.x, s.y - 30, e.iai ? 'IAI!' : 'BANISHED!', { size: e.iai ? 52 : 40, color: '#2a1200', stroke: '#e8fbff', burst: e.iai ? '#ffe08c' : '#9fe8ff', rot: rnd(-.2, .2), life: 1.2, vy: -30 });
+  const gold = (e.iai ? 40 : 20) + c.i * 12; S.gold += gold; S.steel = (S.steel || 0) + 1 + (e.iai ? 1 : 0); S.ghosts = (S.ghosts || 0) + 1;
+  const ups = addSkillXP('iai', e.kind === 'thief' ? (e.iai ? 16 : 10) : 24), got = rollDrops(c.i, 'ghost'), mt = Object.entries(got).map(([id, n]) => `+${n} ${MATERIALS[id].n}`).join(' · ');
+  if (e.kind === 'held') { const d = swordDef(S.stolen.id); ghostRestore(); banner('Blade reclaimed!', d.name + ' is back in your hands'); }
+  else if (e.kind === 'heldFr') { const fr = CO.peers[e.poi.fr]; if (fr) tmSend('rescued', { to: fr.id }); virtue('chugi', 1, "you won back a friend's blade"); banner('Blade rescued!', fr ? `${fr.n}'s ${fr.gh ? fr.gh.bn : 'blade'} flies back to its owner` : ''); if (fr) fr.gh = null; }
+  else banner(e.iai ? 'IAI STRIKE!' : 'Ghost banished!', `+${gold} gold${mt ? ' · ' + mt : ''}${ups ? ' · Iai level up!' : ''}`);
+  if (ups) sfx.up && sfx.up(); save(); e.ghost.root.visible = false;
+}
+function townEncFail(T, e) {
+  e.phase = 'lost'; e.t1 = e.t; e.ghost.seq.length = 0; e.ghost.queue('endH', .14, { ease: easeIn, arc: .3 });
+  sfx.slash && sfx.slash(1.3); setTimeout(() => sfx.hurt && sfx.hurt(), 90); T.P.hitFlash && T.P.hitFlash(1); shake(.14); OV.vig = 1; OV.vigCol = '120,200,255';
+  const w = eqSword();
+  if (e.kind !== 'thief' || S.stolen || !w || w.id === 'bokken') { e.knock = true; banner(e.kind === 'thief' ? 'Knocked back!' : 'The thief got away!', e.kind === 'thief' ? 'The ghost laughs and fades away' : 'It still holds the blade. Draw faster and try again!'); setTimeout(() => sfx.laugh && sfx.laugh(), 400); return; }
+  const d = swordDef(w.id); w.captured = 'tokaido'; S.stolen = { u: w.u, id: w.id, t: S.cur };
+  const next = usableSwords().sort((x, y) => swordDmg(y) - swordDmg(x))[0] || addSword('bokken'); S.eq = next.u; save();
+  banner('BLADE STOLEN!', `The ghost flees with your ${d.name} toward ${townCfg().b.n}. Hunt it down, or a friend can`); setTimeout(() => sfx.laugh && sfx.laugh(), 500);
+}
+function townEncUpdate(dt, T) {
+  const e = T.enc, G = e.ghost; e.t += dt; T.joy = null; T.speed = 0;
+  e.op = Math.min(.5, e.op + dt * 1.1); G.mat.opacity = e.phase === 'lost' && e.t - e.t1 > 1.2 ? Math.max(0, .5 - (e.t - e.t1 - 1.2) * .6) : e.op;
+  const tx = T.pos.x - G.root.position.x, tz = T.pos.z - G.root.position.z, l = Math.hypot(tx, tz) || 1;
+  G.root.rotation.y = Math.atan2(tx, tz);
+  if (e.phase !== 'lost') { let d = Math.atan2(-tx, -tz) - T.face; d = Math.atan2(Math.sin(d), Math.cos(d)); T.face += d * damp(10, dt); let c = Math.atan2(-tx, -tz) - T.camYaw; c = Math.atan2(Math.sin(c), Math.cos(c)); T.camYaw += c * damp(4, dt); }
+  if (Math.random() < dt * 30) { const p = G.root.position; FX.add.emit(p.x + rnd(-.4, .4), p.y + rnd(0, 1.8), p.z + rnd(-.4, .4), 0, rnd(.3, .8), 0, rnd(.6, 1.1), .08, 0, '#9fe8ff', .8, -.2, .3); }
+  if (e.phase === 'appear' && e.t > .6) { e.phase = 'draw'; e.t0 = e.t; G.setHold('windH', 3 / e.win); $('#hiltBtn').hidden = false; }
+  if (e.phase === 'draw' || e.phase === 'drawn') {
+    const k = clamp((e.t - e.t0) / e.win, 0, 1), ex = T.pos.x - tx / l * 1.5, ez = T.pos.z - tz / l * 1.5;
+    G.root.position.set(lerp(e.sx, ex, easeIn(k)), e.gy + .3 + Math.sin(e.t * 3) * .08, lerp(e.sz, ez, easeIn(k)));
+    if (k >= 1) townEncFail(T, e);
+  }
+  G.update(dt);
+  const over = (e.phase === 'won' && e.t - e.t1 > 1.1) || (e.phase === 'lost' && e.t - e.t1 > 2.3);
+  if (e.phase === 'lost' && e.t - e.t1 > .8) G.root.position.y += dt * 1.2;
+  if (over) {
+    T.grp.remove(G.root); T.grp.remove(G.trail.mesh); G.dispose && G.dispose(); $('#hiltBtn').hidden = true; T.enc = null;
+    if (e.knock) T.pos.addScaledVector(new V3(Math.sin(T.face), 0, Math.cos(T.face)), -2.5), T.pos.copy(T.lastGood);
+    if (e.poi && T.pois.includes(e.poi) && e.phase === 'lost') { e.poi.rig.root.visible = true; e.poi.lab.visible = true; }
+    if (e.poi && e.phase === 'won') ghostRemove(T, e.poi.id);
+    townRefreshPlayer();
+  }
+}
+function townEncPointer(ev, px, py, id) {
+  const e = TOWN.enc; if (!e) return;
+  if (ev === 'down') e.sw = { id, x: px, y: py };
+  else if (ev === 'move' && e.sw && e.sw.id === id) { OV.trail.push({ x: px, y: py, t: performance.now() }); if (Math.hypot(px - e.sw.x, py - e.sw.y) >= 44) { if (e.phase === 'draw') townEncDraw(); else townEncSlash(e.sw.x, e.sw.y, px, py); e.sw.x = px; e.sw.y = py; } }
+  else if (ev === 'up') e.sw = null;
 }
 function ghostClick(a) {
   if (!a.startsWith('gq:')) return false;
