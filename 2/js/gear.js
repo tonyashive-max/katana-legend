@@ -64,7 +64,7 @@ function setCount(set) { return wornPieces().filter(p => p.set === set).length; 
 function fullSet() { for (const s in SETS) if (setCount(s) === 7) return s; return null; }
 function armorTotals() {
   const t = { hp: 0, head: 0, fear: 0, arms: 0, block: 0, legs: 0, step: 0, wt: 0, n: 0 };
-  wornPieces().forEach(p => { t.n++; for (const k in t) if (k !== 'n' && p[k]) t[k] += p[k]; });
+  wornPieces().forEach(p => { t.n++; const f = 1 + .1 * (((S.armor.lvl || {})[p.id]) | 0); for (const k in t) if (k !== 'n' && p[k]) t[k] += k === 'wt' ? p[k] : p[k] * f; });
   t.set = fullSet();
   return t;
 }

@@ -236,9 +236,9 @@ function specialResult() {
   if (!['ghost', 'ghost2', 'ghost3', 'sensei'].includes(k)) return false;
   hint('');
   if (k === 'sensei') {
-    if (!win) return openOverlay(`<div class="modal"><div class="kicker lose">Not yet</div><p>"Two blades need two calm hands," says the sensei. "Train, and come again."</p><div class="actions"><button class="btn primary" data-town="retry">Try again</button><button class="btn" data-town="back">Back to town</button></div></div>`), true;
+    if (!win) return openOverlay(`<div class="modal"><div class="kicker lose">Not yet</div><p>"Two blades need two calm hands," says the hermit. "Train, and come again."</p><div class="actions"><button class="btn primary" data-town="retry">Try again</button><button class="btn" data-town="back">Back to town</button></div></div>`), true;
     S.dual = true; S.style2 = (S.style || 'katana') === 'kodachi' ? 'katana' : 'kodachi'; S.wins++; save(); virtue('meiyo', 1, 'you passed the trial of Two Heavens');
-    return openOverlay(`<div class="modal win"><div class="kicker">Two Heavens</div><p>The sensei bows. "You may carry <b>two blades</b>."</p><p class="muted">In any duel, tap <b>⇄</b> to switch between your two styles, or to fight with both at once: fast and strong, but it burns stamina every second. Choose your pair at any sensei.</p>${back}</div>`), true;
+    return openOverlay(`<div class="modal win"><div class="kicker">Two Heavens</div><p>The hermit bows. "You may carry <b>two blades</b>."</p><p class="muted">In any duel, tap <b>⇄</b> to switch between your two styles, or to fight with both at once: fast and strong, but it burns stamina every second. Choose your second blade with the hermit, and your first with any sensei.</p>${back}</div>`), true;
   }
   if (k === 'ghost') {
     if (win) { S.gold += F.st.gold; S.wins++; save(); return openOverlay(`<div class="modal win"><div class="kicker">Blade defended</div><p>The ghost wails and blows away like smoke. Your blade is safe.</p><div class="rewards"><span class="chip gold"><i></i>+${F.st.gold}</span></div>${back}</div>`), true; }
