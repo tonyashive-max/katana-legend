@@ -72,6 +72,7 @@ function townHermit() {
 }
 /* ---------- armor forging ---------- */
 const ARMOR_MAX = 5;
+function armorMax(id) { return (S.armor.leg || {})[PIECES[id].set] ? 8 : ARMOR_MAX; }
 function armorLvl(id) { return ((S.armor.lvl || {})[id]) | 0; }
 function armorCost(id) { const l = armorLvl(id), k = SETS[PIECES[id].set].k; return { gold: Math.round(50 * (l + 1) * k), steel: 3 + l * 2 }; }
 function townArmorForge() {
@@ -79,11 +80,11 @@ function townArmorForge() {
   const worn = SLOTS.map(s => S.armor.eq[s.id]).filter(Boolean);
   openOverlay(`<div class="modal" style="text-align:left"><div class="eyebrow">The armorer's forge</div><h2>Forge your armor</h2>
     <p class="muted" style="margin:6px 0 10px">Each forging makes a piece 10% stronger, up to +${ARMOR_MAX}. You forge the pieces you are wearing. You have <b>${fmt(S.gold)}</b> gold and <b>${fmt(S.steel || 0)}</b> steel.</p>
-    ${worn.length ? `<div class="grid2">${worn.map(id => { const p = PIECES[id], l = armorLvl(id), c = armorCost(id), max = l >= ARMOR_MAX; return `<div class="card" style="gap:6px;border-color:${SETS[p.set].col || '#888'}"><div class="row between"><b>${p.n}${l ? ' +' + l : ''}</b><small class="muted">${l}/${ARMOR_MAX}</small></div><div class="bar"><i style="width:${l / ARMOR_MAX * 100}%"></i></div>${max ? '<span class="tag new">Fully forged</span>' : `<button class="btn small ${canPay(c) ? 'primary' : ''}" data-town="aforge:${id}" ${canPay(c) ? '' : 'disabled'}>🔨 +${l + 1} · ${c.gold} gold, ${c.steel} steel</button>`}</div>`; }).join('')}</div>` : '<p>You are not wearing any armor. Put some on in your Pack first.</p>'}
+    ${worn.length ? `<div class="grid2">${worn.map(id => { const p = PIECES[id], l = armorLvl(id), c = armorCost(id), max = l >= armorMax(id); return `<div class="card" style="gap:6px;border-color:${SETS[p.set].col || '#888'}"><div class="row between"><b>${p.n}${l ? ' +' + l : ''}</b><small class="muted">${(S.armor.leg || {})[p.set] ? '★ Legendary · ' : ''}${l}/${armorMax(id)}</small></div><div class="bar"><i style="width:${l / armorMax(id) * 100}%"></i></div>${max ? '<span class="tag new">Fully forged</span>' : `<button class="btn small ${canPay(c) ? 'primary' : ''}" data-town="aforge:${id}" ${canPay(c) ? '' : 'disabled'}>🔨 +${l + 1} · ${c.gold} gold, ${c.steel} steel</button>`}</div>`; }).join('')}</div>` : '<p>You are not wearing any armor. Put some on in your Pack first.</p>'}
     <div class="actions"><button class="btn" data-town="smithback">Back</button></div></div>`);
 }
 function townArmorForgeDo(id) {
-  const c = armorCost(id); if (!ownPiece(id) || armorLvl(id) >= ARMOR_MAX || !canPay(c)) return;
+  const c = armorCost(id); if (!ownPiece(id) || armorLvl(id) >= armorMax(id) || !canPay(c)) return;
   pay(c); S.armor.lvl = S.armor.lvl || {}; S.armor.lvl[id] = armorLvl(id) + 1; save(); sfx.clang && sfx.clang(); sfx.up && sfx.up(); shake(.06);
   if (TOWN) { FX.sparks(TOWN.pos.clone().add(new V3(0, 1.2, 0)), '#ffb060', 40, 5); townRefreshPlayer(); }
   toast(`${PIECES[id].n} forged to +${armorLvl(id)}.`); townArmorForge();

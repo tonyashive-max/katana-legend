@@ -87,9 +87,9 @@ function heatColor(h, out) {
 function startForge(opts) {
   transition(() => {
     clearSceneActors();
-    const W = worldForge(); activateWorld(W);
+    const W = worldForge(); activateWorld(W); if (typeof forgeDress === 'function') forgeDress(W, opts);
     const def = opts.kind === 'recipe' ? swordDef(opts.r.id) : swordDef(opts.w.id);
-    const blade = buildSword(def); blade.userData.mat.emissive = new COL(0); blade.userData.mat.emissiveIntensity = 1;
+    const blade = opts.plate ? forgePlate(opts.plate) : buildSword(def); blade.userData.mat.emissive = new COL(0); blade.userData.mat.emissiveIntensity = 1;
     if (blade.userData.glow) blade.userData.glow.visible = false;
     W.scene.add(blade);
     // tongs grip the tang while the steel is hot
@@ -108,9 +108,9 @@ function startForge(opts) {
     CAM.position.copy(FG.camPos);
     showHUD('forge');
     $('#leaveBtn').textContent = 'Leave';
-    $('#stageLbl').textContent = (opts.kind === 'recipe' ? 'Forging ' : 'Upgrading ') + def.name;
+    $('#stageLbl').textContent = (opts.kind === 'recipe' ? 'Forging ' : 'Upgrading ') + (opts.title || def.name); if (opts.master && typeof masterJoin === 'function') masterJoin();
     OV.draw = drawForgeOverlay; OV.trailCol = '255,220,150';
-    banner('The Forge', opts.kind === 'recipe' ? def.name : def.name + ' +' + ((opts.w.lvl || 0) + 1));
+    banner(opts.master ? opts.master.forge : 'The Forge', opts.title || (opts.kind === 'recipe' ? def.name : def.name + ' +' + ((opts.w.lvl || 0) + 1)));
     MUSIC.start('train');
     setMode(ForgeMode);
     setTimeout(() => nextForgeStep(), 900);
@@ -129,15 +129,16 @@ function nextForgeStep() {
   if (k === 'heat') {
     Object.assign(St, { need: short ? 4 : 6, prog: 0, beat: .8, nextBeat: .8, taps: 0, onBeat: 0, inBand: 0, total: 0, lastTap: -9 });
     FG.blade.position.set(-1.6, 1.22, 1.45); FG.blade.rotation.set(0, 0, Math.PI / 2);
-    banner('Heat the steel', 'Pump the bellows on the beat');
+    if (FG.o.master) { St.pat = FG.o.master.bel; St.bi = 0; St.nextBeat = St.pat[0]; St.lastBeat = 0; St.need = 7; }
+    banner('Heat the steel', FG.o.master ? `${FG.o.master.n}'s rhythm: ${FG.o.master.belSay}` : 'Pump the bellows on the beat');
     setForgeInfo('1 · Bellows', 'Tap PUMP on the beat to keep the fire in the gold zone.');
   } else if (k === 'hammer') {
-    Object.assign(St, { n: short ? 5 : 8, done: 0, pts: 0, spot: null, gap: .5 });
+    Object.assign(St, { n: FG.o.master ? FG.o.master.ham.u.length * 2 : short ? 5 : 8, done: 0, pts: 0, spot: null, gap: .5 });
     FG.blade.position.set(-.35, 1.11, .6); FG.blade.rotation.set(-Math.PI / 2, 0, -Math.PI / 2);
-    banner('Hammer it out', 'Tap the glowing spot when the ring closes');
+    banner('Hammer it out', FG.o.master ? `${FG.o.master.n} strikes first. ${FG.o.master.hamSay}` : 'Tap the glowing spot when the ring closes');
     setForgeInfo('2 · Hammer', 'Tap each glowing spot right as the shrinking ring reaches it.');
   } else if (k === 'quench') {
-    Object.assign(St, { h: .98, rate: .3, quenched: false, plunge: 0 });
+    Object.assign(St, { h: .98, rate: FG.o.master ? FG.o.master.q : .3, quenched: false, plunge: 0 });
     FG.heat = 1;
     FG.blade.position.set(1.9, 1.4, 1.0); FG.blade.rotation.set(0, 0, Math.PI / 2 + .25);
     banner('Quench!', 'Swipe down when the blade glows cherry red');
@@ -165,18 +166,18 @@ function finishForge() {
   sm.seq.length = 0; sm.setHold({ p: [-.04, .4, .22], d: [.1, 1, .06], e: [1, 0, 0] }, 4); sm.leanAdd = 0; $('#tInfo').innerHTML = '';
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.55, 1.1, 6, 24, 1, true), new THREE.MeshBasicMaterial({ map: TEX.ray, color: '#ffe8b0', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
   shaft.position.set(.05, 3, 1.25); FG.W.scene.add(shaft); FG.shaft = shaft;
-  setTimeout(() => { if (!FG) return; const bp = FG.blade.localToWorld(new V3(0, .5, 0)); FX.sparks(bp, '#ffe08c', 70, 5); FX.glowBurst(bp, FG.def.glow || '#fff2c0', .9, .4); FX.petals && FX.petals(bp, 20, '#ffd27a', 2); sfx.win(); titleCard('鍛', grade, FG.def.name, `Forged by ${S.name || 'Shep'}`); }, 700);
+  setTimeout(() => { if (!FG) return; const bp = FG.blade.localToWorld(new V3(0, .5, 0)); FX.sparks(bp, '#ffe08c', 70, 5); FX.glowBurst(bp, FG.def.glow || '#fff2c0', .9, .4); FX.petals && FX.petals(bp, 20, '#ffd27a', 2); sfx.win(); titleCard('鍛', grade, FG.o.title || FG.def.name, `Forged by ${S.name || 'Shep'}`); }, 700);
   const res = FG.o.onDone ? FG.o.onDone(grade, avg) : null;
   const d = FG.def, rc = RAR[d.r], myFG = FG;
   setTimeout(() => {
     if (FG !== myFG) return;
     openOverlay(`<div class="modal win">
       <div class="kicker">${grade}!</div>
-      <div class="reveal" style="--rc:${rc.c}44;--glow:${d.glow || rc.c}"><div class="rays"></div>${bladeSVG(d)}</div>
-      <div>${rarTag(d)}<h2 class="name ${d.r}">${d.name}${res && res.lvl ? ' +' + res.lvl : ''}</h2>${elTag(d.el)}</div>
+      <div class="reveal" style="--rc:${rc.c}44;--glow:${d.glow || rc.c}"><div class="rays"></div>${FG.o.plate ? '<div style="font-size:72px;line-height:1.5">🛡</div>' : bladeSVG(d)}</div>
+      <div>${rarTag(d)}<h2 class="name ${d.r}">${FG.o.title || d.name}${res && res.lvl ? ' +' + res.lvl : ''}</h2>${elTag(d.el)}</div>
       <p class="muted">${res && res.msg ? res.msg : ''}</p>
       <div class="rewards">${FG.steps.map((k, i) => `<span class="chip">${['Bellows', 'Hammer', 'Quench', 'Sharpen'][['heat', 'hammer', 'quench', 'sharpen'].indexOf(k)]} ${Math.round((FG.scores[i] || 0) * 100)}%</span>`).join('')}</div>
-      <div class="actions"><button class="btn primary" data-forgeres="ok">${FG.o.kind === 'recipe' ? 'Wield it!' : 'Back to the forge'}</button></div>
+      <div class="actions"><button class="btn primary" data-forgeres="ok">${FG.o.btn || (FG.o.kind === 'recipe' ? 'Wield it!' : 'Back to the forge')}</button></div>
     </div>`);
   }, 3600);
 }
@@ -238,7 +239,7 @@ function heatStep(dt) {
   const St = FG.step; if (St.over) return;
   St.total += dt;
   FG.heat = Math.max(0, FG.heat - dt * (.1 + FG.heat * .06));
-  if (St.t >= St.nextBeat) { St.nextBeat += St.beat; sfx.tick(); St.pulse = 1; }
+  if (St.t >= St.nextBeat) { St.lastBeat = St.nextBeat; if (St.pat) { St.bi++; const long = St.pat[(St.bi - 1) % St.pat.length] >= Math.max(...St.pat) - .01; St.nextBeat += St.pat[St.bi % St.pat.length]; sfx.tick(); if (long && sfx.taiko) sfx.taiko(.35); if (typeof masterBeat === 'function') masterBeat(long); } else { St.nextBeat += St.beat; sfx.tick(); } St.pulse = 1; }
   St.pulse = Math.max(0, (St.pulse || 0) - dt * 3);
   if (FG.heat >= BAND[0] && FG.heat <= BAND[1]) { St.prog += dt / St.need; St.inBand += dt; }
   else if (FG.heat > .86) { St.prog = Math.max(0, St.prog - dt * .25); if (Math.random() < dt * 4) { tPopF('Too hot!', '#ff8a7a'); } }
@@ -252,7 +253,7 @@ let _popT = 0;
 function tPopF(text, color) { const now = performance.now(); if (now - _popT < 600) return; _popT = now; ovPop(VW / 2, VH * .32, text, { size: 30, color, stroke: '#2a0c00' }); }
 function pumpBellows() {
   const St = FG.step; if (St.over) return;
-  const phase = (St.t % St.beat), err = Math.min(phase, St.beat - phase);
+  const phase = (St.t % St.beat), err = St.pat ? Math.min(Math.abs(St.t - St.lastBeat), Math.abs(St.nextBeat - St.t)) : Math.min(phase, St.beat - phase);
   St.taps++;
   const good = err < .14;
   if (good) St.onBeat++;
@@ -270,7 +271,7 @@ function hammerStep(dt) {
   const St = FG.step;
   FG.heat = Math.max(.35, FG.heat - dt * .02);
   if (St.done >= St.n) { if (!St.over) { St.over = true; forgeScore(St.pts / St.n); setTimeout(nextForgeStep, 700); } return; }
-  if (!St.spot) { St.gap -= dt; if (St.gap <= 0) { const dur = Math.max(.62, .95 - St.done * .04); St.spot = { u: rnd(.15, .9), t: 0, dur }; } return; }
+  if (!St.spot) { St.gap -= dt; if (St.gap <= 0) { const dur = Math.max(.62, .95 - St.done * .04), mp = FG.o.master && FG.o.master.ham; St.spot = { u: mp ? mp.u[St.done % mp.u.length] : rnd(.15, .9), t: 0, dur: mp ? mp.d[St.done % mp.d.length] : dur }; if (mp && typeof masterStrike === 'function') masterStrike(St.spot); } return; }
   St.spot.t += dt;
   if (St.spot.t > St.spot.dur + .22) { St.spot = null; St.done++; St.gap = .35; tPopF('Missed!', '#ff8a7a'); }
   // the smith raises the hammer over the glowing spot
@@ -300,7 +301,7 @@ function hammerTap(x, y) {
   const k = St.spot.t / St.spot.dur, err = Math.abs(1 - k);
   let pts, label, col;
   if (err < .12) { pts = 1; label = 'PERFECT!'; col = '#ffe08c'; } else if (err < .3) { pts = .6; label = 'Good'; col = '#d9ffb0'; } else { pts = .15; label = 'Early'; col = '#ffb38a'; }
-  St.pts += pts; St.done++; St.spot = null; St.gap = .3; St.swing = .32;
+  St.pts += pts; St.done++; St.spot = null; St.gap = FG.o.master ? FG.o.master.ham.g[St.done % FG.o.master.ham.g.length] : .3; St.swing = .32; FX.glowBurst(sp, '#fff2c0', pts === 1 ? 2.2 : 1.2, .3);
   { const sm = FG.smith; sm.seq.length = 0; sm.queue(smithPose(sp, true), .07, { ease: easeIn, arc: .05 }); sm.queue(smithPose(sp, false), .24); sm.jolt = .25; }
   ovPop(s.x, s.y - 50, label, { size: pts === 1 ? 36 : 28, color: col, stroke: '#2a0c00' });
   sfx.clang(pts === 1 ? 1.3 : .9); shake(pts === 1 ? .05 : .025); hitstop(pts === 1 ? 50 : 20);

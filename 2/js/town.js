@@ -169,7 +169,7 @@ function gatePlace() { return (townCfg().gate || {}).place || 'gate'; }
 function isDawn() { return !!TOWN && townClock() === 'Dawn'; }
 function allyName(id) { const [t, r] = id.split(':'), c = TOWN_BY[t]; return c ? (r === 'a' ? c.a.foe.n : r === 'keeper' ? c.keeper.n : c.myth.n) : id; }
 function needDual() { return townCfg().i >= 5 && !S.dual; }
-function dualMsg() { const c = townCfg(); return `${c.keeper.n} fights with two blades, and no samurai with a single sword has ever touched ${c.i === 5 ? 'him' : 'it'}. Learn the Two Heavens from the Hermit of the Mountain, by the shrine above Hakone${c.id === 'hakone' ? '' : ' (travel there from your Map)'}: train Power and Speed to level 5, then pass his trial.`; }
+function dualMsg() { const c = townCfg(); return `${c.keeper.n} fights with two blades, and no samurai with a single sword has ever touched ${c.i === 5 ? 'him' : 'it'}. Learn the Two Heavens from the Hermit of the Mountain, by the shrine above Hakone${c.id === 'hakone' ? '' : ' (walk back down the road from the south end of each town)'}: train Power and Speed to level 5, then pass his trial.`; }
 function keeperReady() { const c = townCfg(); if (needDual()) return false; return c.keeper.need ? wornPieces().length >= c.keeper.need : S.town.jobs.a === 2 && (!c.keeper.also || c.keeper.also()); }
 function townJobs() {
   const T = S.town, c = townCfg(), own = S.armor.owned.filter(id => PIECES[id].set === c.set).length;
@@ -183,6 +183,7 @@ function townJobs() {
     { t: c.myth.after && !T.pass ? 'Optional: something is not what it seems…' : `Optional: face ${c.myth.n}, ${c.myth.title}`, done: !!T.myth },
     { t: `Optional: complete the ${SETS[c.set].n} armor set (${own}/7)`, done: own === 7 },
     { t: 'Together: ring the twin bells with a friend', done: !!T.duo },
+    MASTERS[c.id] ? { t: `Legend: learn the ${swordDef(MASTERS[c.id].blade).name} from ${MASTERS[c.id].n}`, done: !!masterSt(c.id).blade } : null,
     { t: c.last ? 'Carry the letter through the palace gate' : `Pass the ${gatePlace()}, on toward ${TOWNS[c.i + 1].n}`, done: !!T.done },
   ].filter(Boolean);
 }
@@ -252,6 +253,8 @@ function townPeople() {
   npc('smith', 'smith', [townRoadX(13) + 13 * fl, 13.5], TOWN_LOOKS.smith, 'bokken', 'The Armorer', 'Armor for sale', { ry: -Math.PI / 2 * fl, unarmed: true, map: 'Armorer' });
   npc('b', 'b', [40.5 * fl, 19], c.b.look || (c.b.n === 'Princess Hana' ? PRINCESS_LOOK : TOWN_LOOKS.priest), 'bokken', c.b.n, c.b.sub, { ry: -Math.PI / 2 * fl, unarmed: true, map: c.b.sub });
   { const sp = at('smith', [townRoadX(13) + 13 * fl, 13.5]), sd = Math.sign(sp[0] - townRoadX(sp[1])) || 1; const q = townNPC('sensei', sp[0] - sd * .4, sp[1] + 3.8, TOWN_LOOKS.sensei, 'bokken', 'Sensei', 'Road dojo: training', { ry: sp[2] != null ? sp[2] : -Math.PI / 2 * fl, map: 'Dojo' }); q.act = townDojo; q.label = 'Train with the sensei'; }
+  if (MASTERS[c.id]) { const sp = at('smith', [townRoadX(13) + 13 * fl, 13.5]), sd = Math.sign(sp[0] - townRoadX(sp[1])) || 1, M = MASTERS[c.id]; const q = townNPC('master', sp[0] - sd * .4, sp[1] - 4.2, Object.assign({}, TOWN_LOOKS.smith, { trim: M.col, helmCol: M.col }), 'bokken', M.n, 'Master smith · legendary blades', { ry: sp[2] != null ? sp[2] : -Math.PI / 2 * fl, map: 'Master smith', mapCol: M.col, col: M.col }); q.act = townMaster; q.label = 'Speak with ' + M.n;
+    const fx = sp[0] + sd * 1.6, fz = sp[1] - 5.4, fy = townH(fx, fz), m = new THREE.Mesh(merge([P(GEO.box(1.2, .8, 1), '#6a5a52', [0, .4, 0]), P(GEO.cyl(.28, .4, 1.3, 8), '#4a3a34', [0, 1.4, 0]), P(GEO.box(.9, .1, .7), '#ff6a1a', [0, .82, 0]), P(GEO.cyl(.2, .26, .5, 8), '#5a3a22', [1.1, .25, .3]), P(GEO.box(.6, .14, .26), '#3a3a42', [1.1, .6, .3]), P(GEO.cyl(.04, .04, 2.6, 5), '#3a2416', [-.9, 1.3, -.4]), P(GEO.box(.06, 1.3, .7), M.col, [-.9, 1.9, -.05])]), toon({ vertexColors: true, flatShading: true })); m.position.set(fx, fy, fz); m.castShadow = true; T.grp.add(m); T.W.obs.push({ x: fx, z: fz, r: 1 }); const h = halo(M.col, 2.6, .6); h.position.set(fx, fy + 1.1, fz); T.grp.add(h); }
   if (c.id === 'hakone') { const q = townNPC('hermit', 37 * fl, 26.5, TOWN_LOOKS.hermit, 'bokken', 'Hermit of the Mountain', 'Two Heavens school', { ry: Math.PI * (fl > 0 ? 1.25 : .75), map: 'Hermit', mapCol: '#ffd27a' }); q.act = townHermit; q.label = 'Speak with the hermit'; }
   if (J.jobs.a !== 2) npc('foe', 'foe', [-36 * fl, -30], c.a.foe.look, c.a.foe.sword, c.a.foe.n, c.a.foe.title, { ry: fl, map: c.a.foe.n, mapCol: '#ff9a7a', col: '#ffb38a' });
   else if (al('a')) npc('friend:a', 'friendA', [townRoadX(6) - 8.5 * fl, 9.5], c.a.foe.look, 'bokken', c.a.foe.n, 'Friend · ' + c.a.foe.job.toLowerCase(), { ry: Math.PI / 2 * fl, unarmed: true, col: GRN });
@@ -264,6 +267,11 @@ function townPeople() {
   L.ema.forEach(([x, z], k) => { if (!J.ema.includes(k)) thing('ema' + k, 'ema', x * fl, z, L.emaCol || '#ffd98a', L.emaGeo ? L.emaGeo() : GEO.box(.5, .38, .06)); });
   [['c0', 'haidate'], ['c1', 'suneate']].forEach(([id, slot], k) => { if (!J.chests.includes(id)) { const p = thing(id, 'chest', L.chest[k][0] * fl, L.chest[k][1], '#b8843a', GEO.box(.9, .6, .6)); p.piece = c.set + '-' + slot; } });
   { const s = labelSprite('Tokaido Road', '#fff6d8', `North: ${c.n} ${G.place || 'gate'}` + (c.last ? '' : ' · ' + TOWNS[c.i + 1].n)); s.position.set(townRoadX(-66) + 3.4, townH(townRoadX(-66) + 3.4, -66) + 3, -66); T.grp.add(s); }
+  { // the road itself: walk out the south end to go back a town, or on past the gate to the next
+    const sign = (x, z, ry) => { const m = new THREE.Mesh(merge([P(GEO.cyl(.07, .09, 2.2, 6), '#3a2416', [0, 1.1, 0]), P(GEO.box(1.5, .5, .08), '#e8dcc0', [0, 1.9, 0]), P(GEO.box(1.6, .08, .12), '#3a2416', [0, 2.18, 0])]), toon({ vertexColors: true })); m.position.set(x, townH(x, z), z); m.rotation.y = ry; m.castShadow = true; T.grp.add(m); };
+    if (c.i > 0) { const z = -83, x = townRoadX(z); sign(x + 2.6, z, 0); T.pois.push({ id: 'south', kind: 'spot', x, z, r: 3.4, map: 'Road south', label: 'Walk back to ' + TOWNS[c.i - 1].n, act: () => townTravel(c.i - 1) }); }
+    if (c.i + 1 < ROAD_OPEN) { const z = (c.doneZ || GATE_Z + 5) + 2.2, x = c.exitX != null ? c.exitX : townRoadX(z); T.pois.push({ id: 'north', kind: 'spot', x, z, r: 3.2, label: 'Walk on to ' + TOWNS[c.i + 1].n, act: () => { if (S.town.done) townTravel(c.i + 1); } }); }
+  }
   if (c.people) c.people(T, npc);
   duoPeople(T);
   for (let i = 0; i < 5; i++) {
@@ -325,6 +333,7 @@ function townClick(d) {
   const a = d.town, J = S.town, c = townCfg();
   if (c.click && c.click(a)) return true;
   if (ghostClick(a)) return true;
+  if (masterClick(a)) return true;
   if (a === 'truth' || a === 'lie') {
     J.guard = true; J.note = true; save();
     const next = keeperReady() ? `${c.keeper.n} waits ${c.keeper.where || 'by the gate'}.` : c.keeper.need ? `You need ${c.keeper.n}'s stamp, and he only duels samurai dressed for the road: three pieces of armor at least.` : c.keeper.first || `${c.keeper.n} decides who passes, and will only face someone this town trusts. Help ${c.a.n} first.`;
@@ -357,7 +366,8 @@ function townWorkshop(tab) {
   const ui = $('#ui'); ui.classList.add('road'); const bn = ui.querySelector('.brand-name'); if (bn) bn.textContent = "The Armorer's Forge";
   if (!$('#roadBack')) { const b = document.createElement('button'); b.className = 'tab'; b.id = 'roadBack'; b.innerHTML = '<b>道</b><span>Back to the road</span>'; b.addEventListener('click', townWorkshopClose); ui.querySelector('.tabs').appendChild(b);
     const st = document.createElement('style'); st.textContent = '#ui.road .tab{display:none}#ui.road .tab[data-tab=forge],#ui.road .tab[data-tab=swords],#ui.road #roadBack{display:grid}#ui.road .tabs{grid-template-columns:repeat(3,minmax(0,1fr))}#ui:not(.road) #roadBack{display:none}'; document.head.appendChild(st); }
-  ui.hidden = false; $('#hud').hidden = true; showTab(tab || 'forge');
+  ui.hidden = false; $('#hud').hidden = true; if (!showTab.road) { const orig = showTab; showTab = function (n) { orig(n); if ($('#ui').classList.contains('road')) { const secs = new Set(); document.querySelectorAll('#screen [data-recipe]').forEach(b => { const s = b.closest('section'); if (s) secs.add(s); }); secs.forEach(s => { s.innerHTML = '<h3>Legendary blades</h3><p class="muted" style="margin-top:6px">A legendary blade cannot be forged from a recipe. Each one is taught by a master smith in a town on the road, at their own forge and to their own rhythm. Look for the <b>Master smith</b> on each town\'s map.</p>'; }); } }; showTab.road = true; }
+  showTab(tab || 'forge');
 }
 function townWorkshopClose() { $('#ui').hidden = true; $('#hud').hidden = false; if (TOWN && MODE === TownMode) { TOWN.paused = false; townRefreshPlayer(); } }
 function townSmithy() {

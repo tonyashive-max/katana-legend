@@ -161,7 +161,7 @@ function miyaArena(role) {
 }
 
 Object.assign(TOWN_BY.miya, {
-  flip: 1, fuji: null, day: .28, amb: 'none', cloud: '#f0f4f6', pal: ['#e8dcb8', '#8aa25a', '#a09866', '#cfc4a0'], lay: MI_LAY, h: miyaH, hMesh: (x, z) => miyaH(x, z, true), tint: miyaTint, decor: miyaDecor, arena: miyaArena, people: miyaPeople, doneZ: 81,
+  flip: 1, fuji: null, day: .28, amb: 'none', cloud: '#f0f4f6', pal: ['#e8dcb8', '#8aa25a', '#a09866', '#cfc4a0'], lay: MI_LAY, h: miyaH, hMesh: (x, z) => miyaH(x, z, true), tint: miyaTint, decor: miyaDecor, arena: miyaArena, people: miyaPeople, doneZ: 81, exitX: HR(60),
   roadK: (x, z) => 1 - smooth(59, 60.5, z),
   click: a => { if (a !== 'tide') return false; townCloseTalk(); const T = TOWN; let d = ((.53 - T.day) % .5 + .5) % .5; T.lapse = d + .004; T.joy = null; T.lapseThen = () => toast('Low tide. The flats are open.'); hint('The tide goes out…'); return true; },
   gate: { verb: 'down', map: 'Pier', guard: 'Harbor Master', place: 'ferry pier', halt: 'Hold there. This is the Miya ferry landing. From here the Tokaido goes by sea, seven ri across the bay to Kuwana. What is your business on the Tokaido?' },

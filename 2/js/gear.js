@@ -64,7 +64,7 @@ function setCount(set) { return wornPieces().filter(p => p.set === set).length; 
 function fullSet() { for (const s in SETS) if (setCount(s) === 7) return s; return null; }
 function armorTotals() {
   const t = { hp: 0, head: 0, fear: 0, arms: 0, block: 0, legs: 0, step: 0, wt: 0, n: 0 };
-  wornPieces().forEach(p => { t.n++; const f = 1 + .1 * (((S.armor.lvl || {})[p.id]) | 0); for (const k in t) if (k !== 'n' && p[k]) t[k] += k === 'wt' ? p[k] : p[k] * f; });
+  wornPieces().forEach(p => { t.n++; const lg = (S.armor.leg || {})[p.set], f = (1 + .1 * (((S.armor.lvl || {})[p.id]) | 0)) * (lg ? 1.25 * lg : 1); for (const k in t) if (k !== 'n' && p[k]) t[k] += k === 'wt' ? p[k] : p[k] * f; });
   t.set = fullSet();
   return t;
 }
@@ -101,7 +101,8 @@ lookFromOutfit = function (o) {
   if (mask) L.mask = SETS[mask.set].helmCol;
   return L;
 };
-function setBonus(set) {
+function setBonus(set) { const z = setBonus0(set); if ((S.armor.leg || {})[set]) for (const k of ['hp', 'atk', 'parry', 'spirit', 'regen']) z[k] *= 1.5; return z; }
+function setBonus0(set) {
   const z = { hp: 0, atk: 0, parry: 0, spirit: 0, stepFree: 0, noFreeze: 0, regen: 0, dodge1: 0 };
   const one = { ashigaru: { hp: .1 }, tengu: { stepFree: 1, atk: .12 }, fuji: { noFreeze: 1, hp: .15 }, kappa: { regen: .012 }, storm: { spirit: .3 }, tanuki: { dodge1: 1 }, dragon: { parry: .2 } };
   if (set === 'imperial') { for (const k of ['tengu', 'fuji', 'kappa', 'storm', 'tanuki', 'dragon']) for (const q in one[k]) z[q] += one[k][q] * .5; z.stepFree = 1; z.noFreeze = 1; z.dodge1 = 1; return z; }
@@ -238,7 +239,7 @@ function packMap() {
     </svg>
     <p class="muted" style="font-size:13px;margin-top:8px">White arrow: you. Red ring: where to go next.</p>
     <h3 style="margin-top:12px">The Tokaido road</h3>
-    <div class="stack" style="gap:6px">${TOWNS.map((t, i) => { const open = i <= (S.far || 0), J = S.towns[t.id] || {}, own = S.armor.owned.filter(id => PIECES[id].set === t.set).length; return `<div class="row between" style="gap:8px;opacity:${open ? 1 : .5}"><span><b>${t.jp} ${t.n}</b> <small class="muted">· ${SETS[t.set].n} set ${own}/7${J.done ? ' · ✓ passed' : ''}</small></span>${i === S.cur ? '<span class="tag new">You are here</span>' : open ? `<button class="btn small" data-travel="${i}">Travel</button>` : `<small class="muted">${i >= ROAD_OPEN ? 'Being built' : 'Not reached yet'}</small>`}</div>`; }).join('')}</div>`;
+    <div class="stack" style="gap:6px">${TOWNS.map((t, i) => { const open = i <= (S.far || 0), J = S.towns[t.id] || {}, own = S.armor.owned.filter(id => PIECES[id].set === t.set).length; return `<div class="row between" style="gap:8px;opacity:${open ? 1 : .5}"><span><b>${t.jp} ${t.n}</b> <small class="muted">· ${SETS[t.set].n} set ${own}/7${J.done ? ' · ✓ passed' : ''}</small></span>${i === S.cur ? '<span class="tag new">You are here</span>' : open && own >= 7 ? `<button class="btn small" data-travel="${i}">Travel</button>` : open ? `<small class="muted">Walk the road · travel opens at 7/7</small>` : `<small class="muted">${i >= ROAD_OPEN ? 'Being built' : 'Not reached yet'}</small>`}</div>`; }).join('')}</div>`;
 }
 function packClick(d) {
   if (d.coop) return coopClick(d.coop);
@@ -248,7 +249,7 @@ function packClick(d) {
   if (d.wearPiece) { if (d.wearPiece === 'none') delete S.armor.eq[PACK_SLOT]; else { const p = PIECES[d.wearPiece]; if (p && ownPiece(p.id)) S.armor.eq[p.slot] = p.id; } save(); sfx.up(); PACK_SLOT = null; openPack('sam'); return true; }
   if (d.carryBlade) { const x = S.swords.find(v => v.u === +d.carryBlade); if (x && !x.captured) { S.eq = x.u; save(); sfx.up(); } PACK_SLOT = null; openPack('sam'); return true; }
   if (d.track) { S.town.track = d.track; save(); closePack(); toast(`Follow the red arrow: ${PIECES[d.track].n}`); return true; }
-  if (d.travel != null) { closeOverlay(); PACK_SLOT = null; townTravel(+d.travel); return true; }
+  if (d.travel != null) { const i = +d.travel, t = TOWNS[i]; if (!t || (!d.friend && S.armor.owned.filter(id => PIECES[id].set === t.set).length < 7)) return true; closeOverlay(); PACK_SLOT = null; townTravel(i); return true; }
   if (d.stance) { setStance(d.stance); return true; }
   return false;
 }
