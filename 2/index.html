@@ -659,38 +659,55 @@ body.cine::before,body.cine::after{height:9vh;}
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="js/data.js?v=2200"></script>
-<script src="js/engine.js?v=2200"></script>
-<script src="js/rig.js?v=2200"></script>
-<script src="js/worlds.js?v=2200"></script>
-<script src="js/rope.js?v=2200"></script>
-<script src="js/fight.js?v=2200"></script>
-<script src="js/train.js?v=2200"></script>
-<script src="js/dragon.js?v=2200"></script>
-<script src="js/explore.js?v=2200"></script>
-<script src="js/puzzles.js?v=2200"></script>
-<script src="js/forge.js?v=2200"></script>
-<script src="js/duel.js?v=2200"></script>
-<script src="js/versus.js?v=2200"></script>
-<script src="js/story.js?v=2200"></script>
-<script src="js/backup.js?v=2200"></script>
-<script src="js/town.js?v=2200"></script>
-<script src="js/towns.js?v=2200"></script>
-<script src="js/hara.js?v=2200"></script>
-<script src="js/shimada.js?v=2200"></script>
-<script src="js/miya.js?v=2200"></script>
-<script src="js/seki.js?v=2200"></script>
-<script src="js/otsu.js?v=2200"></script>
-<script src="js/kyoto.js?v=2200"></script>
-<script src="js/gear.js?v=2200"></script>
-<script src="js/coop.js?v=2200"></script>
-<script src="js/team.js?v=2200"></script>
-<script src="js/dual.js?v=2200"></script>
-<script src="js/masters.js?v=2200"></script>
-<script src="js/more.js?v=2200"></script>
-<script src="js/road2.js?v=2200"></script>
-<script src="js/pack.js?v=2200"></script>
-<script src="js/ui.js?v=2200"></script>
+<script src="js/three.min.js?v=147"></script>
+<script src="js/data.js?v=2210"></script>
+<script src="js/engine.js?v=2210"></script>
+<script src="js/rig.js?v=2210"></script>
+<script src="js/worlds.js?v=2210"></script>
+<script src="js/rope.js?v=2210"></script>
+<script src="js/fight.js?v=2210"></script>
+<script src="js/train.js?v=2210"></script>
+<script src="js/dragon.js?v=2210"></script>
+<script src="js/explore.js?v=2210"></script>
+<script src="js/puzzles.js?v=2210"></script>
+<script src="js/forge.js?v=2210"></script>
+<script src="js/duel.js?v=2210"></script>
+<script src="js/versus.js?v=2210"></script>
+<script src="js/story.js?v=2210"></script>
+<script src="js/backup.js?v=2210"></script>
+<script src="js/town.js?v=2210"></script>
+<script src="js/towns.js?v=2210"></script>
+<script src="js/hara.js?v=2210"></script>
+<script src="js/shimada.js?v=2210"></script>
+<script src="js/miya.js?v=2210"></script>
+<script src="js/seki.js?v=2210"></script>
+<script src="js/otsu.js?v=2210"></script>
+<script src="js/kyoto.js?v=2210"></script>
+<script src="js/gear.js?v=2210"></script>
+<script src="js/coop.js?v=2210"></script>
+<script src="js/team.js?v=2210"></script>
+<script src="js/dual.js?v=2210"></script>
+<script src="js/masters.js?v=2210"></script>
+<script src="js/more.js?v=2210"></script>
+<script src="js/road2.js?v=2210"></script>
+<script src="js/pack.js?v=2210"></script>
+<script src="js/ui.js?v=2210"></script>
 
+
+<div id="offline" style="position:fixed;left:10px;bottom:8px;z-index:60;font:600 12px system-ui,sans-serif;color:#cfd6c8;background:#05060ccc;padding:5px 10px;border-radius:8px;pointer-events:none" hidden></div>
+<script>
+/* Play without internet: after one visit on wifi, the whole game is stored on this tablet. */
+(function () {
+  var el = document.getElementById('offline'), show = function (t, c) { if (!el) return; el.hidden = false; el.textContent = t; el.style.color = c || '#cfd6c8'; };
+  setInterval(function () { if (el && typeof TITLE_UP !== 'undefined' && !TITLE_UP) el.hidden = true; }, 1000);
+  var framed = false; try { framed = window.top !== window; } catch (e) { framed = true; }
+  if (framed) return; // a preview inside another page cannot store itself
+  if (!('serviceWorker' in navigator) || !window.caches) { show('This browser cannot store the game: internet needed to start', '#ffb07a'); return; }
+  navigator.serviceWorker.register('sw.js').then(function () { return navigator.serviceWorker.ready; }).then(function check() {
+    var need = [].map.call(document.querySelectorAll('script[src]'), function (s) { return s.src; }).concat([location.href.split('#')[0]]);
+    Promise.all(need.map(function (u) { return caches.match(u, { ignoreSearch: u.indexOf('.js') < 0 }); })).then(function (r) {
+      var n = r.filter(Boolean).length; if (n === need.length) show('\u2713 Ready to play without internet', '#9ff0c8'); else { show('Storing the game on this tablet\u2026 ' + n + '/' + need.length); setTimeout(check, 1500); } });
+  }).catch(function () { show('Could not store the game: internet needed to start', '#ffb07a'); });
+})();
+</script>
 </body></html>
