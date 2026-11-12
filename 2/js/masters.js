@@ -59,12 +59,14 @@ function townMaster() {
       <button class="btn ${ok ? 'primary' : ''}" data-town="master:blade" ${ok ? '' : 'disabled'}>🔨 Forge it with ${M.n}</button></div>`;
   else body = `<p>"You carry my ${d.name}. Remember the rhythm: <b>${M.belSay}</b>."</p>
     ${last ? `<div class="card" style="gap:8px;margin-bottom:10px"><div class="row between"><b style="color:${RAR[dl.r].c}">${dl.name}</b><small class="muted">The last blade</small></div><small>${all ? '✓' : '○'} <b>Learn a blade from every master on the road (${mastersLearned()}/7)</b></small><div class="row" style="gap:6px;flex-wrap:wrap">${matsList(needL)}</div><button class="btn ${all && matsHave(needL) ? 'primary' : ''}" data-town="master:last" ${all && matsHave(needL) ? '' : 'disabled'}>🔨 Forge the last blade</button></div>` : ''}
+    ${dynCard()}
     <div class="card" style="gap:8px"><div class="row between"><b style="color:${set.col || '#ffd27a'}">Legendary ${set.n} armor</b><small class="muted">${st.armor ? 'Forged' : 'Legendary armor'}</small></div>
       ${st.armor ? '<small>Every piece of this set is 25% stronger, its set bonus is half again as strong, and it can be forged to +8.</small>' : `<small>${hasSet ? '✓' : '○'} <b>Own all seven pieces of the ${set.n} armor</b></small><div class="row" style="gap:6px;flex-wrap:wrap">${matsList(needA)}</div><small class="muted">We remake the whole set on my anvil, to my rhythm.</small><button class="btn ${okA ? 'primary' : ''}" data-town="master:armor" ${okA ? '' : 'disabled'}>🔨 Forge it with ${M.n}</button>`}</div>`;
   openOverlay(`<div class="modal" style="text-align:left"><div class="eyebrow">${M.n} · ${M.forge}</div>${body}<div class="actions"><button class="btn" data-town="">Leave the forge</button></div></div>`);
 }
 function masterClick(a) {
   if (!a.startsWith('master:')) return false;
+  if (a === 'master:dyn') return dynForge();
   const c = townCfg(), M = MASTERS[c.id], st = masterSt(c.id), kind = a.slice(7), i = c.i, set = SETS[c.set];
   const need = masterMats(i, kind), pay2 = () => { for (const [m, n] of Object.entries(need)) S.mats[m] -= n; };
   if (!matsHave(need) || (kind === 'blade' && (st.blade || !M.task[1]())) || (kind === 'armor' && (st.armor || !st.blade)) || (kind === 'last' && (st.last || mastersLearned() < 7))) return true;

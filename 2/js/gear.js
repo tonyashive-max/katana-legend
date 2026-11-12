@@ -156,7 +156,7 @@ function importLegendSave(o) {
 function mythHint(tw, J) { return tw.myth.after && !J.pass ? `Something in ${tw.n} is not what it seems. Win your duel with ${tw.keeper.n} first` : `Beat ${tw.myth.n}, ${tw.myth.title}`; }
 function pieceHint(id) {
   const p = PIECES[id], poi = k => TOWN && TOWN.pois.find(q => q.id === k);
-  if (p.set === 'ashigaru') return { t: 'The armorer in any town sells it for 60 gold', at: () => poi('smith') };
+  if (p.set === 'ashigaru') return { t: 'The sensei gives one piece the first time you finish each drill', at: () => poi('sensei') };
   const tw = TOWNS.find(t => t.set === p.set), here = tw === townCfg(), J = S.towns[tw.id] || { ema: [], jobs: {} };
   if (!here) return { t: `Found in ${tw.n}${tw.i > (S.far || 0) ? ', further down the road' : ': travel there from the Map'}`, at: () => null };
   return {

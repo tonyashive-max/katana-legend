@@ -49,7 +49,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const SK_KEYS = ['power', 'speed', 'guard', 'vital', 'iai'];
 function swordPack(w) {
   if (!w) return { u: -1, id: 'bokken', lvl: 0, q: 1, inf: [] };
-  return { u: w.u, id: w.id, lvl: w.lvl || 0, q: w.q || 1, inf: (w.inf || []).slice(0, 8), made: !!w.made, maker: w.maker || null, won: w.won || null };
+  return { u: w.u, id: w.id, lvl: w.lvl || 0, q: w.q || 1, inf: (w.inf || []).slice(0, 8), made: !!w.made, maker: w.maker || null, won: w.won || null, heir: w.heir ? 1 : 0 };
 }
 function myIdent() { return { pid: S.pid, name: (S.name || 'Shep').slice(0, 14), seal: S.seal }; }
 function myDuelProfile(outfit, swordU, bokken) {
@@ -68,7 +68,7 @@ function cleanProfile(p) {
   return {
     pid: String(p.pid || 'guest').slice(0, 8), name: String(p.name || 'Friend').slice(0, 14), seal: cleanSeal(p.seal),
     outfit: OUTFITS.some(o => o.id === p.outfit) ? p.outfit : 'ronin', sk,
-    sword: { u: w.u | 0, id, lvl: clamp(w.lvl | 0, 0, 12), q: clamp(+w.q || 1, 1, 1.15), inf: Array.isArray(w.inf) ? w.inf.filter(m => MATERIALS[m]).slice(0, 8) : [], made: !!w.made, maker: cleanWho(w.maker), won: cleanWho(w.won) },
+    sword: { u: w.u | 0, id, lvl: clamp(w.lvl | 0, 0, 12), q: clamp(+w.q || 1, 1, 1.15), inf: Array.isArray(w.inf) ? w.inf.filter(m => MATERIALS[m]).slice(0, 8) : [], made: !!w.made, maker: cleanWho(w.maker), won: cleanWho(w.won), heir: w.heir ? 1 : 0 },
     v: p.v,
   };
 }
@@ -114,7 +114,8 @@ function drawLoadout() {
     <h3 class="lo-h">Blade${L.rule === 'wager' ? ' <small class="muted">· blades you forged or won</small>' : ''}</h3>
     ${L.rule === 'bokken' ? `<p class="lo-note">${esc(L.bokkenWhy || 'One of you has no forged or won blade to wager yet, so this is an honor duel: both fight with bokkens and no blade changes hands.')}</p>` : `
     <div class="lo-blades">${blades.map(w => { const d = swordDef(w.id); return `<button class="lo-blade ${L.u === w.u ? 'sel' : ''}" data-lo-sword="${w.u}" style="--rc:${RAR[d.r].c}">
-      ${bladeSVG(d)}<span class="nm">${esc(d.name)}${w.lvl ? ' +' + w.lvl : ''}</span><small>${rarTag(d)} · ${Math.round(swordDmg(w))} dmg${w.won ? ' · 🏆 won from ' + esc(w.won.n) : ''}</small></button>`; }).join('')}</div>`}
+      ${bladeSVG(d)}<span class="nm">${esc(d.name)}${w.lvl ? ' +' + w.lvl : ''}</span><small>${rarTag(d)} · ${Math.round(swordDmg(w))} dmg${w.won ? ' · 🏆 won from ' + esc(w.won.n) : ''}</small>${heirTag(w)}</button>`; }).join('')}</div>`}
+    ${L.rule === 'wager' && heirClass(S.swords.find(w => w.u === L.u)) ? `<p class="lo-warn">⚠ You are wagering a <b>${heirClass(S.swords.find(w => w.u === L.u))}</b> blade from the first legend. It cannot be made again.</p>` : ''}
     <div class="lo-stats">${[['Health', st.hp], ['Attack', Math.round(st.dmg)], ['Guard', Math.round((1 - st.pass) * 100) + '%'], ['Speed', Math.round(VS_TELE / st.tele * 100) + '%']].map(([n, v]) => `<div><b>${v}</b><span>${n}</span></div>`).join('')}</div>
     ${L.rule === 'wager' ? '<p class="lo-warn">⚠ The blade you choose is at stake. Lose, and it belongs to your rival.</p>' : ''}
     <div class="actions">${L.cancel ? '<button class="btn" data-lo-cancel="1">Cancel</button>' : ''}<button class="btn primary" data-lo-ready="1">Ready ⚔</button></div>
@@ -132,7 +133,7 @@ function loadoutClick(d) {
 /* ---------- pre-fight showcase: the blades are the stars ---------- */
 function showCard(p, side) {
   const d = swordDef(p.sword.id), o = outfitDef(p.outfit), st = duelStats(p), w = p.sword;
-  const hist = w.won ? `🏆 Won from ${esc(w.won.n)}` : w.made ? `⚒ Forged by ${esc(w.maker ? w.maker.n : p.name)}` : d.wood ? 'Practice blade' : '';
+  const hist = (w.heir ? (heirClass(w) === 'Dynasty' ? '王 Dynasty blade · ' : '家 Heirloom · ') : '') + (w.won ? `🏆 Won from ${esc(w.won.n)}` : w.made ? `⚒ Forged by ${esc(w.maker ? w.maker.n : p.name)}` : d.wood ? 'Practice blade' : '');
   const skills = SK_KEYS.map(k => `<div class="sk"><span>${SKILLS[k].n}</span><i><em style="width:${Math.round(p.sk[k] / 30 * 100)}%"></em></i><b>${p.sk[k]}</b></div>`).join('');
   return `<div class="sc-card ${side}" style="--rc:${RAR[d.r].c};--glow:${d.glow || RAR[d.r].c}">
     <div class="sc-who">${sealSVG(p, 46)}<div><div class="sc-name">${esc(p.name)}</div><small>${esc(o.name)}${o.hp ? ' · +' + o.hp + ' hp' : ''}${o.dmg ? ' · +' + Math.round(o.dmg * 100) + '% atk' : ''}</small></div></div>
@@ -174,7 +175,7 @@ function duelDecided(forfeit) {
   if (!honor) {
     if (iWon) {
       const w = addSword(theirs.id); w.lvl = theirs.lvl; w.q = theirs.q; if (theirs.inf.length) w.inf = theirs.inf.slice();
-      w.maker = theirs.maker || (theirs.made ? { n: them.name, pid: them.pid, seal: them.seal } : null);
+      w.maker = theirs.maker || (theirs.made ? { n: them.name, pid: them.pid, seal: them.seal } : null); if (theirs.heir) w.heir = { from: them.name };
       w.won = { n: them.name, pid: them.pid, seal: them.seal, t: Date.now() };
       VS.prize = w;
     } else {
