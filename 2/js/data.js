@@ -375,7 +375,8 @@ let S = loadSave();
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }
 
 /* ---------- lookups & stats ---------- */
-const swordDef = id => SWORDS.find(s => s.id === id) || SWORDS[0];
+const FOE_WEAPONS = {};
+const swordDef = id => FOE_WEAPONS[id] || SWORDS.find(s => s.id === id) || SWORDS[0];
 const outfitDef = id => OUTFITS.find(o => o.id === id) || OUTFITS[0];
 function eqSword() { return S.swords.find(w => w.u === S.eq) || S.swords[0]; }
 function isArmed() { const w = S.swords.find(x => x.u === S.eq); return !!w && !w.captured; }

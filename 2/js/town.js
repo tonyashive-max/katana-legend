@@ -154,6 +154,7 @@ const TOWN_LOOKS = {
 /* foes are sized to the samurai who walks in, and get sharper town by town */
 function townFoe(role) {
   if (role === 'ghost' || role === 'ghost2' || role === 'ghost3') return ghostFoe(role);
+  if (role === 'beast') return beastFoe();
   if (role === 'sensei') { const s = townFoe('keeper'); return Object.assign(s, { town: 'sensei', name: 'Hermit of the Mountain', title: 'Trial of Two Heavens', look: TOWN_LOOKS.hermit, sword: 'bokken', weapon: null, scale: 1, teleport: 0, fury: .2, freeze: false, shock: false, dragon: false, orochi: false, bowWeak: false, arena: null, gold: 0, intro: 'He switches between a long blade and a short one. Read his stance!' }); }
   const ps = stats(), c = townCfg(), i = c.i, D = role === 'a' ? c.a.foe : role === 'keeper' ? c.keeper : c.myth;
   const B = role === 'a' ? { hits: 13 + i, hit: .085 + .004 * i, tele: 1150 - 70 * i, guard: .2 + .02 * i, react: .2 + .03 * i, combo: .15 + .03 * i, feint: .05 + .03 * i, low: .15, gold: 120 }
@@ -183,6 +184,8 @@ function townJobs() {
     { t: c.myth.after && !T.pass ? 'Optional: something is not what it seems…' : `Optional: face ${c.myth.n}, ${c.myth.title}`, done: !!T.myth },
     { t: `Optional: complete the ${SETS[c.set].n} armor set (${own}/7)`, done: own === 7 },
     { t: 'Together: ring the twin bells with a friend', done: !!T.duo },
+    BEASTS2[c.id] ? { t: `Hunt: defeat ${BEASTS2[c.id].n}, ${BEASTS2[c.id].title}`, done: !!T.beast } : null,
+    { t: 'Solve the shrine puzzle', done: !!T.pz },
     MASTERS[c.id] ? { t: `Legend: learn the ${swordDef(MASTERS[c.id].blade).name} from ${MASTERS[c.id].n}`, done: !!masterSt(c.id).blade } : null,
     { t: c.last ? 'Carry the letter through the palace gate' : `Pass the ${gatePlace()}, on toward ${TOWNS[c.i + 1].n}`, done: !!T.done },
   ].filter(Boolean);
@@ -273,7 +276,7 @@ function townPeople() {
     if (c.i + 1 < ROAD_OPEN) { const z = (c.doneZ || GATE_Z + 5) + 2.2, x = c.exitX != null ? c.exitX : townRoadX(z); T.pois.push({ id: 'north', kind: 'spot', x, z, r: 3.2, label: 'Walk on to ' + TOWNS[c.i + 1].n, act: () => { if (S.town.done) townTravel(c.i + 1); } }); }
   }
   if (c.people) c.people(T, npc);
-  duoPeople(T);
+  duoPeople(T); puzzlePeople(T); beastPeople(T);
   for (let i = 0; i < 5; i++) {
     const rig = new Samurai(TOWN_LOOKS.walker[i % 3], swordDef('bokken'), { noSaya: true }); rig.sword.visible = false; rig.root.rotation.order = 'YXZ'; rig.setHold('rest', 6); T.grp.add(rig.root);
     T.walkers.push({ rig, z: -80 + i * 31, dir: i % 2 ? 1 : -1, side: i % 2 ? 1.3 : -1.3, spd: 1.1 + (i % 3) * .25, ph: i * 2 });
@@ -334,6 +337,7 @@ function townClick(d) {
   if (c.click && c.click(a)) return true;
   if (ghostClick(a)) return true;
   if (masterClick(a)) return true;
+  if (a === 'tut') { townCloseTalk(); tutStart(); return true; }
   if (a === 'truth' || a === 'lie') {
     J.guard = true; J.note = true; save();
     const next = keeperReady() ? `${c.keeper.n} waits ${c.keeper.where || 'by the gate'}.` : c.keeper.need ? `You need ${c.keeper.n}'s stamp, and he only duels samurai dressed for the road: three pieces of armor at least.` : c.keeper.first || `${c.keeper.n} decides who passes, and will only face someone this town trusts. Help ${c.a.n} first.`;
@@ -363,9 +367,9 @@ function townClick(d) {
 /* the armorer's forge is the first game's whole smithy: forging, infusing, fusing, recipes and the blade rack */
 function townWorkshop(tab) {
   if (TOWN) { TOWN.paused = true; TOWN.joy = null; } closeOverlay();
-  const ui = $('#ui'); ui.classList.add('road'); const bn = ui.querySelector('.brand-name'); if (bn) bn.textContent = "The Armorer's Forge";
+  const ui = $('#ui'); ui.classList.add('road'); ui.classList.toggle('vs', tab === 'versus'); const bn = ui.querySelector('.brand-name'); if (bn) bn.textContent = tab === 'versus' ? 'The Duelling Ground' : tab === 'swords' ? 'The Blade Rack' : "The Armorer's Forge";
   if (!$('#roadBack')) { const b = document.createElement('button'); b.className = 'tab'; b.id = 'roadBack'; b.innerHTML = '<b>道</b><span>Back to the road</span>'; b.addEventListener('click', townWorkshopClose); ui.querySelector('.tabs').appendChild(b);
-    const st = document.createElement('style'); st.textContent = '#ui.road .tab{display:none}#ui.road .tab[data-tab=forge],#ui.road .tab[data-tab=swords],#ui.road #roadBack{display:grid}#ui.road .tabs{grid-template-columns:repeat(3,minmax(0,1fr))}#ui:not(.road) #roadBack{display:none}'; document.head.appendChild(st); }
+    const st = document.createElement('style'); st.textContent = '#ui.road .tab{display:none}#ui.road:not(.vs) .tab[data-tab=forge],#ui.road:not(.vs) .tab[data-tab=swords],#ui.road.vs .tab[data-tab=versus],#ui.road #roadBack{display:grid}#ui.road .tabs{grid-template-columns:repeat(3,minmax(0,1fr))}#ui.road.vs .tabs{grid-template-columns:repeat(2,minmax(0,1fr))}#ui:not(.road) #roadBack{display:none}'; document.head.appendChild(st); }
   ui.hidden = false; $('#hud').hidden = true; if (!showTab.road) { const orig = showTab; showTab = function (n) { orig(n); if ($('#ui').classList.contains('road')) { const secs = new Set(); document.querySelectorAll('#screen [data-recipe]').forEach(b => { const s = b.closest('section'); if (s) secs.add(s); }); secs.forEach(s => { s.innerHTML = '<h3>Legendary blades</h3><p class="muted" style="margin-top:6px">A legendary blade cannot be forged from a recipe. Each one is taught by a master smith in a town on the road, at their own forge and to their own rhythm. Look for the <b>Master smith</b> on each town\'s map.</p>'; }); } }; showTab.road = true; }
   showTab(tab || 'forge');
 }
@@ -389,6 +393,7 @@ function townDojo() {
     <div class="actions"><button class="btn" data-town="">Back to the road</button></div></div>`);
 }
 function townFightResult() {
+  if (moreResult()) return;
   if (specialResult()) return;
   if (teamResult()) return;
   hint('');
@@ -429,10 +434,11 @@ const TownMode = {
     const T = TOWN; if (!T) return;
     TOWN_WIND.value += dt;
     coopTick(dt, T);
+    if (T.paused && $('#overlay').hidden && $('#ui').hidden && !TITLE_UP) { T.stuck = (T.stuck || 0) + dt; if (T.stuck > 2.5) { T.paused = false; T.stuck = 0; } } else T.stuck = 0;
     if (T.paused) { T.P.update(dt); return; }
     if (T.W.doors) T.W.doors.visible = !S.town.pass;
     if (T.W.tick) T.W.tick(dt, T);
-    ghostTick(dt, T);
+    ghostTick(dt, T); beastTick(dt, T);
     if (T.lapse) { // the night passes in a few seconds while the samurai waits
       const st = Math.min(T.lapse, dt * .28); T.day = (T.day + st) % 1; T.lapse -= st; T.joy = null; T.speed = 0; T.camYaw += dt * .12;
       if (T.lapse <= 1e-4) { T.lapse = 0; hint(''); sfx.taiko(1); S.town.day = T.day; save(); const f = T.lapseThen; T.lapseThen = null; if (f) f(); }
@@ -558,7 +564,7 @@ function title2Click(a) {
   if (a === 'go' || a === 'new') {
     if (a === 'new' && !S.started) { const w = addSword('iron'); S.eq = w.u; S.gold = 150; }
     S.started = true; save(); closeOverlay(); TITLE_UP = false; sfx.taiko(1); const t = $('#title'); t.classList.add('out'); setTimeout(() => { t.hidden = true; }, 600);
-    if (!S.town.intro) { S.town.intro = true; save(); setTimeout(() => townSay('Princess Hana\'s letter', `${nm()}, the peace letter is sealed with the cherry crest and sewn into your sleeve. Carry it west along the Tokaido to Kyoto before the lantern festival.<br><br>${TOWNS[0].intro}`), 900); }
+    if (!S.town.intro) setTimeout(() => storyOpen(0), 900);
     return true;
   }
   if (a === 'import') { $('#title').hidden = true; openOverlay(`<div class="modal" style="text-align:left"><h2>Bring your legend</h2><p class="muted">In the first game, open Settings, then Backup &amp; restore, then Copy backup code. Paste it here. Your name, wax seal, training and best blade come with you. The first game is not changed.</p><textarea class="bk-code" id="imp2" placeholder="KATANA1:…"></textarea><p class="bk-msg" id="imp2msg"></p><div class="actions"><button class="btn" data-title2="cancel">Cancel</button><button class="btn primary" data-title2="read">Bring my legend</button></div></div>`); return true; }

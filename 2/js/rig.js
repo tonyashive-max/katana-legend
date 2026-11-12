@@ -133,6 +133,7 @@ function hamonGeo(def, L, w, c, depth, off, hwid) {
 }
 function buildSword(def, opt) {
   opt = opt || {};
+  if (def.pole && typeof buildPole === 'function') return buildPole(def);
   if (def.club) return buildClub(def);
   if (def.fan) return buildFan(def);
   const g = new THREE.Group();

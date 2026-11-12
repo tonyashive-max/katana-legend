@@ -77,7 +77,7 @@ const STYLES = {
 };
 let STYLE_OVR = null;
 function styleDef() { return STYLES[STYLE_OVR || S.style] || STYLES.katana; }
-function styleRig(rig) { try { if (rig && rig.sword) rig.sword.scale.setScalar(styleDef().len); } catch (e) { /* */ } return rig; }
+function styleRig(rig) { try { if (rig && rig.sword) rig.sword.scale.setScalar(styleDef().len); if (typeof dualHip === 'function') dualHip(rig); } catch (e) { /* */ } return rig; }
 /* armor joins the numbers every fight already uses */
 const baseStats = stats;
 stats = function () {
@@ -174,8 +174,8 @@ let PACK_TAB = 'sam', PACK_SLOT = null;
 function openPack(tab) {
   if (tab) PACK_TAB = tab;
   if (TOWN) { TOWN.paused = true; TOWN.joy = null; TOWN.look = null; }
-  const tabs = [['map', 'Map', '図'], ['sam', 'Samurai', '侍'], ['jour', 'Journal', '記'], ['co', 'Together', '友']];
-  const body = PACK_TAB === 'map' ? packMap() : PACK_TAB === 'jour' ? packJournal() : PACK_TAB === 'co' ? packCoop() : packSamurai();
+  const tabs = [['map', 'Map', '図'], ['sam', 'Samurai', '侍'], ['jour', 'Journal', '記'], ['co', 'Together', '友'], ['more', 'Legend', '伝']];
+  const body = PACK_TAB === 'map' ? packMap() : PACK_TAB === 'jour' ? packJournal() : PACK_TAB === 'co' ? packCoop() : PACK_TAB === 'more' ? packMore() : packSamurai();
   openOverlay(`<div class="modal pack" style="text-align:left">
     <div class="pack-tabs">${tabs.map(([k, n, g]) => `<button class="pack-tab ${PACK_TAB === k ? 'on' : ''}" data-pack="${k}"><b>${g}</b>${n}</button>`).join('')}<button class="btn small" data-pack="close" style="margin-left:auto">Back to the road</button></div>
     ${body}</div>`);
@@ -244,6 +244,7 @@ function packMap() {
 function packClick(d) {
   if (d.coop) return coopClick(d.coop);
   if (d.team) return teamClick(d.team);
+  if (d.more) return moreClick(d.more);
   if (d.pack) { if (d.pack === 'close') closePack(); else { PACK_SLOT = null; openPack(d.pack); } return true; }
   if (d.packSlot != null) { PACK_SLOT = d.packSlot || null; openPack('sam'); return true; }
   if (d.wearPiece) { if (d.wearPiece === 'none') delete S.armor.eq[PACK_SLOT]; else { const p = PIECES[d.wearPiece]; if (p && ownPiece(p.id)) S.armor.eq[p.slot] = p.id; } save(); sfx.up(); PACK_SLOT = null; openPack('sam'); return true; }
