@@ -219,7 +219,8 @@ function startTown(back) {
   transition(() => {
     clearSceneActors();
     const c = townCfg(), W = buildTown(c); activateWorld(W);
-    const sp = back && S.town.at ? S.town.at : { x: townRoadX(-74), z: -74, yaw: 0 };
+    let sp = back && S.town.at ? S.town.at : { x: townRoadX(-74), z: -74, yaw: 0 };
+    if (!spawnOk(W, sp)) sp = { x: townRoadX(-74), z: -74, yaw: 0 }; // never wake up in the river
     TOWN = { W, pos: new V3(sp.x, 0, sp.z), face: sp.yaw || 0, camYaw: sp.yaw || 0, camPitch: .22, speed: 0, phase: 0, joy: null, look: null, pois: [], near: null, clock: 0, camPos: new V3(), camLook: new V3(), lastGood: new V3(sp.x, 0, sp.z), day: S.town.day == null ? c.day : S.town.day, walkers: [], grp: new THREE.Group(), paused: false, saveT: 0 };
     W.scene.add(TOWN.grp);
     townRefreshPlayer(); townPeople();
@@ -232,8 +233,12 @@ function startTown(back) {
 function townTravel(i, shown) {
   if (!TOWNS[i] || i > (S.far || 0) || i >= ROAD_OPEN) return;
   if (!shown && roadScene(i)) return;
+  const from = S.cur;
   if (TOWN) { S.town.at = { x: TOWN.pos.x, z: TOWN.pos.z, yaw: TOWN.face }; }
-  S.cur = i; delete S.town; gearInit(); save(); startTown(true);
+  S.cur = i; delete S.town; gearInit();
+  // you arrive on the road, never where you last stood: from the south at the town's entrance, from the north just inside its gate
+  S.town.at = i < from ? { x: townRoadX(GATE_Z - 4.5) + 1.2, z: GATE_Z - 4.5, yaw: Math.PI } : null;
+  save(); startTown(true);
 }
 function townRefreshPlayer() {
   const T = TOWN; if (!T) return;

@@ -24,6 +24,7 @@ function packPeople(T) {
 }
 function packTick(dt, T) {
   if (T.cine) cineStep(dt, T);
+  unstick(dt, T);
   const hide = !!(T.boat || T.lift || (T.enc && T.enc.phase)), fx = Math.sin(T.face), fz = Math.cos(T.face), n = (T.pack || []).length;
   (T.pack || []).forEach(f => {
     const [side, back] = PACK_SLOTS[f.i % PACK_SLOTS.length], tx = T.pos.x - fx * back - fz * side, tz = T.pos.z - fz * back + fx * side; // beside you, never between you and the camera
@@ -136,4 +137,18 @@ function dualHip(P) {
   const g = new THREE.Group(), k = .8 * STYLES[S.style2 || 'kodachi'].len, sh = P.sayaMesh.clone(), sw = buildSword(secondBlade()); if (sw.userData.glow) sw.userData.glow.visible = false;
   g.add(sh, sw); g.position.copy(P.saya.position).add(new V3(.045, -.075, .05)); g.quaternion.copy(P.saya.quaternion).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(.16, 0, .1))); g.scale.setScalar(k);
   P.hips.add(g); P.hip2 = g; P.hip2Sword = sw; return P;
+}
+
+/* ===== Never stranded: a samurai standing somewhere he cannot stand is put back on firm ground ===== */
+function walkOk(W, x, z, T) { const h = townH(x, z); if (h > 15.5 || Math.abs(x) > TOWN_R || Math.abs(z) > TOWN_R - 2) return false; return W.canWalk ? !!W.canWalk(x, z, h, T || { pos: { x, z } }) : h >= (W.minH == null ? -.35 : W.minH); }
+function spawnOk(W, sp) { try { if (W.canWalk) return true; if (!walkOk(W, sp.x, sp.z)) return false; return !(sp.z > GATE_Z - .9 && !S.town.pass); } catch (e) { return true; } }
+function unstick(dt, T) {
+  if (T.boat || T.cine || T.W.canWalk || (T.lift && walkOk(T.W, T.pos.x, T.pos.z, T))) return; const push = T.speed > .3, here = walkOk(T.W, T.pos.x, T.pos.z, T);
+  if (T.usp && push && Math.hypot(T.pos.x - T.usp.x, T.pos.z - T.usp.z) < .02) T.ust = (T.ust || 0) + dt; else T.ust = 0; T.usp = { x: T.pos.x, z: T.pos.z };
+  const edge = townH(T.pos.x, T.pos.z) < (T.W.minH == null ? -.35 : T.W.minH) + .04;
+  if (here && !(edge && T.ust > 1.4)) return; if (here && T.lift) return;
+  const side = T.pos.z > GATE_Z; let best = null;
+  for (let r = 1; r <= 40 && !best; r += 1) for (let k = 0; k < 20; k++) { const a = k / 20 * Math.PI * 2, x = T.pos.x + Math.sin(a) * r, z = T.pos.z + Math.cos(a) * r; if ((z > GATE_Z) !== side && !S.town.pass) continue; if (townH(x, z) < (T.W.minH == null ? -.35 : T.W.minH) + .12 || !walkOk(T.W, x, z, T)) continue; if (T.W.obs.some(o => Math.hypot(o.x - x, o.z - z) < o.r + .5)) continue; best = { x, z }; break; }
+  if (!best) best = { x: townRoadX(-74), z: -74 };
+  T.pos.set(best.x, 0, best.z); T.lastGood.copy(T.pos); T.ust = 0; toast('You wade back to firm ground.');
 }
