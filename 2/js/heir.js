@@ -71,3 +71,15 @@ function dynForge() {
     return { msg: `${M.n} lays down his hammer. Your ${old} is now Nidai, the Blade of Two Legends. It keeps its history and half its old forging, and wakes fully at once. There is no other like it.` }; } });
   return true;
 }
+
+/* ===== Full screen ===== */
+function fsCan() { const d = document.documentElement, alone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone; return !alone && !!(d.requestFullscreen || d.webkitRequestFullscreen); }
+function fsEnter(quiet) { const d = document.documentElement; if (!fsCan() || fsActive()) return; try { const r = (d.requestFullscreen || d.webkitRequestFullscreen).call(d, { navigationUI: 'hide' }); if (r && r.then) r.then(() => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* */ } }).catch(() => { if (!quiet) toast('Full screen was blocked. Try Add to Home Screen.'); }); } catch (e) { if (!quiet) toast('Full screen is not available here. Try Add to Home Screen.'); } }
+function fsSet(on) { S.fs = !!on; save(); if (on) fsEnter(false); else if (fsActive()) try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { /* */ } }
+function fsCard() { if (!fsCan()) return ''; const on = fsActive(); return `<div class="card" style="gap:6px"><b>⛶ Full screen</b><small>${on ? 'The game fills the whole tablet.' : 'Hide the browser bars so the game fills the whole tablet.'} On a tablet it turns on by itself when you tap Continue.</small><button class="btn small ${on ? '' : 'primary'}" data-more="fs">${on ? 'Leave full screen' : 'Go full screen'}</button></div>`; }
+{ const t2 = title2Click; title2Click = function (a) { if ((a === 'go' || a === 'bring') && S.fs !== false && matchMedia('(pointer: coarse)').matches) fsEnter(true); return t2.apply(this, arguments); }; }
+{ // a button on the title screen too
+  const b = document.createElement('button'); b.id = 'fs2'; b.className = 'btn small'; b.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:60'; b.hidden = true; document.body.appendChild(b);
+  b.addEventListener('click', e => { e.stopPropagation(); fsSet(!fsActive()); });
+  setInterval(() => { const show = fsCan() && typeof TITLE_UP !== 'undefined' && TITLE_UP; b.hidden = !show; if (show) b.textContent = fsActive() ? '🗗 Leave full screen' : '⛶ Full screen'; }, 500);
+}
