@@ -291,7 +291,7 @@ function screenSwords() {
         }
         return `<div class="card ${eq ? 'sel' : ''}">
           <div class="row between"><b class="name ${d.r}" style="${d.r !== 'mythic' ? `color:${RAR[d.r].c}` : ''}">${d.name}${w.lvl ? ` +${w.lvl}` : ''}</b><small>${Math.round(swordDmg(w))} dmg ${elTag(swordFx(w).el)}</small></div>
-          ${bladeSVG(d)}${w.made ? '<small class="maker">⚒ Forged by you · can be wagered in challenges</small>' : ''}
+          ${typeof heirTag === 'function' ? heirTag(w, true) : ''}${bladeSVG(d)}${w.made ? '<small class="maker">⚒ Forged by you · can be wagered in challenges</small>' : ''}
           <div class="row">${eq ? '<span class="tag new">Equipped</span>' : `<button class="btn small primary" data-equip="${w.u}">Equip</button><button class="btn small" data-smelt="${w.u}">Smelt · +${smeltValue(w)} steel</button>`}</div>
         </div>`;
       }).join('')}
