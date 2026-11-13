@@ -110,7 +110,7 @@ function runSim(dt, T) {
   }
   for (const a of R.es) for (const b of R.es) if (a.k < b.k && a.st !== 'dead' && b.st !== 'dead') { const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz) || .01; if (d < 1.5) { const p = (1.5 - d) / 2; a.x -= dx / d * p; a.z -= dz / d * p; b.x += dx / d * p; b.z += dz / d * p; } }
   runGhostSim(dt, T);
-  R.sendT -= dt; if (R.sendT <= 0) { R.sendT = .14; runSend({ k: 'en', i: R.i, c: +R.clock.toFixed(2), gs: R.gh.map(g => [g.on ? 1 : 0, +g.x.toFixed(2), +g.z.toFixed(2), +g.t.toFixed(1)]), es: R.es.map(e => [+e.x.toFixed(2), +e.z.toFixed(2), +e.ry.toFixed(2), e.st, Math.max(0, Math.round(e.hp)), e.g, e.tgt, e.aq, +e.tw.toFixed(2), +e.t.toFixed(2)]) }); }
+  R.sendT -= dt; if (R.sendT <= 0) { R.sendT = .14; runSend({ k: 'en', i: R.i, c: +R.clock.toFixed(2), gs: R.gh.map(g => [g.on ? 1 : g.lurk ? 2 : 0, +g.x.toFixed(2), +g.z.toFixed(2), +g.t.toFixed(1)]), es: R.es.map(e => [+e.x.toFixed(2), +e.z.toFixed(2), +e.ry.toFixed(2), e.st, Math.max(0, Math.round(e.hp)), e.g, e.tgt, e.aq, +e.tw.toFixed(2), +e.t.toFixed(2)]) }); }
   if (R.es.length && R.es.every(e => e.st === 'dead') && R.clearT < 0) { R.clearT = 0; runSend({ k: 'clear', i: R.i, c: +R.clock.toFixed(2) }); runCleared(); }
   if (R.clearT >= 0) { R.clearT += dt; if (R.clearT > 3.2) { if (R.i >= 6) { const t = R.clock; runSend({ k: 'fin', c: +t.toFixed(2) }); return runEnd('win', t); } runSend({ k: 'town', i: R.i + 1 }); return runTown(R.i + 1); } }
   const all = runPlayers(T); if (all.length && all.every(p => p.down) && !R.over) { R.over = 1; runSend({ k: 'over' }); setTimeout(() => runEnd('lost'), 2200); }
@@ -124,6 +124,7 @@ function runHit(k, dmg, parry) { // on the tablet in charge
 /* ---------- an enemy's blow lands on me: my tablet decides how it went ---------- */
 function runStruck(e, T) {
   const R = RUN; if (!R || R.down || e.st === 'stagger' || e.st === 'dead') return; const d = Math.hypot(T.pos.x - e.x, T.pos.z - e.z), s = { x: VW / 2, y: VH * .62 };
+  if (R.grace > 0 && d <= e.reach + .9) { ovPop(s.x, s.y - 40, 'SHAKEN OFF!', { size: 26, color: '#ffd27a', stroke: '#2a1200' }); sfx.whoosh && sfx.whoosh(); return; } // no blow lands in the moment after the Red Geisha's touch
   if (d > e.reach + .9) { ovPop(s.x, s.y - 40, 'DODGED!', { size: 28, color: '#9ff0c8', stroke: '#06261a' }); sfx.whoosh && sfx.whoosh(); return; }
   let dmg = e.dmg;
   if (R.block && R.sta >= 14) { dmg = Math.round(dmg * .28); R.sta -= 22; R.staWait = .5; sfx.clang && sfx.clang(); FX.sparks(T.P.bladePoint(.5), '#d9eeff', 18, 4); ovPop(s.x, s.y - 40, 'BLOCKED', { size: 24, color: '#bfe2ff', stroke: '#0a1a3a' }); }
@@ -156,7 +157,7 @@ function runSlash(x0, y0, x1, y1, pid) {
 function runTick(dt, T) {
   const R = RUN; if (!R || !R.ready) return;
   if (R.intro > 0) R.intro -= dt; if (R.clearT < 0 && !R.over) R.clock += R.auth ? dt : 0;
-  R.cd = Math.max(0, R.cd - dt); R.staWait = Math.max(0, (R.staWait || 0) - dt); if (!R.staWait) R.sta = Math.min(RUN_ME.sta, R.sta + dt * (R.block ? 5 : 15)); // breath comes back only when you stop swinging
+  R.grace = Math.max(0, (R.grace || 0) - dt); R.cd = Math.max(0, R.cd - dt); R.staWait = Math.max(0, (R.staWait || 0) - dt); if (!R.staWait) R.sta = Math.min(RUN_ME.sta, R.sta + dt * (R.block ? 5 : 15)); // breath comes back only when you stop swinging
   T.camPitch = lerp(T.camPitch, .56, damp(3, dt)); { let c = T.face - T.camYaw; c = Math.atan2(Math.sin(c), Math.cos(c)); T.camYaw += c * damp(2.2, dt); } // look down over your own shoulder, so the enemy is never hidden behind you
   // the road is the whole world now
   const rx = townRoadX(T.pos.z); T.pos.x = clamp(T.pos.x, rx - 11, rx + 11); T.pos.z = clamp(T.pos.z, -80, 56); if (R.down) { T.joy = null; T.pos.copy(T.lastGood); } else if (R.block) T.pos.lerp(T.lastGood, .55);
@@ -186,7 +187,7 @@ function runMsg(d) {
   else if (d.k === 'sw') { if (p && p.rig && !p.rr.down) rigSwing(p.rig, +d.ux || 0, +d.uy || 0, .12); }
   else if (d.k === 'hit') { if (R.auth && (d.i | 0) === R.i) runHit(d.e | 0, clamp(+d.d || 0, 0, 60), !!d.pr); }
   else if (d.k === 'en') { if (R.auth || (d.i | 0) !== R.i || !Array.isArray(d.es)) return; R.lastEn = Date.now(); R.clock = +d.c || R.clock;
-    if (Array.isArray(d.gs)) d.gs.forEach((a, k) => { const g = R.gh[k]; if (!g || !Array.isArray(a)) return; const on = !!a[0]; if (on && !g.on) { g.x = +a[1]; g.z = +a[2]; g.sent = false; runGhostHello(k); } g.on = on; g.tx = +a[1]; g.tz = +a[2]; g.t = +a[3] || 0; });
+    if (Array.isArray(d.gs)) d.gs.forEach((a, k) => { const g = R.gh[k]; if (!g || !Array.isArray(a)) return; const on = a[0] === 1, lurk = a[0] === 2; if ((on || lurk) && !g.on && !g.lurk) { g.x = +a[1]; g.z = +a[2]; } if (on && !g.on) { g.sent = false; runGhostHello(k); } g.on = on; g.lurk = lurk; g.tx = +a[1]; g.tz = +a[2]; g.t = +a[3] || 0; });
     d.es.forEach((a, k) => { const e = R.es[k]; if (!e || !Array.isArray(a)) return; e.tx = +a[0]; e.tz = +a[1]; e.ry = +a[2]; const st = String(a[3]), aq = a[7] | 0; if (Math.hypot(e.tx - e.x, e.tz - e.z) > 8) { e.x = e.tx; e.z = e.tz; }
       if (st === 'windup' && (e.st !== 'windup' || aq !== e.aq)) e.t = +a[9] || 0; if (!(R.seen[k + ':' + e.aq] === 2 && st === 'windup' && aq === e.aq)) e.st = st; e.aq = aq; e.hp = Math.min(e.hp, +a[4]); if (st === 'dead') e.hp = 0; e.g = a[5] | 0; e.tgt = a[6]; e.tw = +a[8] || 1; }); }
   else if (d.k === 'gc') { if (R.auth && R.gh[0].on) runGhostCatch(d.id); }
@@ -225,7 +226,7 @@ function runHudTick() {
   const tip = el.querySelector('#rhTip'), near = R.es.filter(e => e.st !== 'dead').sort((a, b) => Math.hypot(a.x - TOWN.pos.x, a.z - TOWN.pos.z) - Math.hypot(b.x - TOWN.pos.x, b.z - TOWN.pos.z))[0];
   const gw = R.gh[0].on, gr = R.gh[1].on;
   const where = g => { const dx = g.x - TOWN.pos.x, dz = g.z - TOWN.pos.z, d = Math.hypot(dx, dz); let a = Math.atan2(dx, dz) - TOWN.camYaw; a = Math.atan2(Math.sin(a), Math.cos(a)); return `${Math.round(d)} m ${Math.abs(a) < .8 ? 'ahead' : Math.abs(a) > 2.3 ? 'BEHIND YOU' : a > 0 ? 'to your left' : 'to your right'}`; };
-  tip.textContent = gr && !R.down ? `RED GEISHA, ${where(R.gh[1])}! Keep away for ${Math.max(0, Math.ceil(RUN_GHOST_T - R.gh[1].t))} more seconds!` : gw && !R.down ? `The Lady in White, ${where(R.gh[0])}! Catch her before she fades (${Math.max(0, Math.ceil(RUN_GHOST_T - R.gh[0].t))}s): she heals ${runPeer() ? 'you both' : 'you'}.` : R.down ? 'You are down. Cheer your partner on!' : R.clearT >= 0 ? '' : !near ? '' : Math.hypot(near.x - TOWN.pos.x, near.z - TOWN.pos.z) > 9 ? 'Walk up the road. Swipe on the right side to cut.' : near.st === 'windup' && near.tgt === runMe() ? 'Gold ring: cut into the blow to PARRY, hold BLOCK, or step back!' : `Swipe the way the arrow over its head points ${CUT_ARROW[near.g]}. The same height as its guard is blocked.`; tip.style.display = tip.textContent ? '' : 'none';
+  tip.textContent = gr && !R.down ? `RED GEISHA, ${where(R.gh[1])}! Keep away for ${Math.max(0, Math.ceil(RUN_RED_T - R.gh[1].t))} more seconds!` : gw && !R.down ? `The Lady in White, ${where(R.gh[0])}! Catch her before she fades (${Math.max(0, Math.ceil(RUN_GHOST_T - R.gh[0].t))}s): she heals ${runPeer() ? 'you both' : 'you'}.` : R.down ? 'You are down. Cheer your partner on!' : R.clearT >= 0 ? '' : !near ? '' : Math.hypot(near.x - TOWN.pos.x, near.z - TOWN.pos.z) > 9 ? 'Walk up the road. Swipe on the right side to cut.' : near.st === 'windup' && near.tgt === runMe() ? 'Gold ring: cut into the blow to PARRY, hold BLOCK, or step back!' : `Swipe the way the arrow over its head points ${CUT_ARROW[near.g]}. The same height as its guard is blocked.`; tip.style.display = tip.textContent ? '' : 'none';
 }
 const _rv = new V3();
 function runDraw(c) {
@@ -249,23 +250,25 @@ TownMode.slashActive = () => !!(RUN && RUN.ready && !RUN.down && TOWN && !TOWN.p
    The Lady in White runs from you: touch her and she shares out 100 health, the weaker samurai first.
    The Red Geisha runs AT you for fifteen seconds: if she touches a samurai he loses half his health and
    his partner a quarter. Each comes once in every town. */
-const RUN_GHOST_T = 15;
-function runGhostHello(k) { if (k === 0) { banner('The Lady in White!', runPeer() ? 'Catch her! She heals you both, the weaker one first' : 'Catch her! She heals you'); sfx.bell && sfx.bell(); } else { banner('THE RED GEISHA!', `Run! Keep away from her for ${RUN_GHOST_T} seconds`); sfx.ghost && sfx.ghost(); shake(.1); } }
+const RUN_GHOST_T = 15, RUN_RED_T = 8; // the Lady can be chased for fifteen seconds; the Red Geisha hunts for eight
+function runGhostHello(k) { if (k === 0) { banner('The Lady in White!', runPeer() ? 'Catch her! She heals you both, the weaker one first' : 'Catch her! She heals you'); sfx.bell && sfx.bell(); } else { banner('THE RED GEISHA!', `Run! Keep away from her for ${RUN_RED_T} seconds`); sfx.ghost && sfx.ghost(); shake(.1); } }
 function runGhostSim(dt, T) {
-  const R = RUN, G = R.gh, dead = R.es.filter(e => e.st === 'dead').length, n = R.es.length, P = runPlayers(T).filter(p => !p.down); if (!P.length || R.clearT >= 0) { G[0].on = G[1].on = false; return; }
+  const R = RUN, G = R.gh, dead = R.es.filter(e => e.st === 'dead').length, n = R.es.length, P = runPlayers(T).filter(p => !p.down); if (!P.length || R.clearT >= 0) { G[0].on = G[1].on = G[1].lurk = false; return; }
   const lim = (x, z) => { const zz = clamp(z, -77, 54), rx = townRoadX(zz); return [clamp(x, rx - 10, rx + 10), zz]; };
   // she keeps to the road you have already cleared: never up among enemies who have not noticed you yet
   const alive = R.es.filter(e => e.st !== 'dead'), north = Math.min(54, ...alive.filter(e => e.st === 'idle').map(e => e.hz - 16)), limW = (x, z) => { const zz = clamp(z, -77, Math.max(-60, north)), rx = townRoadX(zz); return [clamp(x, rx - 10, rx + 10), zz]; };
   if (!G[0].used && dead >= Math.ceil(n / 2)) { const lead = P.slice().sort((a, b) => a.z - b.z)[0], z = lead.z - 17 < -74 ? lead.z + 17 : lead.z - 17, p = limW(townRoadX(z) + rnd(-5, 5), z); Object.assign(G[0], { used: true, on: true, x: p[0], z: p[1], t: 0 }); runGhostHello(0); }
-  if (!G[1].used && dead >= n - 1 && n > 1) { const lead = P.slice().sort((a, b) => a.z - b.z)[0], z = lead.z - 15 < -74 ? lead.z + 15 : lead.z - 15, p = lim(townRoadX(z), z); Object.assign(G[1], { used: true, on: true, x: p[0], z: p[1], t: 0 }); runGhostHello(1); }
+  // the Red Geisha waits somewhere along the road, a faint red shimmer. Walk too close and she wakes
+  if (!G[1].used) { const z = rnd(-56, 48), sd = Math.random() < .5 ? -1 : 1, p = lim(townRoadX(z) + sd * rnd(4.5, 8), z); Object.assign(G[1], { used: true, on: false, lurk: true, x: p[0], z: p[1], t: 0 }); }
+  if (G[1].lurk && P.some(q => Math.hypot(q.x - G[1].x, q.z - G[1].z) < 7.5)) { G[1].lurk = false; G[1].on = true; G[1].t = 0; runGhostHello(1); }
   const me = P.find(p => p.id === runMe());
   if (G[0].on) { const g = G[0]; g.t += dt; let fx = 0, fz = 0; P.forEach(p => { const dx = g.x - p.x, dz = g.z - p.z, d = Math.hypot(dx, dz) || .01, w = 1 / Math.max(1.5, d); fx += dx / d * w; fz += dz / d * w; });
     alive.forEach(e => { const dx = g.x - e.x, dz = g.z - e.z, d = Math.hypot(dx, dz) || .01; if (d < 13) { const w = 1.6 / Math.max(1.5, d); fx += dx / d * w; fz += dz / d * w; } });
     const rx = townRoadX(g.z), top = Math.max(-60, north); fx += (rx - g.x) / 10 * .12; if (g.z > top - 8) fz -= (g.z - (top - 8)) / 8 * .5; if (g.z < -70) fz += (-70 - g.z) / 8 * .3; // she slides along the walls of the road, so two samurai can pen her in
     const l = Math.hypot(fx, fz) || 1, near = Math.min(...P.map(p => Math.hypot(p.x - g.x, p.z - g.z))), v = (P.length > 1 ? 7.5 : 6.3) * (near > 16 ? .25 : 1) * dt, q = limW(g.x + fx / l * v, g.z + fz / l * v); g.x = q[0]; g.z = q[1];
     if (me && Math.hypot(me.x - g.x, me.z - g.z) < 1.6) runGhostCatch(runMe()); else if (g.t >= RUN_GHOST_T) { g.on = false; toast('The Lady in White fades into the mist.'); } }
-  if (G[1].on) { const g = G[1]; g.t += dt; const tg = P.slice().sort((a, b) => Math.hypot(a.x - g.x, a.z - g.z) - Math.hypot(b.x - g.x, b.z - g.z))[0], dx = tg.x - g.x, dz = tg.z - g.z, d = Math.hypot(dx, dz) || .01, v = Math.min(d, (g.t < 1.2 ? 2 : 6.5) * dt); g.x += dx / d * v; g.z += dz / d * v;
-    if (me && Math.hypot(me.x - g.x, me.z - g.z) < 1.25) runGhostDrain(runMe()); else if (g.t >= RUN_GHOST_T) { g.on = false; banner('She is gone!', 'You outran the Red Geisha'); sfx.win && sfx.win(); runSend({ k: 'gx', hit: null }); } }
+  if (G[1].on) { const g = G[1]; g.t += dt; const tg = P.slice().sort((a, b) => Math.hypot(a.x - g.x, a.z - g.z) - Math.hypot(b.x - g.x, b.z - g.z))[0], dx = tg.x - g.x, dz = tg.z - g.z, d = Math.hypot(dx, dz) || .01, v = Math.min(d, (g.t < 1.5 ? 1.5 : 6.1) * dt); g.x += dx / d * v; g.z += dz / d * v;
+    if (me && Math.hypot(me.x - g.x, me.z - g.z) < 1.25) runGhostDrain(runMe()); else if (g.t >= RUN_RED_T) { g.on = false; banner('She is gone!', 'You outran the Red Geisha'); sfx.win && sfx.win(); runSend({ k: 'gx', hit: null }); } }
 }
 function runGhostCatch(by) { // on the tablet in charge: share out 100 health, the weaker samurai first
   const R = RUN, g = R.gh[0]; if (!g.on) return; g.on = false; const p = runPeer(), L = [{ id: runMe(), hp: R.down ? null : R.hp }]; if (p && p.rr && !p.rr.down) L.push({ id: p.id, hp: p.rr.hp });
@@ -275,15 +278,15 @@ function runGhostCatch(by) { // on the tablet in charge: share out 100 health, t
 function runHealApply(h, by) { const R = RUN, a = +h[runMe()] || 0; if (!R.down) { R.hp = Math.min(RUN_ME.hp, R.hp + a); R.sta = RUN_ME.sta; R.staWait = 0; } sfx.up && sfx.up(); OV.flash = .35; OV.flashCol = '220,240,255'; const p = runPeer(), b = p ? +h[p.id] || 0 : 0;
   banner(`${by || 'A samurai'} caught the Lady in White!`, p ? `You +${a} health · ${p.n} +${b} health · breath restored` : `+${a} health · breath restored`); }
 function runGhostDrain(hit) { const R = RUN, g = R.gh[1]; if (!g.on) return; g.on = false; const p = runPeer(), hn = hit === runMe() ? nm() : (p ? p.n : ''); runSend({ k: 'gx', hit, hn }); runDrainApply(hit, hn); }
-function runDrainApply(hit, hn) { const R = RUN; if (hit == null) { banner('She is gone!', 'You outran the Red Geisha'); sfx.win && sfx.win(); return; } const mine = hit === runMe(), before = R.hp; if (!R.down) R.hp = Math.max(1, Math.ceil(R.hp * (mine ? .5 : .75)));
+function runDrainApply(hit, hn) { const R = RUN; if (hit == null) { banner('She is gone!', 'You outran the Red Geisha'); sfx.win && sfx.win(); return; } const mine = hit === runMe(), before = R.hp; if (!R.down) { R.hp = Math.max(1, Math.ceil(R.hp * (mine ? .5 : .75))); R.grace = 3; }
   sfx.hurt && sfx.hurt(); setTimeout(() => sfx.laugh && sfx.laugh(), 300); shake(.16); OV.vig = 1; OV.vigCol = '255,60,110'; banner(mine ? 'THE RED GEISHA HAS YOU!' : `The Red Geisha caught ${hn}!`, `She drinks your spirit: −${Math.round(before - R.hp)} health${runPeer() ? (mine ? ', and a quarter of your partner\'s' : ', a quarter of yours') : ''}`); }
 function runGhostVis(dt, T) {
   const R = RUN; R.gh.forEach((g, k) => {
     if (!R.auth && g.on) { g.t += dt; g.x = lerp(g.x, g.tx == null ? g.x : g.tx, damp(10, dt)); g.z = lerp(g.z, g.tz == null ? g.z : g.tz, damp(10, dt)); const d = Math.hypot(T.pos.x - g.x, T.pos.z - g.z); if (!R.down && !g.sent && d < (k ? 1.25 : 1.6)) { g.sent = true; runSend({ k: k ? 'gd' : 'gc' }); } }
-    if (g.on && !g.rig) { const rig = new Samurai(k ? SNATCH_LOOK : LADY_LOOK, swordDef('iron'), k ? { ghost: true, noSaya: true, ghostCol: '#ff1238', ghostLine: '#ffb0c0' } : { ghost: true, noSaya: true }); rig.root.rotation.order = 'YXZ'; rig.sword.visible = false; rig.setHold('show', 6); const h = halo(k ? '#ff5a7a' : '#bfe0ff', 4.5, .55); h.position.y = 1.2; rig.root.add(h); T.grp.add(rig.root); g.rig = rig; g.px = g.x; g.pz = g.z; }
-    if (!g.rig) return; if (!g.on) { T.grp.remove(g.rig.root); g.rig.dispose && g.rig.dispose(); g.rig = null; return; }
+    if ((g.on || g.lurk) && !g.rig) { const rig = new Samurai(k ? SNATCH_LOOK : LADY_LOOK, swordDef('iron'), k ? { ghost: true, noSaya: true, ghostCol: '#ff1238', ghostLine: '#ffb0c0' } : { ghost: true, noSaya: true }); rig.root.rotation.order = 'YXZ'; rig.sword.visible = false; rig.setHold('show', 6); const h = halo(k ? '#ff5a7a' : '#bfe0ff', 4.5, .55); h.position.y = 1.2; rig.root.add(h); T.grp.add(rig.root); g.rig = rig; g.px = g.x; g.pz = g.z; }
+    if (!g.rig) return; if (!g.on && !g.lurk) { T.grp.remove(g.rig.root); g.rig.dispose && g.rig.dispose(); g.rig = null; return; }
     const mx = g.x - g.px, mz = g.z - g.pz; if (Math.hypot(mx, mz) > .003) g.ry = Math.atan2(mx, mz); g.px = g.x; g.pz = g.z;
-    g.rig.root.position.set(g.x, townH(g.x, g.z) + .15 + Math.sin(g.t * 3) * .1, g.z); g.rig.root.rotation.y = g.ry || 0; g.rig.mat.opacity = g.t > RUN_GHOST_T - 2 ? .2 + .3 * Math.abs(Math.sin(g.t * 9)) : .62; g.rig.update(dt);
-    if (Math.random() < dt * 24) FX.add.emit(g.x + rnd(-.4, .4), townH(g.x, g.z) + rnd(.2, 1.8), g.z + rnd(-.4, .4), 0, rnd(.3, .8), 0, rnd(.6, 1.1), .08, 0, k ? '#ff6a8a' : '#cfe8ff', .8, -.2, .3);
+    g.rig.root.position.set(g.x, townH(g.x, g.z) + .15 + Math.sin(g.t * 3) * .1, g.z); g.rig.root.rotation.y = g.ry || 0; if (g.lurk) g.t += dt; g.rig.mat.opacity = g.lurk ? .1 + .06 * Math.sin(g.t * 2) : g.t > (k ? RUN_RED_T : RUN_GHOST_T) - 2 ? .2 + .3 * Math.abs(Math.sin(g.t * 9)) : .62; g.rig.update(dt);
+    if (Math.random() < dt * (g.lurk ? 3 : 24)) FX.add.emit(g.x + rnd(-.4, .4), townH(g.x, g.z) + rnd(.2, 1.8), g.z + rnd(-.4, .4), 0, rnd(.3, .8), 0, rnd(.6, 1.1), .08, 0, k ? '#ff6a8a' : '#cfe8ff', .8, -.2, .3);
   });
 }
