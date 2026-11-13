@@ -125,26 +125,26 @@ function runStruck(e, T) {
   const R = RUN; if (!R || R.down || e.st === 'stagger' || e.st === 'dead') return; const d = Math.hypot(T.pos.x - e.x, T.pos.z - e.z), s = { x: VW / 2, y: VH * .62 };
   if (d > e.reach + .9) { ovPop(s.x, s.y - 40, 'DODGED!', { size: 28, color: '#9ff0c8', stroke: '#06261a' }); sfx.whoosh && sfx.whoosh(); return; }
   let dmg = e.dmg;
-  if (R.block && R.sta >= 14) { dmg = Math.round(dmg * .28); R.sta -= 18; sfx.clang && sfx.clang(); FX.sparks(T.P.bladePoint(.5), '#d9eeff', 18, 4); ovPop(s.x, s.y - 40, 'BLOCKED', { size: 24, color: '#bfe2ff', stroke: '#0a1a3a' }); }
+  if (R.block && R.sta >= 14) { dmg = Math.round(dmg * .28); R.sta -= 22; R.staWait = .5; sfx.clang && sfx.clang(); FX.sparks(T.P.bladePoint(.5), '#d9eeff', 18, 4); ovPop(s.x, s.y - 40, 'BLOCKED', { size: 24, color: '#bfe2ff', stroke: '#0a1a3a' }); }
   else { sfx.hurt && sfx.hurt(); T.P.hitFlash && T.P.hitFlash(1); shake(.12); OV.vig = .8; OV.vigCol = '255,60,60'; ovPop(s.x, s.y - 40, '−' + dmg, { size: 34, color: '#ff9a7a', stroke: '#2a0600' }); }
   R.hp -= dmg; if (R.hp <= 0) { R.hp = 0; R.down = true; R.block = false; T.P.ko(); banner('You are down!', runPeer() ? 'If your partner clears the town, you rise again with half your health' : ''); sfx.lose && sfx.lose(); runSend({ k: 'p', hp: 0, down: 1 }); }
 }
 /* ---------- my cut ---------- */
 function runSlash(x0, y0, x1, y1, pid) {
   const R = RUN, T = TOWN; if (!R || !T || !R.ready || R.down || T.paused || (T.joy && T.joy.id === pid)) return;
-  const len = Math.hypot(x1 - x0, y1 - y0) || 1, ux = (x1 - x0) / len, uy = (y1 - y0) / len; if (R.cd > 0 || R.sta < 8) return;
-  R.cd = RUN_ME.cd; R.sta -= 8; R.block = false; rigSwing(T.P, ux, uy, .12); sfx.slash && sfx.slash(); runSend({ k: 'sw', ux: +ux.toFixed(2), uy: +uy.toFixed(2) });
+  const len = Math.hypot(x1 - x0, y1 - y0) || 1, ux = (x1 - x0) / len, uy = (y1 - y0) / len; if (R.cd > 0) return; if (R.sta < 11) { if (!R.puffT || Date.now() - R.puffT > 900) { R.puffT = Date.now(); ovPop(VW / 2, VH * .6, 'Out of breath!', { size: 24, color: '#7fd0ff', stroke: '#06202a' }); } return; }
+  R.cd = RUN_ME.cd; R.sta -= 11; R.staWait = .55; R.block = false; rigSwing(T.P, ux, uy, .12); sfx.slash && sfx.slash(); runSend({ k: 'sw', ux: +ux.toFixed(2), uy: +uy.toFixed(2) });
   const cut = uy > .5 ? 0 : uy < -.5 ? 2 : 1; // down the screen = an overhead cut, up = a rising cut, across = a side cut
   let best = null; for (const e of R.es) { if (e.st === 'dead') continue; const d = Math.hypot(e.x - T.pos.x, e.z - T.pos.z); if (d > RUN_ME.reach * (e.sc > 1.2 ? 1.15 : 1)) continue; const h = hitTest(e.rig, x0, y0, x1, y1); if (h && (!best || d < best.d)) best = { e, h, d }; }
   if (!best) { // nothing under the blade: still turn to face the nearest enemy, so the next cut finds it
     const n = R.es.filter(e => e.st !== 'dead').sort((a, b) => Math.hypot(a.x - T.pos.x, a.z - T.pos.z) - Math.hypot(b.x - T.pos.x, b.z - T.pos.z))[0]; if (n && Math.hypot(n.x - T.pos.x, n.z - T.pos.z) < 5) T.face = Math.atan2(n.x - T.pos.x, n.z - T.pos.z); return; }
   const e = best.e, h = best.h, sx = h.sx, sy = h.sy; T.face = Math.atan2(e.x - T.pos.x, e.z - T.pos.z);
   if (e.st === 'windup' && e.tgt === runMe() && e.tw - e.t < .5) { // a cut into the blow as it falls: parry
-    sfx.parry && sfx.parry(); FX.sparks(e.rig.bladePoint(.5), '#ffe08c', 34, 6); hitstop(70); ovPop(sx, sy - 60, 'PARRY!', { size: 36, color: '#2a1200', stroke: '#fff6d8', burst: '#ffd23a', life: 1 }); R.sta = Math.min(RUN_ME.sta, R.sta + 14);
+    sfx.parry && sfx.parry(); FX.sparks(e.rig.bladePoint(.5), '#ffe08c', 34, 6); hitstop(70); ovPop(sx, sy - 60, 'PARRY!', { size: 36, color: '#2a1200', stroke: '#fff6d8', burst: '#ffd23a', life: 1 }); R.sta = Math.min(RUN_ME.sta, R.sta + 22); R.staWait = 0;
     if (R.auth) runHit(e.k, 0, true); else { runSend({ k: 'hit', e: e.k, d: 0, pr: 1, i: R.i }); R.seen[e.k + ':' + e.aq] = 2; e.st = 'stagger'; e.t = 0; } return; }
   let m = 1, tag = '';
   if (e.st === 'stagger') { m = 2; tag = 'OPEN!'; } else if (e.st === 'windup' || e.st === 'recover') m = 1.2;
-  else if (cut === e.g) { sfx.clang && sfx.clang(); FX.sparks(e.rig.bladePoint(.45), '#d9eeff', 16, 4); ovPop(sx, sy - 50, 'BLOCKED', { size: 24, color: '#bfe2ff', stroke: '#0a1a3a' }); R.sta = Math.max(0, R.sta - 6); R.cd += .12; return; }
+  else if (cut === e.g) { sfx.clang && sfx.clang(); FX.sparks(e.rig.bladePoint(.45), '#d9eeff', 16, 4); ovPop(sx, sy - 50, 'BLOCKED', { size: 24, color: '#bfe2ff', stroke: '#0a1a3a' }); R.sta = Math.max(0, R.sta - 9); R.cd += .12; return; }
   else if (cut === [2, 0, 1][e.g]) { m = 1.6; tag = 'COUNTER!'; } else m = .7;
   const dmg = Math.round(RUN_ME.cut * m * rnd(.9, 1.1)); sfx.hit && sfx.hit(); e.rig.hitFlash(1); FX.sparks(h.world, '#ffffff', 14, 4); shake(.04);
   ovPop(sx, sy - 24, (tag ? tag + ' ' : '') + dmg, { size: tag ? 34 : 28, color: tag ? '#ffe08c' : '#fff', stroke: '#2a0600' });
@@ -155,7 +155,7 @@ function runSlash(x0, y0, x1, y1, pid) {
 function runTick(dt, T) {
   const R = RUN; if (!R || !R.ready) return;
   if (R.intro > 0) R.intro -= dt; if (R.clearT < 0 && !R.over) R.clock += R.auth ? dt : 0;
-  R.cd = Math.max(0, R.cd - dt); R.sta = Math.min(RUN_ME.sta, R.sta + dt * (R.block ? 6 : 24));
+  R.cd = Math.max(0, R.cd - dt); R.staWait = Math.max(0, (R.staWait || 0) - dt); if (!R.staWait) R.sta = Math.min(RUN_ME.sta, R.sta + dt * (R.block ? 5 : 15)); // breath comes back only when you stop swinging
   T.camPitch = lerp(T.camPitch, .56, damp(3, dt)); { let c = T.face - T.camYaw; c = Math.atan2(Math.sin(c), Math.cos(c)); T.camYaw += c * damp(2.2, dt); } // look down over your own shoulder, so the enemy is never hidden behind you
   // the road is the whole world now
   const rx = townRoadX(T.pos.z); T.pos.x = clamp(T.pos.x, rx - 11, rx + 11); T.pos.z = clamp(T.pos.z, -80, 56); if (R.down) { T.joy = null; T.pos.copy(T.lastGood); } else if (R.block) T.pos.lerp(T.lastGood, .55);
