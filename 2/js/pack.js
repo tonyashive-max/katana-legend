@@ -38,6 +38,7 @@ function packMove(f, cx, cz, face, hide, dt) {
   R.root.position.set(f.x, y, f.z); R.root.rotation.y = f.ry; R.root.visible = !hide; R.update(dt);
 }
 function packTick(dt, T) {
+  if (typeof RUN !== 'undefined' && RUN) return runTick(dt, T);
   if (T.cine) cineStep(dt, T);
   unstick(dt, T);
   if (S.crew && S.crew.here && S.crew.t === S.cur && Date.now() - (S.crew.at || 0) > 15000 && Math.hypot(T.pos.x - S.crew.x, T.pos.z - S.crew.z) < 9) { crewBack(T); packBuild(T); } // you walked back to where she took you
