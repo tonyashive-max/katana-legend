@@ -254,12 +254,15 @@ function runGhostHello(k) { if (k === 0) { banner('The Lady in White!', runPeer(
 function runGhostSim(dt, T) {
   const R = RUN, G = R.gh, dead = R.es.filter(e => e.st === 'dead').length, n = R.es.length, P = runPlayers(T).filter(p => !p.down); if (!P.length || R.clearT >= 0) { G[0].on = G[1].on = false; return; }
   const lim = (x, z) => { const zz = clamp(z, -77, 54), rx = townRoadX(zz); return [clamp(x, rx - 10, rx + 10), zz]; };
-  if (!G[0].used && dead >= Math.ceil(n / 2)) { const lead = P.slice().sort((a, b) => b.z - a.z)[0], z = lead.z + 17 > 52 ? lead.z - 17 : lead.z + 17, p = lim(townRoadX(z) + rnd(-5, 5), z); Object.assign(G[0], { used: true, on: true, x: p[0], z: p[1], t: 0 }); runGhostHello(0); }
+  // she keeps to the road you have already cleared: never up among enemies who have not noticed you yet
+  const alive = R.es.filter(e => e.st !== 'dead'), north = Math.min(54, ...alive.filter(e => e.st === 'idle').map(e => e.hz - 16)), limW = (x, z) => { const zz = clamp(z, -77, Math.max(-60, north)), rx = townRoadX(zz); return [clamp(x, rx - 10, rx + 10), zz]; };
+  if (!G[0].used && dead >= Math.ceil(n / 2)) { const lead = P.slice().sort((a, b) => a.z - b.z)[0], z = lead.z - 17 < -74 ? lead.z + 17 : lead.z - 17, p = limW(townRoadX(z) + rnd(-5, 5), z); Object.assign(G[0], { used: true, on: true, x: p[0], z: p[1], t: 0 }); runGhostHello(0); }
   if (!G[1].used && dead >= n - 1 && n > 1) { const lead = P.slice().sort((a, b) => a.z - b.z)[0], z = lead.z - 15 < -74 ? lead.z + 15 : lead.z - 15, p = lim(townRoadX(z), z); Object.assign(G[1], { used: true, on: true, x: p[0], z: p[1], t: 0 }); runGhostHello(1); }
   const me = P.find(p => p.id === runMe());
   if (G[0].on) { const g = G[0]; g.t += dt; let fx = 0, fz = 0; P.forEach(p => { const dx = g.x - p.x, dz = g.z - p.z, d = Math.hypot(dx, dz) || .01, w = 1 / Math.max(1.5, d); fx += dx / d * w; fz += dz / d * w; });
-    const rx = townRoadX(g.z); fx += (rx - g.x) / 10 * .12; if (g.z > 46) fz -= (g.z - 46) / 8 * .3; if (g.z < -70) fz += (-70 - g.z) / 8 * .3; // she slides along the walls of the road, so two samurai can pen her in
-    const l = Math.hypot(fx, fz) || 1, near = Math.min(...P.map(p => Math.hypot(p.x - g.x, p.z - g.z))), v = (P.length > 1 ? 7.5 : 6.3) * (near > 16 ? .25 : 1) * dt, q = lim(g.x + fx / l * v, g.z + fz / l * v); g.x = q[0]; g.z = q[1];
+    alive.forEach(e => { const dx = g.x - e.x, dz = g.z - e.z, d = Math.hypot(dx, dz) || .01; if (d < 13) { const w = 1.6 / Math.max(1.5, d); fx += dx / d * w; fz += dz / d * w; } });
+    const rx = townRoadX(g.z), top = Math.max(-60, north); fx += (rx - g.x) / 10 * .12; if (g.z > top - 8) fz -= (g.z - (top - 8)) / 8 * .5; if (g.z < -70) fz += (-70 - g.z) / 8 * .3; // she slides along the walls of the road, so two samurai can pen her in
+    const l = Math.hypot(fx, fz) || 1, near = Math.min(...P.map(p => Math.hypot(p.x - g.x, p.z - g.z))), v = (P.length > 1 ? 7.5 : 6.3) * (near > 16 ? .25 : 1) * dt, q = limW(g.x + fx / l * v, g.z + fz / l * v); g.x = q[0]; g.z = q[1];
     if (me && Math.hypot(me.x - g.x, me.z - g.z) < 1.6) runGhostCatch(runMe()); else if (g.t >= RUN_GHOST_T) { g.on = false; toast('The Lady in White fades into the mist.'); } }
   if (G[1].on) { const g = G[1]; g.t += dt; const tg = P.slice().sort((a, b) => Math.hypot(a.x - g.x, a.z - g.z) - Math.hypot(b.x - g.x, b.z - g.z))[0], dx = tg.x - g.x, dz = tg.z - g.z, d = Math.hypot(dx, dz) || .01, v = Math.min(d, (g.t < 1.2 ? 2 : 6.5) * dt); g.x += dx / d * v; g.z += dz / d * v;
     if (me && Math.hypot(me.x - g.x, me.z - g.z) < 1.25) runGhostDrain(runMe()); else if (g.t >= RUN_GHOST_T) { g.on = false; banner('She is gone!', 'You outran the Red Geisha'); sfx.win && sfx.win(); runSend({ k: 'gx', hit: null }); } }
