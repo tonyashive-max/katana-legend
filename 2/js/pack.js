@@ -15,12 +15,15 @@ function packList() {
   return L.slice(-5);
 }
 const PACK_SLOTS = [[-1.9, -.5], [1.9, -.5], [-3.3, .4], [3.3, .4], [-4.7, 1.3]];
-function packPeople(T) {
-  T.pack = []; if (window.__noPack) return;
+function crewBack(T, quiet) { const n = S.crew ? S.crew.n : 0; S.crew = null; save(); if (!quiet) { sfx.win && sfx.win(); banner('Your friends rejoin you!', n ? 'All ' + n + ' of them, and glad to see you' : ''); } }
+function packPeople(T) { packBuild(T); platePeople(T); }
+function packBuild(T) {
+  (T.pack || []).forEach(f => { T.grp.remove(f.rig.root); f.rig.dispose && f.rig.dispose(); }); T.pack = []; if (window.__noPack) return;
+  if (S.crew && S.crew.t === S.cur && !S.crew.here) crewBack(T); // back in the town where you were taken
+  if (S.crew) return;
   packList().forEach((id, i) => { const f = allyRig(id); if (!f) return; const R = f.rig; R.setSheathed && R.hasSaya && R.setSheathed(true); R.setHold('rest', 6);
     T.grp.add(R.root);
     const a = T.face + Math.PI + (i - 2) * .5; T.pack.push(Object.assign(f, { x: T.pos.x + Math.sin(a) * 2.2, z: T.pos.z + Math.cos(a) * 2.2, ph: i * 1.7, ry: T.face, v: 0, i })); });
-  platePeople(T);
 }
 /* one follower keeps his place beside whoever he follows: beside, never between that samurai and the camera */
 function packMove(f, cx, cz, face, hide, dt) {
@@ -37,6 +40,7 @@ function packMove(f, cx, cz, face, hide, dt) {
 function packTick(dt, T) {
   if (T.cine) cineStep(dt, T);
   unstick(dt, T);
+  if (S.crew && S.crew.here && S.crew.t === S.cur && Date.now() - (S.crew.at || 0) > 15000 && Math.hypot(T.pos.x - S.crew.x, T.pos.z - S.crew.z) < 9) { crewBack(T); packBuild(T); } // you walked back to where she took you
   const hide = !!(T.boat || T.lift || (T.enc && T.enc.phase));
   (T.pack || []).forEach(f => packMove(f, T.pos.x, T.pos.z, T.face, hide, dt));
   coopExtra(dt, T);
@@ -161,8 +165,11 @@ let CX_T = 0;
 function posseDrop(p) { (p.posse || []).forEach(f => { const g = f.rig.root.parent; if (g) g.remove(f.rig.root); f.rig.dispose && f.rig.dispose(); }); p.posse = null; p.pkSig = null; }
 function coopExtra(dt, T) {
   if (typeof CO === 'undefined' || !CO.on) return;
-  CX_T -= dt; if (CX_T <= 0) { CX_T = .8; try { NET.send('cx', { id: CO.me, t: S.cur, pk: (T.pack || []).map(f => f.id), day: +T.day.toFixed(4), lp: T.lapse > 0 ? 1 : 0 }); } catch (e) { /* */ } }
+  CX_T -= dt; if (CX_T <= 0) { CX_T = .8; try { NET.send('cx', { id: CO.me, t: S.cur, pk: (T.pack || []).map(f => f.id), day: +T.day.toFixed(4), lp: T.lapse > 0 ? 1 : 0, far: S.far || 0, call: CO.call > 0 ? 1 : 0 }); if (CO.call > 0) CO.call--; } catch (e) { /* */ } }
   for (const p of Object.values(CO.peers)) {
+    // a friend who has not come this far cannot reach you: offer to walk back to them
+    if (p.t !== S.cur && p.far != null && p.far < S.cur && p.t <= (S.far || 0) && p.asked !== p.t && !T.paused && !T.cine && !T.enc && $('#overlay').hidden && coopNow() - p.at < 6) { p.asked = p.t; T.paused = true; T.joy = null; sfx.taiko && sfx.taiko(.7);
+      openOverlay(`<div class="modal"><div class="eyebrow">Travelling together</div><p style="font-size:17px"><b style="color:#9ff0c8">${esc(p.n)}</b> is in <b>${TOWNS[p.t].n}</b> and has not come as far as ${townCfg().n} yet, so he cannot reach you here.</p><p class="muted">You can walk back to him. Your place on the road is kept, and you can help him with his duels, bells and stone plates.</p><div class="actions"><button class="btn primary" data-travel="${p.t}" data-friend="1">Go to ${esc(p.n)}</button><button class="btn" data-coop="stay">Stay here</button></div></div>`); }
     if (!p.rig || p.t !== S.cur) { if (p.posse) posseDrop(p); continue; }
     const sig = (p.pk || []).join(','); if (p.pkSig !== sig) { posseDrop(p); p.pkSig = sig; p.posse = (p.pk || []).slice(0, 5).map((id, i) => { const f = allyRig(id); if (!f) return null; f.rig.setSheathed && f.rig.hasSaya && f.rig.setSheathed(true); f.rig.setHold('rest', 6); T.grp.add(f.rig.root); return Object.assign(f, { i, x: p.px, z: p.pz, ry: p.pf, v: 0, ph: i * 1.7 }); }).filter(Boolean); }
     (p.posse || []).forEach(f => packMove(f, p.px, p.pz, p.pf, p.lf > .3, dt));
@@ -170,5 +177,5 @@ function coopExtra(dt, T) {
     if (p.day != null && !(T.lapse > 0) && (p.lp || !CO.host)) { let d = p.day - T.day; d -= Math.round(d); if (Math.abs(d) > .002) T.day = (T.day + d * (p.lp ? 1 : damp(2.5, dt)) + 1) % 1; }
   }
 }
-{ const cm = coopMsg; coopMsg = function (d) { if (d && d.type === 'cx') { const p = CO.peers[d.id]; if (p && (d.t | 0) === p.t) { p.pk = Array.isArray(d.pk) ? d.pk.filter(x => typeof x === 'string' && /^[a-z]+:[a-z0-9]+$/.test(x)).slice(0, 5) : []; p.day = +d.day || 0; p.lp = !!d.lp; } return; } return cm.apply(this, arguments); }; }
+{ const cm = coopMsg; coopMsg = function (d) { if (d && d.type === 'cx') { const p = CO.peers[d.id]; if (p && (d.t | 0) === p.t) { p.pk = Array.isArray(d.pk) ? d.pk.filter(x => typeof x === 'string' && /^[a-z]+:[a-z0-9]+$/.test(x)).slice(0, 5) : []; p.day = +d.day || 0; p.lp = !!d.lp; p.far = d.far | 0; if (d.call) p.asked = null; } return; } return cm.apply(this, arguments); }; }
 { const cd = coopDrop; coopDrop = function (p) { if (p && p.posse) posseDrop(p); return cd.apply(this, arguments); }; }
