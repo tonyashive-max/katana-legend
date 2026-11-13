@@ -559,8 +559,10 @@ function wireInput() {
   gl.addEventListener('pointerdown', e => {
     AUD.init(); MUSIC.start(MUSIC.want || 'hub'); // first touch unlocks audio; keep whatever music this scene asked for
     try { gl.setPointerCapture(e.pointerId); } catch (er) { /* */ }
-    PTR[e.pointerId] = { sx: e.clientX, sy: e.clientY, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY };
-    const ids = Object.keys(PTR);
+    const now0 = performance.now();
+    PTR[e.pointerId] = { sx: e.clientX, sy: e.clientY, x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY, t: now0, lt: now0 };
+    // two fingers only count as a pair when they land together: a thumb resting on the glass is not a second finger
+    const ids = Object.keys(PTR).filter(k => now0 - PTR[k].t < 300 && !PTR[k].slashed && !PTR[k].two);
     if (ids.length === 2 && twoFingerOK()) {
       const a = PTR[ids[0]], b = PTR[ids[1]];
       TWO = { ids, x0: (a.cx + b.cx) / 2, y0: (a.cy + b.cy) / 2, done: false };
@@ -574,11 +576,11 @@ function wireInput() {
   gl.addEventListener('pointermove', e => {
     const p = PTR[e.pointerId]; if (!p) return;
     const x = e.clientX, y = e.clientY;
-    p.cx = x; p.cy = y;
+    p.cx = x; p.cy = y; p.lt = performance.now();
     if (p.two) {
       if (TWO && !TWO.done) {
         const a = PTR[TWO.ids[0]], b = PTR[TWO.ids[1]];
-        if (a && b) { const dx = (a.cx + b.cx) / 2 - TWO.x0, dy = (a.cy + b.cy) / 2 - TWO.y0; if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.3) { TWO.done = true; stepInput(dx < 0 ? -1 : 1, 'A'); } }
+        if (a && b) { const dx = (a.cx + b.cx) / 2 - TWO.x0, dy = (a.cy + b.cy) / 2 - TWO.y0, da = a.cx - a.x0, db = b.cx - b.x0; if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.3 && da * db > 0 && Math.min(Math.abs(da), Math.abs(db)) > 28) { TWO.done = true; stepInput(dx < 0 ? -1 : 1, 'A'); } }
       }
       return;
     }

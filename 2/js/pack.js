@@ -22,21 +22,24 @@ function packPeople(T) {
     const a = T.face + Math.PI + (i - 2) * .5; T.pack.push(Object.assign(f, { x: T.pos.x + Math.sin(a) * 2.2, z: T.pos.z + Math.cos(a) * 2.2, ph: i * 1.7, ry: T.face, v: 0, i })); });
   platePeople(T);
 }
+/* one follower keeps his place beside whoever he follows: beside, never between that samurai and the camera */
+function packMove(f, cx, cz, face, hide, dt) {
+  const fx = Math.sin(face), fz = Math.cos(face), [side, back] = PACK_SLOTS[f.i % PACK_SLOTS.length], tx = cx - fx * back - fz * side, tz = cz - fz * back + fx * side;
+  let dx = tx - f.x, dz = tz - f.z, d = Math.hypot(dx, dz);
+  if (d > 32 || hide) { f.x = tx; f.z = tz; d = 0; }
+  const want = d > .45 ? Math.min(9.5, 1.6 + d * 5) : 0; f.v = lerp(f.v, want, damp(8, dt));
+  if (f.v > .15 && d > .05) { const st = Math.min(d, f.v * dt), nx = f.x + dx / d * st, nz = f.z + dz / d * st, h = townH(nx, nz); if (h > -.22 && h < 9) { f.x = nx; f.z = nz; } let a = Math.atan2(dx, dz) - f.ry; a = Math.atan2(Math.sin(a), Math.cos(a)); f.ry += a * damp(9, dt); }
+  else { let a = face - f.ry; a = Math.atan2(Math.sin(a), Math.cos(a)); f.ry += a * damp(2.5, dt); }
+  const k = Math.min(1, f.v / 5), R = f.rig, y = townH(f.x, f.z); f.ph += dt * (5 + f.v * .9) * (k > .03 ? 1 : 0);
+  R.feet.L.set(.15, .035 + Math.max(0, Math.sin(f.ph)) * .1 * k, Math.sin(f.ph) * .24 * k); R.feet.R.set(-.15, .035 + Math.max(0, -Math.sin(f.ph)) * .1 * k, -Math.sin(f.ph) * .24 * k); R.armSwing = -Math.sin(f.ph) * .7 * k; R.leanAdd = .05 + k * .08;
+  R.root.position.set(f.x, y, f.z); R.root.rotation.y = f.ry; R.root.visible = !hide; R.update(dt);
+}
 function packTick(dt, T) {
   if (T.cine) cineStep(dt, T);
   unstick(dt, T);
-  const hide = !!(T.boat || T.lift || (T.enc && T.enc.phase)), fx = Math.sin(T.face), fz = Math.cos(T.face), n = (T.pack || []).length;
-  (T.pack || []).forEach(f => {
-    const [side, back] = PACK_SLOTS[f.i % PACK_SLOTS.length], tx = T.pos.x - fx * back - fz * side, tz = T.pos.z - fz * back + fx * side; // beside you, never between you and the camera
-    let dx = tx - f.x, dz = tz - f.z, d = Math.hypot(dx, dz);
-    if (d > 32 || hide) { f.x = tx; f.z = tz; d = 0; }
-    const want = d > .45 ? Math.min(9.5, 1.6 + d * 5) : 0; f.v = lerp(f.v, want, damp(8, dt));
-    if (f.v > .15 && d > .05) { const st = Math.min(d, f.v * dt), nx = f.x + dx / d * st, nz = f.z + dz / d * st, h = townH(nx, nz); if (h > -.22 && h < 9) { f.x = nx; f.z = nz; } let a = Math.atan2(dx, dz) - f.ry; a = Math.atan2(Math.sin(a), Math.cos(a)); f.ry += a * damp(9, dt); }
-    else { let a = T.face - f.ry; a = Math.atan2(Math.sin(a), Math.cos(a)); f.ry += a * damp(2.5, dt); }
-    const k = Math.min(1, f.v / 5), R = f.rig, y = townH(f.x, f.z); f.ph += dt * (5 + f.v * .9) * (k > .03 ? 1 : 0);
-    R.feet.L.set(.15, .035 + Math.max(0, Math.sin(f.ph)) * .1 * k, Math.sin(f.ph) * .24 * k); R.feet.R.set(-.15, .035 + Math.max(0, -Math.sin(f.ph)) * .1 * k, -Math.sin(f.ph) * .24 * k); R.armSwing = -Math.sin(f.ph) * .7 * k; R.leanAdd = .05 + k * .08;
-    R.root.position.set(f.x, y, f.z); R.root.rotation.y = f.ry; R.root.visible = !hide; R.update(dt);
-  });
+  const hide = !!(T.boat || T.lift || (T.enc && T.enc.phase));
+  (T.pack || []).forEach(f => packMove(f, T.pos.x, T.pos.z, T.face, hide, dt));
+  coopExtra(dt, T);
   plateTick(dt, T);
 }
 /* ---------- friends at the duel ---------- */
@@ -152,3 +155,20 @@ function unstick(dt, T) {
   if (!best) best = { x: townRoadX(-74), z: -74 };
   T.pos.set(best.x, 0, best.z); T.lastGood.copy(T.pos); T.ust = 0; toast('You wade back to firm ground.');
 }
+
+/* ===== Travelling together: you see your friend's posse, and you share one sky ===== */
+let CX_T = 0;
+function posseDrop(p) { (p.posse || []).forEach(f => { const g = f.rig.root.parent; if (g) g.remove(f.rig.root); f.rig.dispose && f.rig.dispose(); }); p.posse = null; p.pkSig = null; }
+function coopExtra(dt, T) {
+  if (typeof CO === 'undefined' || !CO.on) return;
+  CX_T -= dt; if (CX_T <= 0) { CX_T = .8; try { NET.send('cx', { id: CO.me, t: S.cur, pk: (T.pack || []).map(f => f.id), day: +T.day.toFixed(4), lp: T.lapse > 0 ? 1 : 0 }); } catch (e) { /* */ } }
+  for (const p of Object.values(CO.peers)) {
+    if (!p.rig || p.t !== S.cur) { if (p.posse) posseDrop(p); continue; }
+    const sig = (p.pk || []).join(','); if (p.pkSig !== sig) { posseDrop(p); p.pkSig = sig; p.posse = (p.pk || []).slice(0, 5).map((id, i) => { const f = allyRig(id); if (!f) return null; f.rig.setSheathed && f.rig.hasSaya && f.rig.setSheathed(true); f.rig.setHold('rest', 6); T.grp.add(f.rig.root); return Object.assign(f, { i, x: p.px, z: p.pz, ry: p.pf, v: 0, ph: i * 1.7 }); }).filter(Boolean); }
+    (p.posse || []).forEach(f => packMove(f, p.px, p.pz, p.pf, p.lf > .3, dt));
+    // one sky: the guest follows the host's clock, and whoever is waiting for dawn carries the other along
+    if (p.day != null && !(T.lapse > 0) && (p.lp || !CO.host)) { let d = p.day - T.day; d -= Math.round(d); if (Math.abs(d) > .002) T.day = (T.day + d * (p.lp ? 1 : damp(2.5, dt)) + 1) % 1; }
+  }
+}
+{ const cm = coopMsg; coopMsg = function (d) { if (d && d.type === 'cx') { const p = CO.peers[d.id]; if (p && (d.t | 0) === p.t) { p.pk = Array.isArray(d.pk) ? d.pk.filter(x => typeof x === 'string' && /^[a-z]+:[a-z0-9]+$/.test(x)).slice(0, 5) : []; p.day = +d.day || 0; p.lp = !!d.lp; } return; } return cm.apply(this, arguments); }; }
+{ const cd = coopDrop; coopDrop = function (p) { if (p && p.posse) posseDrop(p); return cd.apply(this, arguments); }; }
