@@ -113,7 +113,7 @@ function friendEdge(st, role) {
   st.friendMsg = miss.length ? `You face ${st.name} alone, and it will be much harder. ${miss.join(' and ')} would have stood with you, had you shown mercy.` : help.length ? `${help.join(' and ')} ${help.length > 1 || c.i === 6 && role === 'keeper' ? 'stand' : 'stands'} with you and call${help.length > 1 ? '' : 's'} out every trick. ${st.name} is weaker for it.` : '';
   return st;
 }
-function friendsHere() { return allies().filter(a => a.startsWith(townCfg().id + ':')); }
+function friendsHere() { return S.crew ? [] : allies().filter(a => a.startsWith(townCfg().id + ':')); } // friends the Red Geisha parted you from cannot help until you find them
 { const sb = startBattle; startBattle = function (st, ctx) { const r = sb.apply(this, arguments); if (ctx && ctx.kind === 'town') { const m = st.friendMsg || st.intro; if (m) setTimeout(() => { if (F && !F.over && F.st === st) toast(m); }, 3200); } return r; }; }
 /* a friend from this town steps in, once per duel, when you would fall */
 { const df = defeat; defeat = function (reason) {

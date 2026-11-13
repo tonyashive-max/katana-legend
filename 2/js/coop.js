@@ -86,8 +86,8 @@ function packCoop() {
     <p class="muted" style="margin:6px 0 12px">Two samurai, two tablets, one road. Share a code and you will see each other walking the town and on the map. When your friend is in a duel, tap <b>Cheer</b> to send them Spirit and health. Each of you keeps your own save, armor and friends.</p>
     ${CO.err ? `<p style="color:#ff9a7a">⚠ ${esc(CO.err)}</p>` : ''}
     ${CO.code ? `<div class="card" style="gap:8px;text-align:center"><small class="muted">${CO.host ? 'Tell your friend this code' : 'Joined with code'}</small><div style="font-size:44px;font-weight:900;letter-spacing:.3em;color:var(--gold-2,#ffd27a)">${CO.code}</div>
-        <small class="muted">${ps.length ? '' : esc(CO.status)}</small>${ps.map(p => `<b style="color:#9ff0c8">✓ ${esc(p.n)} · ${p.t === S.cur ? 'here in ' + townCfg().n : 'in ' + TOWNS[p.t].n}${p.t !== S.cur && p.t <= (S.far || 0) ? ` <button class="btn small" data-travel="${p.t}" data-friend="1">Go to them</button>` : ''}</b>`).join('')}
-        ${ps.some(p => p.t !== S.cur && p.t > (S.far || 0)) ? '<small class="muted">Your friend is further down the road than you have reached. They can travel back to you from their Map.</small>' : ''}
+        <small class="muted">${ps.length ? '' : esc(CO.status)}</small>${ps.map(p => `<b style="color:#9ff0c8">✓ ${esc(p.n)} · ${p.t === S.cur ? 'here in ' + townCfg().n : 'in ' + TOWNS[p.t].n}${p.t !== S.cur && p.t <= (S.far || 0) ? ` <button class="btn small" data-travel="${p.t}" data-friend="1">Go to them</button>` : p.t > (S.far || 0) ? ` <button class="btn small primary" data-coop="call">Call them back to ${townCfg().n}</button>` : ''}</b>`).join('')}
+        ${ps.some(p => p.t !== S.cur && p.t > (S.far || 0)) ? '<small class="muted">Your friend is further down the road than you have reached, and you cannot skip ahead. They have been asked to come back to you. Tap “Call them back” to ask again.</small>' : ''}
         <button class="btn small" data-coop="leave">Stop travelling together</button></div>`
       : `<div class="grid2"><div class="card" style="gap:8px"><b>Start a party</b><small>You get a code to tell your friend.</small><button class="btn primary" data-coop="host">Get a code</button></div>
         <div class="card" style="gap:8px"><b>Join a friend</b><small>Type the code on their screen.</small><input id="coCode" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="CODE" style="font-size:22px;font-weight:900;letter-spacing:.3em;text-align:center;padding:8px;border-radius:10px;border:2px solid rgba(255,255,255,.25);background:rgba(0,0,0,.3);color:#fff;width:100%;text-transform:uppercase"><button class="btn primary" data-coop="join">Join</button></div></div>`}`;
@@ -96,6 +96,8 @@ function coopClick(a) {
   if (a === 'host') { sfx.ui && sfx.ui(); coopOpen(newCode(), true); return true; }
   if (a === 'join') { const v = (($('#coCode') || {}).value || '').replace(/[^a-z0-9]/gi, '').toUpperCase(); if (v.length !== 4) { CO.err = 'The code has four letters or numbers.'; openPack('co'); return true; } coopOpen(v, false); return true; }
   if (a === 'leave') { coopClose(); return true; }
+  if (a === 'stay') { closeOverlay(); if (TOWN) TOWN.paused = false; return true; }
+  if (a === 'call') { CO.call = 4; sfx.taiko && sfx.taiko(.7); toast('You call down the road to your friend.'); return true; }
   if (a === 'cheer') { const now = coopNow(); if (now < CO.cheerAt) return true; CO.cheerAt = now + 6; coopEvent('cheer'); sfx.taiko && sfx.taiko(.6); toast('You cheer!'); return true; }
   return true;
 }

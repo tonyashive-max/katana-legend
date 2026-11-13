@@ -104,8 +104,9 @@ function duoPeople(T) {
     m.position.set(x, y, z); m.castShadow = true; T.grp.add(m); T.W.obs.push({ x, z, r: .5 });
     T.pois.push({ id: 'tbell' + i, kind: 'spot', x: x + .9, z: z + .9, r: 2.6, map: S.town.duo ? null : 'Twin bell', col: '#9ff0c8', label: 'Ring the twin bell', act: () => {
       sfx.bell && sfx.bell(); shake(.05); FX.sparks(new V3(x, y + 2, z), '#ffe08c', 24, 4);
-      if (S.town.duo) return toast('The twin bells of ' + townCfg().n + ' have already rung as one.');
-      tmSend('bell', { i, t: S.cur }); duoRing(i, 'me');
+      tmSend('bell', { i, t: S.cur }); // a samurai who has already rung these bells can still ring them for a friend
+      if (S.town.duo) return toast(coopHere().length ? 'You have rung these bells before. You ring this one for your friend.' : 'The twin bells of ' + townCfg().n + ' have already rung as one.');
+      duoRing(i, 'me');
     } });
   });
 }
@@ -122,6 +123,23 @@ const GHOST_Q = {
   otsu: ['What is special about Lake Biwa?', 'It is the biggest lake in Japan', 'It is full of salt water', 'It dries up every summer'],
   kyoto: ['Where did the Tokaido road end?', 'At Sanjo Bridge in Kyoto', 'At Edo Castle', 'At the top of Mount Fuji'],
 };
+const GHOST_Q2 = {
+  hakone: [['What was the Tokaido?', 'The great road between Edo and Kyoto', 'A river that floods every spring', 'A castle in the mountains'], ['What were the guards at Hakone watching for most of all?', 'Guns being carried toward Edo', 'Stolen horses', 'Travelers without sandals']],
+  hara: [['How many stations did the Tokaido have?', 'Fifty-three', 'Seven', 'One thousand'], ['Which artist made Mount Fuji famous in woodblock prints?', 'Hokusai', 'Musashi', 'Basho']],
+  shimada: [['How did travelers cross the Oi River?', 'On the shoulders of porters', 'By ferry boat', 'Over a stone bridge'], ['In the old tales, where does a kappa keep its strength?', 'In a dish of water on its head', 'In its shell', 'In its tail']],
+  miya: [['What famous shrine stands at Miya?', 'Atsuta Shrine', 'Itsukushima Shrine', 'Toshogu Shrine'], ['Which legendary sword is said to rest at Atsuta Shrine?', 'Kusanagi, the Grass-Cutter', 'Masamune, the Moon Blade', 'Muramasa, the Thirsty One']],
+  seki: [['What does the name Seki mean?', 'A barrier, a checkpoint', 'A maple leaf', 'A sleeping fox'], ['What is a tanuki?', 'A raccoon dog that plays tricks in the old tales', 'A river dragon', 'A kind of short sword']],
+  otsu: [['What is Lake Biwa named after?', 'A lute, because of its shape', 'A giant catfish', 'A lord who drowned there'], ['Otsu was the last station before which city?', 'Kyoto', 'Edo', 'Osaka']],
+  kyoto: [['Who lived in Kyoto in the days of the samurai?', 'The Emperor', 'The Shogun', 'Nobody, it was a ruin'], ['What is the city of Edo called today?', 'Tokyo', 'Osaka', 'Nagoya']],
+};
+const SNATCH_LOOK = { geisha: true, cloth: '#7a0f1e', armor: '#5a0a16', trim: '#1a0508', hem: '#2a0a10', mask: '#f4e8e8', eye: '#ff2a4a', lips: '#c0102a', pins: '#ffd27a', bloom: '#ff5a7a', inner: '#1a0508', aura: '#ff5a7a' };
+/* she takes you somewhere else on the road. Your friends stay where you were taken until you walk back for them */
+function snatchAway(T) {
+  const open = TOWNS.map((t, i) => i).filter(i => i <= (S.far || 0) && i < ROAD_OPEN && i !== S.cur), to = open.length ? open[(Math.random() * open.length) | 0] : -1;
+  S.crew = { t: S.cur, x: +T.pos.x.toFixed(1), z: +T.pos.z.toFixed(1), n: (T.pack || []).length, at: Date.now() }; save();
+  if (to >= 0) { T.paused = true; setTimeout(() => { if (TOWN === T) { T.paused = false; townTravel(to, true); setTimeout(() => toast(`You are alone in ${TOWNS[to].n}. Your friends are waiting in ${TOWNS[S.crew ? S.crew.t : 0].n}: walk back for them.`), 2600); } }, 900); return; }
+  S.crew.here = 1; S.town.at = null; save(); startTown(false); setTimeout(() => toast('She dropped you at the edge of town, alone. Your friends are waiting where she took you: walk back for them.'), 2600);
+}
 const LADY_LOOK = { geisha: true, cloth: '#eef4ff', armor: '#eef4ff', trim: '#bfe0ff', hem: '#9fc8ff', mask: '#ffffff', eye: '#2a3a5a', lips: '#9fb8e0', pins: '#dfeaff', bloom: '#ffffff', inner: '#ffffff', aura: '#bfe0ff' };
 function ghostFoe(kind) { const st = townFoe('a'); return Object.assign(st, { town: 'ghost', name: 'Sword Thief', title: kind === 'ghost' ? 'a hungry ghost' : 'the ghost who stole a blade', look: GHOST_LOOK, sword: 'iron', weapon: null, scale: 1, teleport: .28, gold: Math.round(st.gold * .8), intro: 'It flickers from place to place. Watch for the red ring and hold BLOCK!' }); }
 function ghostRestore() { const w = S.stolen && S.swords.find(x => x.u === S.stolen.u); if (w) { delete w.captured; S.eq = w.u; } S.stolen = null; save(); if (TOWN && MODE === TownMode) townRefreshPlayer(); }
@@ -139,30 +157,34 @@ function ghostTick(dt, T) {
   // the sword thief: no warning, any time you are walking with a real blade at your hip
   const w = eqSword();
   if (T.speed > .3 && !T.boat && !T.lift && !T.lapse && w && w.id !== 'bokken' && !S.stolen) { G.wait -= dt * (night ? 2 : 1); if (G.wait <= 0) { G.wait = rnd(80, 170); return townEncStart('thief'); } }
+  // the Red Geisha: rarer and faster. She only comes for a samurai who has friends to lose
+  if (T.speed > .3 && !T.boat && !T.lift && !T.lapse && !S.crew && (T.pack || []).length) { if (G.sn == null) G.sn = rnd(110, 220); G.sn -= dt * (night ? 2 : 1); if (G.sn <= 0) { G.sn = rnd(150, 280); return townEncStart('snatch'); } }
   // the Lady in White walks the road once each night
-  if (night && !G.night) { G.night = true; const za = clamp(T.pos.z + 26, -72, 50), zb = clamp(T.pos.z - 24, -72, 50), z = Math.abs(za - T.pos.z) >= Math.abs(zb - T.pos.z) ? za : zb, x = townRoadX(z) + 1;
+  if (night && !S.town.inNight) { S.town.inNight = true; S.town.nightN = (S.town.nightN || 0) + 1; } if (!night && S.town.inNight) S.town.inNight = false;
+  if (night && !G.night && S.town.ladyAt !== S.town.nightN) { G.night = true; S.town.ladyAt = S.town.nightN; const za = clamp(T.pos.z + 26, -72, 50), zb = clamp(T.pos.z - 24, -72, 50), z = Math.abs(za - T.pos.z) >= Math.abs(zb - T.pos.z) ? za : zb, x = townRoadX(z) + 1;
     if (Math.abs(z - T.pos.z) > 12) { const rig = new Samurai(LADY_LOOK, swordDef('iron'), { ghost: true, noSaya: true }); rig.root.rotation.order = 'YXZ'; rig.sword.visible = false; rig.setHold('show', 6); rig.root.position.set(x, townH(x, z), z); T.grp.add(rig.root); const h = halo('#bfe0ff', 4, .5); h.position.y = 1.2; rig.root.add(h); G.r = { rig, x, z, t: 0 }; toast('Night falls. A lady in white is walking the road…'); } }
-  if (!night && G.night) { G.night = false; if (G.r) { T.grp.remove(G.r.rig.root); G.r.rig.dispose && G.r.rig.dispose(); G.r = null; } }
+  if (!night && (G.night || G.r)) { G.night = false; if (G.r) { T.grp.remove(G.r.rig.root); G.r.rig.dispose && G.r.rig.dispose(); G.r = null; } }
   const r = G.r; if (!r) return;
   const dx = T.pos.x - r.x, dz = T.pos.z - r.z, d = Math.hypot(dx, dz); r.t += dt;
   if (d < 34 && d > .1) { const v = 1.5 * dt; r.x += dx / d * v; r.z += dz / d * v; }
   r.rig.root.position.set(r.x, townH(r.x, r.z) + .12 + Math.sin(r.t * 2) * .08, r.z); r.rig.root.rotation.y = Math.atan2(dx, dz); r.rig.update(dt);
   if (d < 1.9) { T.grp.remove(r.rig.root); r.rig.dispose && r.rig.dispose(); G.r = null; S.town.at = { x: T.pos.x, z: T.pos.z, yaw: T.face };
-    const q = GHOST_Q[townCfg().id], ans = [1, 2, 3].sort(() => Math.random() - .5); sfx.bell && sfx.bell(); townSay('The Lady in White', `"Answer me truly, traveler, or the road will carry you away."<br><br><b>${q[0]}</b>`, ans.map(i => ['gq:' + (i === 1 ? 'y' : 'n'), q[i]])); }
+    const qs = [GHOST_Q[townCfg().id]].concat(GHOST_Q2[townCfg().id] || []), q = qs[(S.town.ladyQ || 0) % qs.length], ans = [1, 2, 3].sort(() => Math.random() - .5); S.town.ladyQ = ((S.town.ladyQ || 0) + 1) % qs.length; sfx.bell && sfx.bell(); townSay('The Lady in White', `"Answer me truly, traveler, or the road will carry you away."<br><br><b>${q[0]}</b>`, ans.map(i => ['gq:' + (i === 1 ? 'y' : 'n'), q[i]])); }
 }
 /* ----- the sword thief: a sudden ghost on the road. Draw from the hilt and cut it down before it reaches you ----- */
 function townEncStart(kind, poi) {
   const T = TOWN; if (!T || T.enc || T.paused) return;
   const held = kind === 'held' || kind === 'heldFr', def = kind === 'held' && S.stolen ? swordDef(S.stolen.id) : swordDef('iron');
-  const ghost = new Samurai(GHOST_LOOK, def, { ghost: true, noSaya: true }); ghost.root.rotation.order = 'YXZ';
+  const snatch = kind === 'snatch';
+  const ghost = new Samurai(snatch ? SNATCH_LOOK : GHOST_LOOK, def, snatch ? { ghost: true, noSaya: true, ghostCol: '#ff1238', ghostLine: '#ffb0c0' } : { ghost: true, noSaya: true }); ghost.root.rotation.order = 'YXZ'; if (snatch) { ghost.sword.visible = false; }
   let f = new V3(Math.sin(T.face), 0, Math.cos(T.face)), gx = T.pos.x + f.x * 5.4, gz = T.pos.z + f.z * 5.4;
   if (poi) { const dx = poi.x - T.pos.x, dz = poi.z - T.pos.z, l = Math.hypot(dx, dz) || 1; gx = T.pos.x + dx / l * 5.4; gz = T.pos.z + dz / l * 5.4; poi.rig.root.visible = false; poi.lab.visible = false; }
   else { const h = townH(gx, gz); if (h < (T.W.minH == null ? -.35 : T.W.minH) || h > 15) { f = new V3(-f.x, 0, -f.z); gx = T.pos.x + f.x * 5.4; gz = T.pos.z + f.z * 5.4; } }
   const gy = Math.max(townH(gx, gz), -.3); ghost.root.position.set(gx, gy + .3, gz); ghost.setHold('guard', 8); ghost.mat.opacity = 0; T.grp.add(ghost.root, ghost.trail.mesh);
-  const win = kind === 'practice' ? 3.6 : (Math.max(.95, 1.65 - townCfg().i * .1) + (stats().drawBonus || 0)) * (held ? .88 : 1);
+  const win = kind === 'practice' ? 3.6 : (Math.max(.95, 1.65 - townCfg().i * .1) + (stats().drawBonus || 0)) * (held ? .88 : 1) * (snatch ? .72 : 1);
   T.enc = { ghost, kind, poi, phase: 'appear', t: 0, t0: 0, win, sx: gx, sz: gz, gy, drawnAt: -1, op: 0, iai: false, sw: null };
   T.joy = null; T.look = null; T.near = null; $('#actBtn').hidden = true;
-  banner(held ? 'THE THIEF LUNGES!' : 'GHOST THIEF!', held ? 'Draw and strike!' : 'Swipe out of the gold hilt to draw, then cut it down!');
+  banner(snatch ? 'THE RED GEISHA!' : held ? 'THE THIEF LUNGES!' : 'GHOST THIEF!', snatch ? 'Draw and strike, NOW, or she takes you!' : held ? 'Draw and strike!' : 'Swipe out of the gold hilt to draw, then cut it down!');
   sfx.ghost && sfx.ghost(); shake(.1); FX.puff(new V3(gx, gy + 1, gz), 12, '#bfe8ff', .7);
 }
 function townEncDraw() { const T = TOWN, e = T && T.enc; if (!e || e.phase !== 'draw') return false; if (!T.P.drawSword({ to: ['endL', 'guard'], durs: [.14, .3] })) return false; sfx.draw && sfx.draw(); e.phase = 'drawn'; e.drawnAt = e.t; $('#hiltBtn').hidden = true; return true; }
@@ -173,7 +195,7 @@ function townEncSlash(x0, y0, x1, y1) {
   e.iai = e.t - e.drawnAt < .5; e.phase = 'won'; e.t1 = e.t;
   const gp = e.ghost.chest.getWorldPosition(new V3()), s = toScreen(gp), c = townCfg();
   FX.sparks(gp, '#bff4ff', 70, 6, .09); FX.glowBurst(gp, '#7fe8ff', 2.6, .5); FX.petals(gp, 30, '#bfe8ff', 3.5); FX.puff(gp, 14, '#e8f8ff', .9);
-  S.ghosts = (S.ghosts || 0) + 1; sfx.banish && sfx.banish(); hitstop(120); slowmo(.35, .5); OV.flash = .4; OV.flashCol = '200,240,255';
+  sfx.banish && sfx.banish(); hitstop(120); slowmo(.35, .5); OV.flash = .4; OV.flashCol = '200,240,255';
   ovPop(s.x, s.y - 30, e.iai ? 'IAI!' : 'BANISHED!', { size: e.iai ? 52 : 40, color: '#2a1200', stroke: '#e8fbff', burst: e.iai ? '#ffe08c' : '#9fe8ff', rot: rnd(-.2, .2), life: 1.2, vy: -30 });
   const gold = (e.iai ? 40 : 20) + c.i * 12; S.gold += gold; S.steel = (S.steel || 0) + 1 + (e.iai ? 1 : 0); S.ghosts = (S.ghosts || 0) + 1;
   const ups = addSkillXP('iai', e.kind === 'thief' ? (e.iai ? 16 : 10) : 24), got = rollDrops(c.i, 'ghost'), mt = Object.entries(got).map(([id, n]) => `+${n} ${MATERIALS[id].n}`).join(' · ');
@@ -185,6 +207,7 @@ function townEncSlash(x0, y0, x1, y1) {
 function townEncFail(T, e) {
   e.phase = 'lost'; e.t1 = e.t; e.ghost.seq.length = 0; e.ghost.queue('endH', .14, { ease: easeIn, arc: .3 });
   sfx.slash && sfx.slash(1.3); setTimeout(() => sfx.hurt && sfx.hurt(), 90); T.P.hitFlash && T.P.hitFlash(1); shake(.14); OV.vig = 1; OV.vigCol = '120,200,255';
+  if (e.kind === 'snatch') { e.snatched = true; OV.vigCol = '255,80,120'; banner('SNATCHED!', 'The Red Geisha carries you off, and your friends are left behind'); setTimeout(() => sfx.laugh && sfx.laugh(), 400); return; }
   const w = eqSword();
   if (e.kind !== 'thief' || S.stolen || !w || w.id === 'bokken') { e.knock = true; banner(e.kind === 'practice' ? 'Too slow!' : e.kind === 'thief' ? 'Knocked back!' : 'The thief got away!', e.kind === 'practice' ? 'Out on the road it would have taken your sword. It will come when you least expect it' : e.kind === 'thief' ? 'The ghost laughs and fades away' : 'It still holds the blade. Draw faster and try again!'); setTimeout(() => sfx.laugh && sfx.laugh(), 400); return; }
   const d = swordDef(w.id); w.captured = 'tokaido'; S.stolen = { u: w.u, id: w.id, t: S.cur };
@@ -197,7 +220,7 @@ function townEncUpdate(dt, T) {
   const tx = T.pos.x - G.root.position.x, tz = T.pos.z - G.root.position.z, l = Math.hypot(tx, tz) || 1;
   G.root.rotation.y = Math.atan2(tx, tz);
   if (e.phase !== 'lost') { let d = Math.atan2(-tx, -tz) - T.face; d = Math.atan2(Math.sin(d), Math.cos(d)); T.face += d * damp(10, dt); let c = Math.atan2(-tx, -tz) - T.camYaw; c = Math.atan2(Math.sin(c), Math.cos(c)); T.camYaw += c * damp(4, dt); }
-  if (Math.random() < dt * 30) { const p = G.root.position; FX.add.emit(p.x + rnd(-.4, .4), p.y + rnd(0, 1.8), p.z + rnd(-.4, .4), 0, rnd(.3, .8), 0, rnd(.6, 1.1), .08, 0, '#9fe8ff', .8, -.2, .3); }
+  if (Math.random() < dt * 30) { const p = G.root.position; FX.add.emit(p.x + rnd(-.4, .4), p.y + rnd(0, 1.8), p.z + rnd(-.4, .4), 0, rnd(.3, .8), 0, rnd(.6, 1.1), .08, 0, e.kind === 'snatch' ? '#ff6a8a' : '#9fe8ff', .8, -.2, .3); }
   if (e.phase === 'appear' && e.t > .6) { e.phase = 'draw'; e.t0 = e.t; G.setHold('windH', 3 / e.win); $('#hiltBtn').hidden = false; }
   if (e.phase === 'draw' || e.phase === 'drawn') {
     const k = clamp((e.t - e.t0) / e.win, 0, 1), ex = T.pos.x - tx / l * 1.5, ez = T.pos.z - tz / l * 1.5;
@@ -209,6 +232,7 @@ function townEncUpdate(dt, T) {
   if (e.phase === 'lost' && e.t - e.t1 > .8) G.root.position.y += dt * 1.2;
   if (over) {
     T.grp.remove(G.root); T.grp.remove(G.trail.mesh); G.dispose && G.dispose(); $('#hiltBtn').hidden = true; T.enc = null;
+    if (e.snatched) return snatchAway(T);
     if (e.knock) T.pos.addScaledVector(new V3(Math.sin(T.face), 0, Math.cos(T.face)), -2.5), T.pos.copy(T.lastGood);
     if (e.poi && T.pois.includes(e.poi) && e.phase === 'lost') { e.poi.rig.root.visible = true; e.poi.lab.visible = true; }
     if (e.poi && e.phase === 'won') ghostRemove(T, e.poi.id);
